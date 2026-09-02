@@ -1,348 +1,151 @@
-<!-- markdownlint-disable MD014 -->
-<!-- markdownlint-disable MD033 -->
-<!-- markdownlint-disable MD041 -->
-<!-- markdownlint-disable MD029 -->
+# Feedback Rounds Service
 
-<div align="center">
+`feedback.nearbuilders.org` is a standalone service for project-requested product testing rounds. A project owner requests a round on their product, builders sign up to test it, the project picks who they want, testers use the product and submit feedback during a set window, and when the round closes the selected testers get credit on their NEAR Builders profile.
 
-<h1 style="font-size: 4.25rem; font-weight: 800; line-height: 1; margin: 0;">everything.dev</h1>
+This repository extends [`dev.everything`](https://everything.dev/) with local UI and API overrides. It is currently an initialized application scaffold; the feedback-rounds features described below are the implementation scope, not a claim that they are already live.
 
-<img src="ui/src/assets/under-construction.gif" alt="everything.dev" width="380" />
+The product scope comes from [NEAR Builders issue #221](https://github.com/NEARBuilders/nearbuilders.org/issues/221) and its linked [build scope](https://nearbuilders.org/projects/scope/feedback-rounds-build-scope-qgsqd6). The service follows the `citynode.app` pattern: its own API, reached from a button on the project-owner dashboard in `nearbuilders.org` — not a tab in the main navigation.
 
-</div>
+## Why this exists
 
-Runtime apps that compose, verify, and evolve without rebuilding — built on [Module Federation](https://module-federation.io/), [oRPC](https://orpc.dev/), [Tanstack Start](https://tanstack.com/start/latest/docs/framework/react/quick-start), and [NEAR Protocol](https://near.dev/).
+Projects in the NEAR Builders directory ship things and have no easy way to get real users to test them. Builders on the site want to try things, break them, and report what is wrong, but there is no place today that connects the two sides. Right now it happens in Telegram DMs, or not at all.
 
-A published `bos.config.json` defines how host, UI, and API load together. Changing the config changes the composition. UI and API remotes do not need to be rebuilt for URL changes, though the host still needs a restart to pick up a new runtime config snapshot today. The configuration lives on-chain — inspectable, verifiable, and extendable by anyone.
+Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs tested, builders apply, the project selects testers, testers report back, and the round produces a durable record of who contributed.
 
-This repository is the parent runtime platform: it contains the host, the reference UI, the reference API, and the CLI/tooling used to create and run child project remotes.
+## Product principles
 
-Built with [Tanstack Start](https://tanstack.com/start/latest/docs/framework/react/quick-start), [Hono.js](https://hono.dev/), [oRPC](https://orpc.dev/), [better-auth](https://better-auth.com/), and [rsbuild](https://rsbuild.rs/).
+- **Human-judged.** The project owner selects testers and marks who contributed meaningfully. Nothing is automatic.
+- **The project owns its issue tracker.** Bugs are filed on the project's own GitHub. This service never mirrors or rebuilds an issue tracker.
+- **No pasted links for GitHub credit.** When credit needs to reflect issues filed, it is pulled from the GitHub API by repository and contributor.
+- **Time-boxed.** Every round has a start and end date. Signups lock once the tester slots are full.
+- **Not first come first served.** Applying is an expression of interest; the project chooses.
+- **Portable credit.** Participation shows on the builder's NEAR Builders profile — which round, which project, and what they submitted.
+- **No money, no scoring.** No payments or rewards handling, and no quality scoring of feedback.
 
-## Quick Start
+## Planned API
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/rounds` | Request a feedback round for a project you own. Enters the admin review queue. |
+| `GET` | `/api/v1/rounds` | List rounds, filtered by status (open rounds are public and need no sign-in). |
+| `GET` | `/api/v1/rounds/{id}` | Read one round. Pending and rejected rounds are visible only to the owner and admins. |
+| `GET` | `/api/v1/rounds/pending` | Admin: list rounds awaiting review. |
+| `POST` | `/api/v1/rounds/{id}/approve` | Admin: approve a round so it goes live for signups. |
+| `POST` | `/api/v1/rounds/{id}/reject` | Admin: reject a round, with an optional reason. |
+| `POST` | `/api/v1/rounds/{id}/signups` | Apply to test a round, with a short note. Once per builder per round. |
+| `DELETE` | `/api/v1/rounds/{id}/signups/me` | Withdraw your own application. |
+| `GET` | `/api/v1/rounds/{id}/signups` | Owner: list applicants for a round. |
+| `PATCH` | `/api/v1/rounds/{id}/signups/{signupId}` | Owner: select or decline an applicant, until the slots are full. |
+| `POST` | `/api/v1/rounds/{id}/submissions` | Selected tester: submit written feedback or a recorded-session link. |
+| `GET` | `/api/v1/rounds/{id}/submissions` | Owner: read the in-app feedback for a round. |
+| `GET` | `/api/v1/rounds/{id}/github-issues` | Read issues filed on the round's repo during its window, grouped by contributor. |
+| `POST` | `/api/v1/rounds/{id}/close` | Owner: close the round and mark who contributed meaningfully. |
+| `GET` | `/api/v1/builders/{accountId}/rounds` | Public: completed rounds a builder was credited on, for their profile. |
+
+### Round lifecycle
+
+```text
+pending ──approve──▶ open ──slots fill──▶ in_progress ──owner closes──▶ closed
+   │
+   └──reject──▶ rejected
+```
+
+- A request starts as `pending` and is only visible to its owner and admins.
+- On approval it becomes `open` and is listed publicly for signups.
+- When the last tester slot is filled the round auto-locks: no more applications are accepted, and any still-pending applications are politely closed out.
+- The owner closes the round from `open` or `in_progress`; closing writes the credit records.
+
+### Feedback formats
+
+The project chooses one or more formats when requesting a round:
+
+- **GitHub issues** — filed on the project's own repository. Credit is pulled from the GitHub API by repo and contributor within the round's window. Only real `github.com/.../issues/...` items count.
+- **Written feedback** — submitted in the app by a selected tester.
+- **Recorded session** — a link submitted in the app by a selected tester.
+
+## User flows
+
+### Project owner
+
+1. Opens Feedback Rounds from the button on their project's dashboard.
+2. Fills in the request: which project, what needs testing, which feedback formats, number of testers, start and end date, what testers get, and anything not to touch or discuss publicly.
+3. Waits for the request to be approved.
+4. Reviews applicants and selects the ones they want; declines the rest.
+5. Waits while selected testers work.
+6. Closes the round and marks who contributed meaningfully.
+
+### Builder / tester
+
+1. Browses the open rounds — what is being tested, the window, and what testers get.
+2. Applies to one with a short note about why they are a fit. One application per round.
+3. If selected: tests the product, files issues on the project's GitHub, and submits any written feedback or recorded-session links in the app.
+4. Their profile shows the completed round: the round name, the project, and what they submitted.
+
+### Admin
+
+1. Reviews the queue of pending requests.
+2. Approves a request to make it live, or rejects it with a reason.
+
+## Initial delivery scope
+
+- A browse page listing open rounds, with filter and search.
+- A request form, visible only to people who own a project on the site, that lists only the projects the signed-in wallet actually owns.
+- A round detail view where applying, selecting, declining, and submitting feedback all happen.
+- An admin approval queue.
+- A "Feedback rounds" section on builder profiles showing credited rounds and what the builder submitted, with issues linked to GitHub.
+- The plumbing: storage, permission rules, the automatic state transitions, and the GitHub issue read path.
+- A button on the `nearbuilders.org` project-owner dashboard that opens this service.
+
+No application plugins are imported in this scaffold yet.
+
+## Out of scope for the initial release
+
+- Another issue tracker
+- A tab in the `nearbuilders.org` main navigation
+- Automatic tester selection
+- Payment or rewards handling
+- Quality scoring of feedback
+
+## Success measures
+
+- A project owner can request a round, have it approved, receive signups, select testers, receive feedback in the formats they chose, close the round, and the selected testers see it on their profile afterwards.
+- The end-to-end walkthrough works on the live preview: a project owner posts a two-tester request, an admin approves it, two builders apply, the owner picks one and declines the other, the selected builder files issues and submits feedback, the owner marks the round complete, and the builder's profile then shows the round with links to their issues.
+
+## Local development
+
+### Requirements
+
+- [Bun](https://bun.sh/)
+- Docker with Compose
+
+### Start the project
 
 ```bash
-bunx everything-dev@latest init
+bun install
+docker compose up -d --wait
+bun run dev
 ```
 
-## Repo Identity
+The initializer creates a local `.env` from `.env.example`. Keep secrets out of version control.
 
-Use this repo in two modes:
-
-1. As the parent runtime platform that defines the host/runtime gateway in `host/` and the CLI in `packages/everything-dev/`.
-2. As the reference app that demonstrates a runtime-composed UI/API/plugin stack driven by `bos.config.json`.
-
-Child projects created from this platform should stay config-driven and treat this repository as the upstream host/runtime implementation.
-
-## Why
-
-Two main reasons:
-
-1. I'm tired of constantly maintaining similiar logic and infrasturcture across multiple projects
-2. While agents are good at creating prototypes, vibe coding typically comes with security flaws. This framework provides a type-safe starting point, extended from production ready code, on an upgradable runtime, with an incredibly simple deployment flow (publish a JSON and restart a Docker image).
-
-When solutions are optimized to solve these two problems, a byproduct is more creativity in safety and immense possibility, especially in the era of generative interfaces.
-
-**Runtime apps that compose, verify, and evolve without rebuilding.**
-
-For the full argument, see [A New Renaissance: Why Software Must Compose or Collapse](./docs/article-new-renaissance.md).
-
-## CLI Commands
-
-`everything-dev` is the canonical runtime package and CLI. `bos` is a command alias for the same tool. See [AGENTS.md](./AGENTS.md) for the quick reference and [LLM.txt](./LLM.txt) for the full technical guide.
-
-### Development
+### Useful commands
 
 ```bash
-everything-dev dev                 # Start development (host mode auto-detected)
-everything-dev dev --ui remote     # Isolate API work
-everything-dev dev --api remote    # Isolate UI work
-           |/ --proxy              # Use a proxy
-everything-dev dev                 # Full local, client shell by default
-
-# `bos` is an alias for the same commands
-bos dev --ssr                      # Opt into local SSR
+bun run typecheck
+bun run test
+bun run lint
+bun run build
 ```
 
-### Production
+Runtime composition is configured in [`bos.config.json`](./bos.config.json). The project publishes from `nearbuilding.near`, serves `feedback.nearbuilders.org`, and inherits the shared runtime from `dev.everything` while overriding the UI and API locally.
 
-```bash
-everything-dev start --no-interactive   # All remotes, production URLs
+## Repository layout
+
+```text
+api/               Feedback Rounds API and service implementation
+ui/                Browse, round detail, request form, and admin queue UI
+bos.config.json    everything.dev runtime composition
+docker-compose.yml Local infrastructure
 ```
 
-### Build & Publish
-
-```bash
-bos build               # Build all packages (updates bos.config.json)
-bos publish             # Publish config to the temporary dev.everything.near registry
-bos publish --deploy    # Build/deploy all workspaces, then publish
-bun run publish         # Same publish command via root script
-bos sync                # Sync from production (every.near/everything.dev)
-```
-
-### Project Management
-
-```bash
-bos create project <name>   # Scaffold new project
-bos info                    # Show configuration
-bos status                  # Check remote health
-bos clean                   # Clean build artifacts
-```
-
-## Development Workflow
-
-### Making Changes
-
-- **UI Changes**: Edit `ui/src/` → hot reload automatically → publish with `bos publish --deploy`
-- **API Changes**: Edit `api/src/` → hot reload automatically → publish with `bos publish --deploy`
-- **Host Changes**: Edit `host/src/` or `bos.config.json` → publish with `bos publish --deploy`
-
-### Before Committing
-
-Always run these commands before committing:
-
-```bash
-bun run test    # Run all tests
-bun typecheck   # Type check all packages
-bun lint        # Run linting (see lint setup below)
-```
-
-### Changesets
-
-We use [Changesets](https://github.com/changesets/changesets) for versioning:
-
-**When to add a changeset:**
-- Any user-facing change (features, fixes, deprecations)
-- Breaking changes
-- Skip for: docs-only changes, internal refactors, test-only changes
-
-**Create a changeset:**
-```bash
-bun run changeset
-# Follow prompts to select packages and describe changes
-```
-
-The release workflow (`.github/workflows/release.yml`) handles versioning and GitHub releases automatically on merge to main.
-
-Production releases flow through a `repository_dispatch` chain:
-
-1. Push changesets to `main`
-2. CI passes → sends `repository_dispatch(ci-main-success)` with the commit SHA
-3. `Release` creates or updates the `chore: version packages` PR
-4. Merge that version PR
-5. CI passes again → `Release` runs with no pending changesets → publishes to npm
-6. `Release` (and Docker) complete → sends `repository_dispatch(release-completed)`
-7. `Deploy` runs `bos publish --deploy`, updates `bos.config.json`, and redeploys Railway
-
-### Git Workflow
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed contribution guidelines including:
-- Branch naming conventions
-- Semantic commit format
-- Pull request process
-
-## Documentation
-
-- **[AGENTS.md](./AGENTS.md)** - Quick operational guide for AI agents
-- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines and git workflow
-- **[LLM.txt](./LLM.txt)** - Deep technical reference for implementation
-- **[API README](./api/README.md)** - API plugin documentation
-- **[UI README](./ui/README.md)** - Frontend documentation
-- **[Host README](./host/README.md)** - Server host documentation
-- **[Auth Plugin README](./plugins/auth/README.md)** - Auth plugin documentation
-
-**Documentation Purpose:**
-- `README.md` (this file) - Human quick start and overview
-- `AGENTS.md` - Agent operational shortcuts
-- `CONTRIBUTING.md` - How to contribute (branch, commit, PR workflow)
-- `LLM.txt` - Technical deep-dive for implementation details
-- Package READMEs (api/, ui/, host/, plugins/auth/) - Package-specific details
-
-## Architecture
-
-**Module Federation monorepo** with runtime-loaded configuration:
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                  host (Server)                          │
-│  Hono.js + oRPC + bos.config.json loader                │
-│  ┌──────────────────┐      ┌──────────────────┐         │
-│  │ Module Federation│      │ every-plugin     │         │
-│  │ Runtime          │      │ Runtime          │         │
-│  └────────┬─────────┘      └────────┬─────────┘         │
-│           ↓                         ↓                   │
-│  Loads UI Runtime          Loads API + Auth Plugins     │
-└───────────┬─────────────────────────┬───────────────────┘
-            ↓                         ↓
-┌───────────────────────┐ ┌───────────────────────┐
-│    ui/ (Runtime)      │ │   api/ + plugins/     │
-│  React + TanStack     │ │  oRPC + Effect        │
-│  ui/src/app.ts        │ │  remoteEntry.js       │
-└───────────────────────┘ └───────────────────────┘
-```
-
-**Key Features:**
-- ✅ **Runtime Configuration** - All URLs from `bos.config.json` (no rebuild needed)
-- ✅ **Independent Deployment** - UI, API, and Host deploy separately
-- ✅ **Type Safety** - End-to-end with oRPC contracts
-- ✅ **UI Runtime Boundary** - `everything-dev/ui/client` and `/server` own router/runtime glue
-- ✅ **CDN-Ready** - Module Federation with [Zephyr Cloud](https://zephyr-cloud.io/)
-
-## Multi-Tenant Status
-
-The host now supports a fixed-core tenant mode for domain-based UI composition.
-
-What works today:
-- The host still boots once from one base `RuntimeConfig`.
-- Auth, API, and server-side plugin routers stay fixed from that base config.
-- `extends` is the lineage edge between runtimes.
-- `account` is the tenant namespace root for the active runtime.
-- `domain` is the public ingress for that runtime.
-- Requests can resolve account-relative tenant runtimes from subdomains, such as `alice.linktree.com -> bos://alice.linktree.near/linktree.com`.
-- Tenant configs must extend the base BOS runtime.
-- Per-request tenant overrides can currently change:
-  - `app.ui`
-  - existing `plugins.<pluginId>.ui`
-  - existing `plugins.<pluginId>.sidebar`
-- Tenant SSR is gated by `TENANT_WHITELIST` and `ALLOW_UNTRUSTED_SSR`.
-
-Design direction:
-- nested labels compose onto the active runtime account, such as `chicago.pizza.com -> bos://chicago.pizza.pingpayio.near/pizza.com`
-- a runtime can extend another runtime and still become a new tenant root on its own domain
-
-What does not work yet:
-- tenant-specific API overrides in fixed-core mode
-- tenant-specific auth overrides
-- loading new plugin IDs dynamically per tenant
-- full per-request host/plugin/auth/api swapping
-
-That fuller hot-swap path is still documented in [`plans/runtime-config-hot-swap.md`](./plans/runtime-config-hot-swap.md), but the current production-ready path is shared host + request-scoped tenant UI.
-
-## Configuration
-
-All runtime configuration lives in `bos.config.json`:
-
-```json
-{
-  "account": "dev.everything.near",
-  "domain": "everything.dev",
-  "staging": { "domain": "staging.dev.yourapp.dev" },
-  "repository": "https://github.com/nearbuilders/everything-dev",
-  "testnet": "dev.allthethings.testnet",
-  "plugins": {
-    "template": {
-      "development": "local:plugins/_template"
-    }
-  },
-  "app": {
-    "host": {
-      "name": "host",
-      "development": "local:host",
-      "production": "https://..."
-    },
-    "ui": {
-      "name": "ui",
-      "development": "local:ui",
-      "production": "https://...",
-      "ssr": "https://..."
-    },
-    "api": {
-      "name": "api",
-      "development": "local:api",
-      "production": "https://...",
-      "variables": {},
-      "secrets": []
-    },
-    "auth": {
-      "name": "everything-dev_auth-plugin",
-      "development": "local:plugins/auth",
-      "production": "https://...",
-      "variables": {
-        "account": "dev.everything.near",
-        "hostUrl": "http://localhost:3000",
-        "uiUrl": "http://localhost:3003"
-      },
-      "secrets": ["AUTH_DATABASE_URL", "BETTER_AUTH_SECRET"]
-    }
-  }
-}
-```
-
-The temporary publish registry currently points at `dev.everything.near`, and `bos publish --deploy` is the release path when you want Zephyr URLs refreshed first.
-
-### Railway
-
-Use the repo `Dockerfile` for the service, and treat the GHCR image as the deployable artifact.
-
-- Image source: `ghcr.io/nearbuilders/everything-dev:latest`
-- Staging: `ghcr.io/nearbuilders/everything-dev:staging`
-- Preview: Railway PR Environment URL for the host service, sourced from the same image-backed service configuration as the base environment
-
-All configuration derives from `bos.config.json` (baked into the image). Only secrets need to be set as environment variables.
-
-Required runtime vars:
-- `APP_ENV` - `production` or `staging` (derives domain from `bos.config.json`)
-- `BETTER_AUTH_SECRET` - Session encryption key
-- `BETTER_AUTH_URL` - Auth callback URL (defaults to host URL from config)
-- `HOST_DATABASE_URL` - Database connection string
-- `HOST_DATABASE_AUTH_TOKEN` - Database auth token
-- `CORS_ORIGIN` - Comma-separated allowed origins (defaults to host + UI URLs from config)
-
-See [LLM.txt](./LLM.txt) for the complete schema and configuration reference.
-
-## Lint Setup
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting:
-
-```bash
-# Check linting
-bun lint
-
-# Fix auto-fixable issues
-bun lint:fix
-
-# Format code
-bun format
-```
-
-Biome is configured in `biome.json` at the project root. Generated files (like `routeTree.gen.ts`) are automatically excluded.
-
-## Tech Stack
-
-**Frontend:**
-- React 19 + TanStack Router (file-based) + TanStack Query
-- Tailwind CSS v4 + shadcn/ui components
-- Module Federation for microfrontend architecture
-
-**Backend:**
-- Hono.js server + oRPC (type-safe RPC + OpenAPI)
-- [every-plugin](https://plugin.everything.dev/) architecture for modular APIs
-- Effect-TS for service composition
-
-**Database & Auth:**
-- PostgreSQL + Drizzle ORM
-- Better-Auth with NEAR Protocol support
-
-## Related Projects
-
-- **[every-plugin](https://plugin.everything.dev/)** - Plugin framework for modular APIs with typed contracts and runtime composition
-- **[near-kit](https://kit.near.tools)** - Unified NEAR Protocol SDK
-- **[better-near-auth](https://github.com/elliotBraem/better-near-auth)** - NEAR SIWN + gasless relay for Better-Auth (cryptographic identity, verifiable on-chain actions)
-- **[TanStack Intent](https://tanstack.com/intent)** - Agent skills shipped as npm package artifacts (compositional knowledge versioned with code)
-
-## NEAR Ecosystem
-
-everything.dev sits within a broader ecosystem building a verifiable internet on NEAR:
-
-- **[BOS](https://near.social/)** — Composable on-chain frontend components
-- **[web4](https://web4.near.page)** — Web apps as verifiable on-chain smart contracts
-- **[near-dns](https://github.com/frol/near-dns)** — Blockchain-backed DNS resolution
-- **[NameSky](https://namesky.app)** — Named accounts as tradeable on-chain assets
-- **[OutLayer](https://outlayer.fastnear.com)** — TEE-attested verifiable off-chain computation
-- **[NEAR Intents](https://intents.near.org)** — Intent-based cross-chain settlement ($15B+ volume)
-- **[Trezu](https://trezu.org)** — Multi-chain treasury management ($72M AUM)
-- **[NEAR AI Cloud](https://near.ai/cloud)** — Confidential inference with hardware attestation
-
-## License
-
-MIT
+See [`AGENTS.md`](./AGENTS.md) for project-specific development guidance and [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the contribution workflow.
