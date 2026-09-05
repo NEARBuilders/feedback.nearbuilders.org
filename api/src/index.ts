@@ -241,30 +241,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
         };
       }),
 
-      createThing: builder.createThing.use(requireAuth).handler(async ({ input }) => {
-        throw new ORPCError("BAD_REQUEST", {
-          message: `The template plugin is not included; cannot create ${input.thingId}`,
-        });
-      }),
-
-      getThing: builder.getThing.handler(async ({ input }) => {
-        throw new ORPCError("BAD_REQUEST", {
-          message: `The template plugin is not included; cannot read ${input.thingId}`,
-        });
-      }),
-
-      listThings: builder.listThings.handler(async () => {
-        throw new ORPCError("BAD_REQUEST", {
-          message: "The template plugin is not included in this deployment",
-        });
-      }),
-
-      deleteThing: builder.deleteThing.use(requireAuth).handler(async ({ input }) => {
-        throw new ORPCError("BAD_REQUEST", {
-          message: `The template plugin is not included; cannot delete ${input.thingId}`,
-        });
-      }),
-
       testError: builder.testError.handler(async ({ input }) => {
         switch (input.kind) {
           case "unauthorized":
