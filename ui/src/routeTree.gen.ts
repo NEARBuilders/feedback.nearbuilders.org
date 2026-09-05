@@ -15,6 +15,7 @@ import { Route as LayoutSkillRouteImport } from './routes/_layout/skill'
 import { Route as LayoutLoginRouteImport } from './routes/_layout/login'
 import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
 import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
+import { Route as LayoutFeedbackRoundIdRouteImport } from './routes/_layout/feedback/$roundId'
 import { Route as LayoutAuthenticatedSettingsRouteImport } from './routes/_layout/_authenticated/settings'
 import { Route as LayoutAuthenticatedHomeRouteImport } from './routes/_layout/_authenticated/home'
 import { Route as LayoutAuthenticatedAdminRouteImport } from './routes/_layout/_authenticated/admin'
@@ -28,6 +29,7 @@ import { Route as LayoutAuthenticatedSettingsProfileRouteImport } from './routes
 import { Route as LayoutAuthenticatedSettingsAuthMethodsRouteImport } from './routes/_layout/_authenticated/settings/auth-methods'
 import { Route as LayoutAuthenticatedOrganizationsNewRouteImport } from './routes/_layout/_authenticated/organizations/new'
 import { Route as LayoutAuthenticatedOrganizationsSlugRouteImport } from './routes/_layout/_authenticated/organizations/$slug'
+import { Route as LayoutAuthenticatedFeedbackRequestRouteImport } from './routes/_layout/_authenticated/feedback/request'
 import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './routes/_layout/_authenticated/accept-invitation.$id'
 
 const LayoutRoute = LayoutRouteImport.update({
@@ -56,6 +58,11 @@ const LayoutAboutRoute = LayoutAboutRouteImport.update({
 } as any)
 const LayoutAuthenticatedRoute = LayoutAuthenticatedRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutFeedbackRoundIdRoute = LayoutFeedbackRoundIdRouteImport.update({
+  id: '/feedback/$roundId',
+  path: '/feedback/$roundId',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutAuthenticatedSettingsRoute =
@@ -135,6 +142,12 @@ const LayoutAuthenticatedOrganizationsSlugRoute =
     path: '/organizations/$slug',
     getParentRoute: () => LayoutAuthenticatedRoute,
   } as any)
+const LayoutAuthenticatedFeedbackRequestRoute =
+  LayoutAuthenticatedFeedbackRequestRouteImport.update({
+    id: '/feedback/request',
+    path: '/feedback/request',
+    getParentRoute: () => LayoutAuthenticatedRoute,
+  } as any)
 const LayoutAuthenticatedAcceptInvitationIdRoute =
   LayoutAuthenticatedAcceptInvitationIdRouteImport.update({
     id: '/accept-invitation/$id',
@@ -150,7 +163,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof LayoutAuthenticatedAdminRoute
   '/home': typeof LayoutAuthenticatedHomeRoute
   '/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
+  '/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  '/feedback/request': typeof LayoutAuthenticatedFeedbackRequestRoute
   '/organizations/$slug': typeof LayoutAuthenticatedOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedOrganizationsNewRoute
   '/settings/auth-methods': typeof LayoutAuthenticatedSettingsAuthMethodsRoute
@@ -169,7 +184,9 @@ export interface FileRoutesByTo {
   '/skill': typeof LayoutSkillRoute
   '/admin': typeof LayoutAuthenticatedAdminRoute
   '/home': typeof LayoutAuthenticatedHomeRoute
+  '/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  '/feedback/request': typeof LayoutAuthenticatedFeedbackRequestRoute
   '/organizations/$slug': typeof LayoutAuthenticatedOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedOrganizationsNewRoute
   '/settings/auth-methods': typeof LayoutAuthenticatedSettingsAuthMethodsRoute
@@ -192,7 +209,9 @@ export interface FileRoutesById {
   '/_layout/_authenticated/admin': typeof LayoutAuthenticatedAdminRoute
   '/_layout/_authenticated/home': typeof LayoutAuthenticatedHomeRoute
   '/_layout/_authenticated/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
+  '/_layout/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
   '/_layout/_authenticated/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  '/_layout/_authenticated/feedback/request': typeof LayoutAuthenticatedFeedbackRequestRoute
   '/_layout/_authenticated/organizations/$slug': typeof LayoutAuthenticatedOrganizationsSlugRoute
   '/_layout/_authenticated/organizations/new': typeof LayoutAuthenticatedOrganizationsNewRoute
   '/_layout/_authenticated/settings/auth-methods': typeof LayoutAuthenticatedSettingsAuthMethodsRoute
@@ -214,7 +233,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/home'
     | '/settings'
+    | '/feedback/$roundId'
     | '/accept-invitation/$id'
+    | '/feedback/request'
     | '/organizations/$slug'
     | '/organizations/new'
     | '/settings/auth-methods'
@@ -233,7 +254,9 @@ export interface FileRouteTypes {
     | '/skill'
     | '/admin'
     | '/home'
+    | '/feedback/$roundId'
     | '/accept-invitation/$id'
+    | '/feedback/request'
     | '/organizations/$slug'
     | '/organizations/new'
     | '/settings/auth-methods'
@@ -255,7 +278,9 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/admin'
     | '/_layout/_authenticated/home'
     | '/_layout/_authenticated/settings'
+    | '/_layout/feedback/$roundId'
     | '/_layout/_authenticated/accept-invitation/$id'
+    | '/_layout/_authenticated/feedback/request'
     | '/_layout/_authenticated/organizations/$slug'
     | '/_layout/_authenticated/organizations/new'
     | '/_layout/_authenticated/settings/auth-methods'
@@ -314,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof LayoutAuthenticatedRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/feedback/$roundId': {
+      id: '/_layout/feedback/$roundId'
+      path: '/feedback/$roundId'
+      fullPath: '/feedback/$roundId'
+      preLoaderRoute: typeof LayoutFeedbackRoundIdRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/_authenticated/settings': {
@@ -407,6 +439,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedOrganizationsSlugRouteImport
       parentRoute: typeof LayoutAuthenticatedRoute
     }
+    '/_layout/_authenticated/feedback/request': {
+      id: '/_layout/_authenticated/feedback/request'
+      path: '/feedback/request'
+      fullPath: '/feedback/request'
+      preLoaderRoute: typeof LayoutAuthenticatedFeedbackRequestRouteImport
+      parentRoute: typeof LayoutAuthenticatedRoute
+    }
     '/_layout/_authenticated/accept-invitation/$id': {
       id: '/_layout/_authenticated/accept-invitation/$id'
       path: '/accept-invitation/$id'
@@ -446,6 +485,7 @@ interface LayoutAuthenticatedRouteChildren {
   LayoutAuthenticatedHomeRoute: typeof LayoutAuthenticatedHomeRoute
   LayoutAuthenticatedSettingsRoute: typeof LayoutAuthenticatedSettingsRouteWithChildren
   LayoutAuthenticatedAcceptInvitationIdRoute: typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  LayoutAuthenticatedFeedbackRequestRoute: typeof LayoutAuthenticatedFeedbackRequestRoute
   LayoutAuthenticatedOrganizationsSlugRoute: typeof LayoutAuthenticatedOrganizationsSlugRoute
   LayoutAuthenticatedOrganizationsNewRoute: typeof LayoutAuthenticatedOrganizationsNewRoute
   LayoutAuthenticatedTenantTenantIdRoute: typeof LayoutAuthenticatedTenantTenantIdRoute
@@ -461,6 +501,8 @@ const LayoutAuthenticatedRouteChildren: LayoutAuthenticatedRouteChildren = {
     LayoutAuthenticatedSettingsRouteWithChildren,
   LayoutAuthenticatedAcceptInvitationIdRoute:
     LayoutAuthenticatedAcceptInvitationIdRoute,
+  LayoutAuthenticatedFeedbackRequestRoute:
+    LayoutAuthenticatedFeedbackRequestRoute,
   LayoutAuthenticatedOrganizationsSlugRoute:
     LayoutAuthenticatedOrganizationsSlugRoute,
   LayoutAuthenticatedOrganizationsNewRoute:
@@ -482,6 +524,7 @@ interface LayoutRouteChildren {
   LayoutLoginRoute: typeof LayoutLoginRoute
   LayoutSkillRoute: typeof LayoutSkillRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutFeedbackRoundIdRoute: typeof LayoutFeedbackRoundIdRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -490,6 +533,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutLoginRoute: LayoutLoginRoute,
   LayoutSkillRoute: LayoutSkillRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutFeedbackRoundIdRoute: LayoutFeedbackRoundIdRoute,
 }
 
 const LayoutRouteWithChildren =
