@@ -7,6 +7,7 @@ import { DatabaseLive } from "./db/layer";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
+import { RoundsLive, RoundsTag } from "./services/rounds";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
 const SUBDOMAIN_SEGMENT_REGEX = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
@@ -68,13 +69,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
     Effect.gen(function* () {
       const database = DatabaseLive(config.secrets.API_DATABASE_URL);
       const tenantsLayer = TenantsLive.pipe(Layer.provide(database));
+      const roundsLayer = RoundsLive.pipe(Layer.provide(database));
 
       const tenantsService = yield* tools.buildService(TenantsTag, tenantsLayer);
+      const roundsService = yield* tools.buildService(RoundsTag, roundsLayer);
 
       console.log("[API] Services Initialized");
 
       return {
         tenants: tenantsService,
+        rounds: roundsService,
       };
     }),
 
@@ -239,6 +243,35 @@ export default createPlugin.withPlugins<PluginsClient>()({
           subdomain: { available: !reserved && !existingSubdomain, reserved },
           accountId: { format: accountFormat, available: accountAvailable },
         };
+      }),
+
+      createRound: builder.createRound.use(requireAuth).handler(async ({ input, context }) => {
+        const ownerAccountId = context.near?.primaryAccountId;
+        if (!ownerAccountId) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Link a NEAR account before requesting a feedback round",
+            data: { hint: "Link a NEAR wallet in settings" },
+          });
+        }
+        return await services.rounds.createRound({
+          ownerAccountId,
+          projectSlug: input.projectSlug,
+          title: input.title,
+          description: input.description,
+          formats: input.formats,
+          repoUrl: input.repoUrl,
+        });
+      }),
+
+      getRound: builder.getRound.handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        return round;
       }),
 
       testError: builder.testError.handler(async ({ input }) => {

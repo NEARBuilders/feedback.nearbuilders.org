@@ -91,6 +91,22 @@ export function authedContext(userId = "user-1"): Record<string, unknown> {
   };
 }
 
+export function nearAuthedContext(
+  accountId = "builder.near",
+  userId = "user-1",
+): Record<string, unknown> {
+  return {
+    ...authedContext(userId),
+    near: {
+      primaryAccountId: accountId,
+      hasNearAccount: true,
+      linkedAccounts: [
+        { accountId, network: "mainnet", publicKey: "ed25519:test", isPrimary: true },
+      ],
+    },
+  };
+}
+
 export function orgContext(
   userId = "user-1",
   activeOrganizationId = "org-1",

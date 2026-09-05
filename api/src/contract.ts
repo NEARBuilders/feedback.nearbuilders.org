@@ -47,6 +47,19 @@ export const RoundSchema = z.object({
 
 export type Round = z.infer<typeof RoundSchema>;
 
+const CreateRoundInputSchema = z
+  .object({
+    projectSlug: z.string().min(1, "Project is required").max(100),
+    title: z.string().min(1, "Title is required").max(200),
+    description: z.string().min(1, "Description is required").max(5000),
+    formats: z.array(RoundFormatSchema).min(1, "Select at least one feedback format"),
+    repoUrl: z.string().url("Must be a valid URL").optional(),
+  })
+  .refine((val) => !val.formats.includes("issues") || !!val.repoUrl, {
+    message: "A repo URL is required when the issues format is selected",
+    path: ["repoUrl"],
+  });
+
 export const contract = oc.router({
   ping: oc.route({ method: "GET", path: "/ping" }).output(
     z.object({
@@ -148,6 +161,18 @@ export const contract = oc.router({
       }),
     )
     .errors({ UNAUTHORIZED, BAD_REQUEST }),
+
+  createRound: oc
+    .route({ method: "POST", path: "/rounds" })
+    .input(CreateRoundInputSchema)
+    .output(RoundSchema)
+    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+
+  getRound: oc
+    .route({ method: "GET", path: "/rounds/{id}" })
+    .input(z.object({ id: z.string() }))
+    .output(RoundSchema)
+    .errors({ NOT_FOUND }),
 
   testError: oc
     .route({
