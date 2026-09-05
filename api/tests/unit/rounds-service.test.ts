@@ -82,4 +82,24 @@ describe("RoundsService", () => {
     const layer = freshLayer();
     expect(await runService(layer, (svc) => svc.resolveRoundById(MISSING_ID))).toBeNull();
   });
+
+  it("lists rounds and filters by status", async () => {
+    const layer = freshLayer();
+    const first = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, title: "First" }),
+    );
+    const second = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, title: "Second" }),
+    );
+
+    const all = await runService(layer, (svc) => svc.listRounds());
+    expect(all.map((r) => r.id)).toEqual(expect.arrayContaining([first.id, second.id]));
+    expect(all).toHaveLength(2);
+
+    const open = await runService(layer, (svc) => svc.listRounds("open"));
+    expect(open).toHaveLength(2);
+
+    const closed = await runService(layer, (svc) => svc.listRounds("closed"));
+    expect(closed).toEqual([]);
+  });
 });
