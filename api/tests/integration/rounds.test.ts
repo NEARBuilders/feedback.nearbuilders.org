@@ -59,6 +59,28 @@ describe("createRound", () => {
   });
 });
 
+describe("listRounds", () => {
+  it("is public and needs no authentication", async () => {
+    const owner = await getPluginClient(nearAuthedContext("lister-owner.near"));
+    await owner.createRound({ ...baseInput, title: "Public round" });
+
+    const anon = await getPluginClient();
+    const rounds = await anon.listRounds({});
+    expect(rounds.some((r) => r.title === "Public round")).toBe(true);
+  });
+
+  it("filters by status", async () => {
+    const owner = await getPluginClient(nearAuthedContext("filter-owner.near"));
+    const created = await owner.createRound({ ...baseInput, title: "Filter round" });
+
+    const open = await owner.listRounds({ status: "open" });
+    expect(open.some((r) => r.id === created.id)).toBe(true);
+
+    const closed = await owner.listRounds({ status: "closed" });
+    expect(closed.some((r) => r.id === created.id)).toBe(false);
+  });
+});
+
 describe("getRound", () => {
   it("returns a round that exists", async () => {
     const owner = await getPluginClient(nearAuthedContext("reader-owner.near"));
