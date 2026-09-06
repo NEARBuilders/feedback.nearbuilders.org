@@ -48,3 +48,22 @@ export const rounds = pgTable(
     statusIdx: index("rounds_status_idx").on(table.status),
   }),
 );
+
+export const roundParticipants = pgTable(
+  "round_participants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    roundId: uuid("round_id")
+      .notNull()
+      .references(() => rounds.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    joinedAt: timestamp("joined_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    roundAccountIdx: uniqueIndex("round_participants_round_account_idx").on(
+      table.roundId,
+      table.accountId,
+    ),
+    roundIdx: index("round_participants_round_idx").on(table.roundId),
+  }),
+);

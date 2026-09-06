@@ -1,8 +1,12 @@
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
-import { type roundStatus, rounds as roundsTable } from "../db/schema";
+import {
+  roundParticipants as roundParticipantsTable,
+  type roundStatus,
+  rounds as roundsTable,
+} from "../db/schema";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
 export type RoundFormat = "issues" | "written" | "recorded";
@@ -30,10 +34,18 @@ export interface CreateRoundInput {
   repoUrl?: string | null;
 }
 
+export interface RoundDetailRecord extends RoundRecord {
+  participantCount: number;
+}
+
 export interface RoundsService {
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
+  getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
   listRounds(status?: RoundStatus): Promise<RoundRecord[]>;
+  addParticipant(roundId: string, accountId: string): Promise<void>;
+  removeParticipant(roundId: string, accountId: string): Promise<void>;
+  hasParticipant(roundId: string, accountId: string): Promise<boolean>;
 }
 
 export class RoundsTag extends Context.Tag("api/Rounds")<RoundsService, RoundsService>() {}
@@ -111,6 +123,64 @@ export const RoundsLive = Layer.effect(
             .where(status ? eq(roundsTable.status, status) : undefined)
             .orderBy(desc(roundsTable.createdAt));
           return rows.map(toRoundRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      getRoundDetail: async (id) => {
+        try {
+          const [row] = await db.select().from(roundsTable).where(eq(roundsTable.id, id)).limit(1);
+          if (!row) return null;
+          const [countRow] = await db
+            .select({ value: count() })
+            .from(roundParticipantsTable)
+            .where(eq(roundParticipantsTable.roundId, id));
+          return { ...toRoundRecord(row), participantCount: countRow?.value ?? 0 };
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      addParticipant: async (roundId, accountId) => {
+        try {
+          await db
+            .insert(roundParticipantsTable)
+            .values({ roundId, accountId })
+            .onConflictDoNothing();
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      removeParticipant: async (roundId, accountId) => {
+        try {
+          await db
+            .delete(roundParticipantsTable)
+            .where(
+              and(
+                eq(roundParticipantsTable.roundId, roundId),
+                eq(roundParticipantsTable.accountId, accountId),
+              ),
+            );
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      hasParticipant: async (roundId, accountId) => {
+        try {
+          const [row] = await db
+            .select({ id: roundParticipantsTable.id })
+            .from(roundParticipantsTable)
+            .where(
+              and(
+                eq(roundParticipantsTable.roundId, roundId),
+                eq(roundParticipantsTable.accountId, accountId),
+              ),
+            )
+            .limit(1);
+          return !!row;
         } catch (error) {
           throw toOrpcError(error);
         }

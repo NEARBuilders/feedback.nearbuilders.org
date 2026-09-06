@@ -268,7 +268,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       ),
 
       getRound: builder.getRound.handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
+        const round = await services.rounds.getRoundDetail(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
             message: "Round not found",
@@ -277,6 +277,67 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }
         return round;
       }),
+
+      joinRound: builder.joinRound.use(requireAuth).handler(async ({ input, context, errors }) => {
+        const accountId = context.near?.primaryAccountId;
+        if (!accountId) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Link a NEAR account before joining a round",
+            data: { hint: "Link a NEAR wallet in settings" },
+          });
+        }
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        if (round.status !== "open") {
+          throw new ORPCError("BAD_REQUEST", { message: "This round is no longer open" });
+        }
+        if (round.ownerAccountId === accountId) {
+          throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
+        }
+        await services.rounds.addParticipant(round.id, accountId);
+        const detail = await services.rounds.getRoundDetail(round.id);
+        if (!detail) {
+          throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
+        }
+        return detail;
+      }),
+
+      leaveRound: builder.leaveRound
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Link a NEAR account before leaving a round",
+            });
+          }
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          await services.rounds.removeParticipant(round.id, accountId);
+          const detail = await services.rounds.getRoundDetail(round.id);
+          if (!detail) {
+            throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
+          }
+          return detail;
+        }),
+
+      getMyParticipation: builder.getMyParticipation
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) return { joined: false };
+          return { joined: await services.rounds.hasParticipant(input.id, accountId) };
+        }),
 
       testError: builder.testError.handler(async ({ input }) => {
         switch (input.kind) {
