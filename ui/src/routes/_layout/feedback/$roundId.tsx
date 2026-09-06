@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
-import { useApiClient } from "@/app";
-import { Badge } from "@/components";
+import { ArrowLeft, Users } from "lucide-react";
+import { toast } from "sonner";
+import { useApiClient, useAuthClient } from "@/app";
+import { Badge, Button } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -25,15 +26,36 @@ const FORMAT_LABELS: Record<string, string> = {
 function RoundDetailPage() {
   const { roundId } = Route.useParams();
   const apiClient = useApiClient();
+  const auth = useAuthClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const canGoBack = router.history.canGoBack?.() ?? false;
+  const nearAccountId = auth.near.getAccountId();
 
   const roundQuery = useQuery({
     queryKey: ["round", roundId],
     queryFn: () => apiClient.getRound({ id: roundId }),
   });
 
+  const participationQuery = useQuery({
+    queryKey: ["round", roundId, "participation"],
+    queryFn: () => apiClient.getMyParticipation({ id: roundId }),
+    enabled: !!nearAccountId,
+  });
+
   const round = roundQuery.data;
+  const joined = participationQuery.data?.joined ?? false;
+
+  const joinMutation = useMutation({
+    mutationFn: (next: boolean) =>
+      next ? apiClient.joinRound({ id: roundId }) : apiClient.leaveRound({ id: roundId }),
+    onSuccess: (detail, next) => {
+      queryClient.setQueryData(["round", roundId], detail);
+      queryClient.setQueryData(["round", roundId, "participation"], { joined: next });
+      toast.success(next ? "Joined the round" : "Left the round");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   if (roundQuery.isLoading) {
     return (
@@ -56,6 +78,9 @@ function RoundDetailPage() {
       </div>
     );
   }
+
+  const isOwner = !!nearAccountId && nearAccountId === round.ownerAccountId;
+  const canJoin = round.status === "open" && !isOwner;
 
   return (
     <PageContainer variant="narrow">
@@ -98,6 +123,28 @@ function RoundDetailPage() {
             {round.repoUrl}
           </a>
         )}
+
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            {round.participantCount} {round.participantCount === 1 ? "builder" : "builders"} joined
+          </span>
+
+          {canJoin && nearAccountId && (
+            <Button
+              variant={joined ? "outline" : "default"}
+              onClick={() => joinMutation.mutate(!joined)}
+              disabled={joinMutation.isPending || participationQuery.isLoading}
+            >
+              {joined ? "Leave round" : "Join round"}
+            </Button>
+          )}
+          {canJoin && !nearAccountId && (
+            <Link to="/settings/auth-methods" className="text-sm text-foreground underline">
+              Link a NEAR account to join
+            </Link>
+          )}
+        </div>
       </div>
     </PageContainer>
   );
