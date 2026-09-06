@@ -67,6 +67,27 @@ export const RoundFeedbackSchema = z.object({
 
 export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;
 
+export const RoundCreditSchema = z.object({
+  id: z.string(),
+  roundId: z.string(),
+  builderAccountId: z.string(),
+  projectSlug: z.string(),
+  roundTitle: z.string(),
+  contributedMeaningfully: z.boolean(),
+  summary: z.string().nullable(),
+  writtenCount: z.number().int().nonnegative(),
+  recordedCount: z.number().int().nonnegative(),
+  createdAt: z.string(),
+});
+
+export type RoundCredit = z.infer<typeof RoundCreditSchema>;
+
+export const CreditCandidateSchema = z.object({
+  accountId: z.string(),
+  writtenCount: z.number().int().nonnegative(),
+  recordedCount: z.number().int().nonnegative(),
+});
+
 const PostFeedbackInputSchema = z
   .object({
     id: z.string(),
@@ -243,6 +264,37 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/rounds/{id}/feedback" })
     .input(z.object({ id: z.string() }))
     .output(z.array(RoundFeedbackSchema))
+    .errors({ NOT_FOUND }),
+
+  getCreditCandidates: oc
+    .route({ method: "GET", path: "/rounds/{id}/credit-candidates" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(CreditCandidateSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  closeRound: oc
+    .route({ method: "POST", path: "/rounds/{id}/close" })
+    .input(
+      z.object({
+        id: z.string(),
+        credits: z
+          .array(
+            z.object({
+              builderAccountId: z.string(),
+              contributedMeaningfully: z.boolean(),
+              summary: z.string().max(2000).optional(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .output(RoundDetailSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  listRoundCredits: oc
+    .route({ method: "GET", path: "/rounds/{id}/credits" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(RoundCreditSchema))
     .errors({ NOT_FOUND }),
 
   testError: oc
