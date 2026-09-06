@@ -107,6 +107,39 @@ describe("RoundsService", () => {
     );
   });
 
+  it("stores written and recorded feedback and lists it for a round", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) => svc.createRound(baseInput));
+
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "alice.near",
+        format: "written",
+        body: "Looks good",
+        url: null,
+      }),
+    );
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "bob.near",
+        format: "recorded",
+        body: null,
+        url: "https://example.com/rec",
+      }),
+    );
+
+    const thread = await runService(layer, (svc) => svc.listFeedback(round.id));
+    expect(thread).toHaveLength(2);
+    expect(thread.map((e) => e.authorAccountId).sort()).toEqual(["alice.near", "bob.near"]);
+    expect(thread.find((e) => e.format === "written")?.body).toBe("Looks good");
+    expect(thread.find((e) => e.format === "recorded")?.url).toBe("https://example.com/rec");
+
+    const empty = await runService(layer, (svc) => svc.listFeedback(MISSING_ID));
+    expect(empty).toEqual([]);
+  });
+
   it("lists rounds and filters by status", async () => {
     const layer = freshLayer();
     const first = await runService(layer, (svc) =>

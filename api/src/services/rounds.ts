@@ -1,8 +1,9 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import {
+  roundFeedback as roundFeedbackTable,
   roundParticipants as roundParticipantsTable,
   type roundStatus,
   rounds as roundsTable,
@@ -10,6 +11,7 @@ import {
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
 export type RoundFormat = "issues" | "written" | "recorded";
+export type RoundFeedbackFormat = "written" | "recorded";
 
 export interface RoundRecord {
   id: string;
@@ -38,6 +40,24 @@ export interface RoundDetailRecord extends RoundRecord {
   participantCount: number;
 }
 
+export interface RoundFeedbackRecord {
+  id: string;
+  roundId: string;
+  authorAccountId: string;
+  format: RoundFeedbackFormat;
+  body: string | null;
+  url: string | null;
+  createdAt: string;
+}
+
+export interface AddFeedbackInput {
+  roundId: string;
+  authorAccountId: string;
+  format: RoundFeedbackFormat;
+  body: string | null;
+  url: string | null;
+}
+
 export interface RoundsService {
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
@@ -46,6 +66,8 @@ export interface RoundsService {
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   hasParticipant(roundId: string, accountId: string): Promise<boolean>;
+  addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
+  listFeedback(roundId: string): Promise<RoundFeedbackRecord[]>;
 }
 
 export class RoundsTag extends Context.Tag("api/Rounds")<RoundsService, RoundsService>() {}
@@ -65,6 +87,20 @@ function toRoundRecord(row: RoundRow): RoundRecord {
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
     closedAt: row.closedAt instanceof Date ? row.closedAt.toISOString() : null,
+  };
+}
+
+type RoundFeedbackRow = typeof roundFeedbackTable.$inferSelect;
+
+function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
+  return {
+    id: row.id,
+    roundId: row.roundId,
+    authorAccountId: row.authorAccountId,
+    format: row.format,
+    body: row.body,
+    url: row.url,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
   };
 }
 
@@ -181,6 +217,40 @@ export const RoundsLive = Layer.effect(
             )
             .limit(1);
           return !!row;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      addFeedback: async (input) => {
+        try {
+          const [row] = await db
+            .insert(roundFeedbackTable)
+            .values({
+              roundId: input.roundId,
+              authorAccountId: input.authorAccountId,
+              format: input.format,
+              body: input.body,
+              url: input.url,
+            })
+            .returning();
+          if (!row) {
+            throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to post feedback" });
+          }
+          return toFeedbackRecord(row);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listFeedback: async (roundId) => {
+        try {
+          const rows = await db
+            .select()
+            .from(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.roundId, roundId))
+            .orderBy(asc(roundFeedbackTable.createdAt));
+          return rows.map(toFeedbackRecord);
         } catch (error) {
           throw toOrpcError(error);
         }

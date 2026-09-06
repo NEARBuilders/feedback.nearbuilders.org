@@ -339,6 +339,54 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return { joined: await services.rounds.hasParticipant(input.id, accountId) };
         }),
 
+      postFeedback: builder.postFeedback
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Link a NEAR account before posting feedback",
+              data: { hint: "Link a NEAR wallet in settings" },
+            });
+          }
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (!round.formats.includes(input.format)) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: `This round isn't collecting ${input.format} feedback`,
+            });
+          }
+          const joined = await services.rounds.hasParticipant(round.id, accountId);
+          if (!joined) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Join the round before posting feedback",
+            });
+          }
+          return await services.rounds.addFeedback({
+            roundId: round.id,
+            authorAccountId: accountId,
+            format: input.format,
+            body: input.format === "written" ? (input.body?.trim() ?? null) : null,
+            url: input.format === "recorded" ? (input.url ?? null) : null,
+          });
+        }),
+
+      listFeedback: builder.listFeedback.handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        return await services.rounds.listFeedback(round.id);
+      }),
+
       testError: builder.testError.handler(async ({ input }) => {
         switch (input.kind) {
           case "unauthorized":

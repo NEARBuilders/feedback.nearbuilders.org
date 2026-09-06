@@ -156,3 +156,62 @@ describe("joinRound / leaveRound", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("postFeedback / listFeedback", () => {
+  async function roundWithFormats(formats: Array<"written" | "recorded">, owner = "fb-owner.near") {
+    const client = await getPluginClient(nearAuthedContext(owner));
+    return client.createRound({ ...baseInput, formats, title: `FB round ${formats.join("+")}` });
+  }
+
+  it("rejects a non-participant", async () => {
+    const round = await roundWithFormats(["written"], "fb1.near");
+    const stranger = await getPluginClient(nearAuthedContext("stranger.near"));
+    await expect(
+      stranger.postFeedback({ id: round.id, format: "written", body: "hi" }),
+    ).rejects.toThrow("Join the round");
+  });
+
+  it("rejects a format the round didn't ask for", async () => {
+    const round = await roundWithFormats(["written"], "fb2.near");
+    const builder = await getPluginClient(nearAuthedContext("fb-builder-2.near"));
+    await builder.joinRound({ id: round.id });
+    await expect(
+      builder.postFeedback({ id: round.id, format: "recorded", url: "https://x.com/rec" }),
+    ).rejects.toThrow("isn't collecting recorded");
+  });
+
+  it("rejects written feedback with an empty body", async () => {
+    const round = await roundWithFormats(["written"], "fb3.near");
+    const builder = await getPluginClient(nearAuthedContext("fb-builder-3.near"));
+    await builder.joinRound({ id: round.id });
+    await expect(
+      builder.postFeedback({ id: round.id, format: "written", body: "   " }),
+    ).rejects.toThrow();
+  });
+
+  it("accepts written and recorded feedback from a participant and lists it in order", async () => {
+    const round = await roundWithFormats(["written", "recorded"], "fb4.near");
+    const builder = await getPluginClient(nearAuthedContext("fb-builder-4.near"));
+    await builder.joinRound({ id: round.id });
+
+    await builder.postFeedback({ id: round.id, format: "written", body: "First note" });
+    await builder.postFeedback({
+      id: round.id,
+      format: "recorded",
+      url: "https://example.com/session",
+    });
+
+    const anon = await getPluginClient();
+    const thread = await anon.listFeedback({ id: round.id });
+    expect(thread.map((e) => e.format)).toEqual(["written", "recorded"]);
+    expect(thread.find((e) => e.format === "written")?.body).toBe("First note");
+    expect(thread.find((e) => e.format === "recorded")?.url).toBe("https://example.com/session");
+  });
+
+  it("fails with NOT_FOUND listing feedback for an unknown round", async () => {
+    const anon = await getPluginClient();
+    await expect(
+      anon.listFeedback({ id: "00000000-0000-0000-0000-000000000000" }),
+    ).rejects.toThrow();
+  });
+});
