@@ -47,6 +47,12 @@ export const RoundSchema = z.object({
 
 export type Round = z.infer<typeof RoundSchema>;
 
+export const RoundDetailSchema = RoundSchema.extend({
+  participantCount: z.number().int().nonnegative(),
+});
+
+export type RoundDetail = z.infer<typeof RoundDetailSchema>;
+
 const CreateRoundInputSchema = z
   .object({
     projectSlug: z.string().min(1, "Project is required").max(100),
@@ -176,8 +182,26 @@ export const contract = oc.router({
   getRound: oc
     .route({ method: "GET", path: "/rounds/{id}" })
     .input(z.object({ id: z.string() }))
-    .output(RoundSchema)
+    .output(RoundDetailSchema)
     .errors({ NOT_FOUND }),
+
+  joinRound: oc
+    .route({ method: "POST", path: "/rounds/{id}/join" })
+    .input(z.object({ id: z.string() }))
+    .output(RoundDetailSchema)
+    .errors({ UNAUTHORIZED, BAD_REQUEST, NOT_FOUND }),
+
+  leaveRound: oc
+    .route({ method: "DELETE", path: "/rounds/{id}/join" })
+    .input(z.object({ id: z.string() }))
+    .output(RoundDetailSchema)
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
+
+  getMyParticipation: oc
+    .route({ method: "GET", path: "/rounds/{id}/join" })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ joined: z.boolean() }))
+    .errors({ UNAUTHORIZED }),
 
   testError: oc
     .route({

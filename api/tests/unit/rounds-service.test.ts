@@ -83,6 +83,30 @@ describe("RoundsService", () => {
     expect(await runService(layer, (svc) => svc.resolveRoundById(MISSING_ID))).toBeNull();
   });
 
+  it("adds participants idempotently, counts them, and removes them", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) => svc.createRound(baseInput));
+
+    await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
+    await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
+    await runService(layer, (svc) => svc.addParticipant(round.id, "bob.near"));
+
+    expect(await runService(layer, (svc) => svc.hasParticipant(round.id, "alice.near"))).toBe(true);
+    expect(await runService(layer, (svc) => svc.hasParticipant(round.id, "carol.near"))).toBe(
+      false,
+    );
+
+    const detail = await runService(layer, (svc) => svc.getRoundDetail(round.id));
+    expect(detail?.participantCount).toBe(2);
+
+    await runService(layer, (svc) => svc.removeParticipant(round.id, "alice.near"));
+    const afterLeave = await runService(layer, (svc) => svc.getRoundDetail(round.id));
+    expect(afterLeave?.participantCount).toBe(1);
+    expect(await runService(layer, (svc) => svc.hasParticipant(round.id, "alice.near"))).toBe(
+      false,
+    );
+  });
+
   it("lists rounds and filters by status", async () => {
     const layer = freshLayer();
     const first = await runService(layer, (svc) =>
