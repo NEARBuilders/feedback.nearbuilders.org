@@ -140,6 +140,66 @@ describe("RoundsService", () => {
     expect(empty).toEqual([]);
   });
 
+  it("derives credit candidates and closes a round with credit", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, formats: ["written", "recorded"] }),
+    );
+    await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "alice.near",
+        format: "written",
+        body: "one",
+        url: null,
+      }),
+    );
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "alice.near",
+        format: "written",
+        body: "two",
+        url: null,
+      }),
+    );
+
+    const candidates = await runService(layer, (svc) => svc.getCreditCandidates(round.id));
+    expect(candidates).toEqual([{ accountId: "alice.near", writtenCount: 2, recordedCount: 0 }]);
+
+    const closed = await runService(layer, (svc) =>
+      svc.closeRound(round.id, [{ builderAccountId: "alice.near", contributedMeaningfully: true }]),
+    );
+    expect(closed.status).toBe("closed");
+    expect(closed.closedAt).toEqual(expect.any(String));
+
+    const credits = await runService(layer, (svc) => svc.listRoundCredits(round.id));
+    expect(credits).toHaveLength(1);
+    expect(credits[0]).toMatchObject({
+      builderAccountId: "alice.near",
+      roundTitle: baseInput.title,
+      contributedMeaningfully: true,
+      writtenCount: 2,
+      recordedCount: 0,
+    });
+
+    const reloaded = await runService(layer, (svc) => svc.resolveRoundById(round.id));
+    expect(reloaded?.status).toBe("closed");
+  });
+
+  it("rejects closing with a credit for a non-contributor", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await expect(
+      runService(layer, (svc) =>
+        svc.closeRound(round.id, [
+          { builderAccountId: "ghost.near", contributedMeaningfully: true },
+        ]),
+      ),
+    ).rejects.toThrow();
+  });
+
   it("lists rounds and filters by status", async () => {
     const layer = freshLayer();
     const first = await runService(layer, (svc) =>

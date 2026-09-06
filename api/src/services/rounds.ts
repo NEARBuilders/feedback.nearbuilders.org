@@ -3,6 +3,7 @@ import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import {
+  roundCredits as roundCreditsTable,
   roundFeedback as roundFeedbackTable,
   roundParticipants as roundParticipantsTable,
   type roundStatus,
@@ -58,6 +59,31 @@ export interface AddFeedbackInput {
   url: string | null;
 }
 
+export interface CreditCandidate {
+  accountId: string;
+  writtenCount: number;
+  recordedCount: number;
+}
+
+export interface RoundCreditRecord {
+  id: string;
+  roundId: string;
+  builderAccountId: string;
+  projectSlug: string;
+  roundTitle: string;
+  contributedMeaningfully: boolean;
+  summary: string | null;
+  writtenCount: number;
+  recordedCount: number;
+  createdAt: string;
+}
+
+export interface CloseRoundCreditInput {
+  builderAccountId: string;
+  contributedMeaningfully: boolean;
+  summary?: string;
+}
+
 export interface RoundsService {
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
@@ -68,6 +94,9 @@ export interface RoundsService {
   hasParticipant(roundId: string, accountId: string): Promise<boolean>;
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string): Promise<RoundFeedbackRecord[]>;
+  getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
+  closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
+  listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
 }
 
 export class RoundsTag extends Context.Tag("api/Rounds")<RoundsService, RoundsService>() {}
@@ -100,6 +129,23 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     format: row.format,
     body: row.body,
     url: row.url,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+  };
+}
+
+type RoundCreditRow = typeof roundCreditsTable.$inferSelect;
+
+function toCreditRecord(row: RoundCreditRow): RoundCreditRecord {
+  return {
+    id: row.id,
+    roundId: row.roundId,
+    builderAccountId: row.builderAccountId,
+    projectSlug: row.projectSlug,
+    roundTitle: row.roundTitle,
+    contributedMeaningfully: row.contributedMeaningfully,
+    summary: row.summary,
+    writtenCount: row.writtenCount,
+    recordedCount: row.recordedCount,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
   };
 }
@@ -251,6 +297,129 @@ export const RoundsLive = Layer.effect(
             .where(eq(roundFeedbackTable.roundId, roundId))
             .orderBy(asc(roundFeedbackTable.createdAt));
           return rows.map(toFeedbackRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      getCreditCandidates: async (roundId) => {
+        try {
+          const rows = await db
+            .select({
+              accountId: roundFeedbackTable.authorAccountId,
+              format: roundFeedbackTable.format,
+            })
+            .from(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.roundId, roundId));
+
+          const byAccount = new Map<string, CreditCandidate>();
+          for (const row of rows) {
+            const entry = byAccount.get(row.accountId) ?? {
+              accountId: row.accountId,
+              writtenCount: 0,
+              recordedCount: 0,
+            };
+            if (row.format === "written") entry.writtenCount += 1;
+            else entry.recordedCount += 1;
+            byAccount.set(row.accountId, entry);
+          }
+          return [...byAccount.values()].sort((a, b) => a.accountId.localeCompare(b.accountId));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      closeRound: async (roundId, credits) => {
+        try {
+          const detail = await db.transaction(async (tx) => {
+            const [round] = await tx
+              .select()
+              .from(roundsTable)
+              .where(eq(roundsTable.id, roundId))
+              .limit(1);
+            if (!round) {
+              throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+            }
+            if (round.status !== "open") {
+              throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
+            }
+
+            const feedbackRows = await tx
+              .select({
+                accountId: roundFeedbackTable.authorAccountId,
+                format: roundFeedbackTable.format,
+              })
+              .from(roundFeedbackTable)
+              .where(eq(roundFeedbackTable.roundId, roundId));
+
+            const counts = new Map<string, { written: number; recorded: number }>();
+            for (const row of feedbackRows) {
+              const entry = counts.get(row.accountId) ?? { written: 0, recorded: 0 };
+              if (row.format === "written") entry.written += 1;
+              else entry.recorded += 1;
+              counts.set(row.accountId, entry);
+            }
+
+            for (const credit of credits) {
+              if (!counts.has(credit.builderAccountId)) {
+                throw new ORPCError("BAD_REQUEST", {
+                  message: `${credit.builderAccountId} did not post feedback and can't be credited`,
+                });
+              }
+              const c = counts.get(credit.builderAccountId)!;
+              await tx
+                .insert(roundCreditsTable)
+                .values({
+                  roundId,
+                  builderAccountId: credit.builderAccountId,
+                  projectSlug: round.projectSlug,
+                  roundTitle: round.title,
+                  contributedMeaningfully: credit.contributedMeaningfully,
+                  summary: credit.summary ?? null,
+                  writtenCount: c.written,
+                  recordedCount: c.recorded,
+                })
+                .onConflictDoUpdate({
+                  target: [roundCreditsTable.roundId, roundCreditsTable.builderAccountId],
+                  set: {
+                    contributedMeaningfully: credit.contributedMeaningfully,
+                    summary: credit.summary ?? null,
+                    writtenCount: c.written,
+                    recordedCount: c.recorded,
+                  },
+                });
+            }
+
+            const now = new Date();
+            await tx
+              .update(roundsTable)
+              .set({ status: "closed", closedAt: now, updatedAt: now })
+              .where(eq(roundsTable.id, roundId));
+
+            const [countRow] = await tx
+              .select({ value: count() })
+              .from(roundParticipantsTable)
+              .where(eq(roundParticipantsTable.roundId, roundId));
+
+            return {
+              ...toRoundRecord({ ...round, status: "closed", closedAt: now, updatedAt: now }),
+              participantCount: countRow?.value ?? 0,
+            };
+          });
+          return detail;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listRoundCredits: async (roundId) => {
+        try {
+          const rows = await db
+            .select()
+            .from(roundCreditsTable)
+            .where(eq(roundCreditsTable.roundId, roundId))
+            .orderBy(asc(roundCreditsTable.builderAccountId));
+          return rows.map(toCreditRecord);
         } catch (error) {
           throw toOrpcError(error);
         }

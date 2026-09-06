@@ -215,3 +215,77 @@ describe("postFeedback / listFeedback", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("closeRound / credits", () => {
+  async function roundWithFeedback(owner: string, builder: string) {
+    const ownerClient = await getPluginClient(nearAuthedContext(owner));
+    const round = await ownerClient.createRound({
+      ...baseInput,
+      formats: ["written", "recorded"],
+      title: `Close round ${owner}`,
+    });
+    const builderClient = await getPluginClient(nearAuthedContext(builder));
+    await builderClient.joinRound({ id: round.id });
+    await builderClient.postFeedback({ id: round.id, format: "written", body: "Solid" });
+    await builderClient.postFeedback({ id: round.id, format: "recorded", url: "https://x.com/r" });
+    return { round, ownerClient, builderClient };
+  }
+
+  it("rejects a non-owner closing the round", async () => {
+    const { round } = await roundWithFeedback("close1.near", "cb1.near");
+    const stranger = await getPluginClient(nearAuthedContext("stranger2.near"));
+    await expect(stranger.closeRound({ id: round.id })).rejects.toThrow("owner");
+  });
+
+  it("lists credit candidates for the owner only, with post counts", async () => {
+    const { round, ownerClient, builderClient } = await roundWithFeedback(
+      "close2.near",
+      "cb2.near",
+    );
+
+    await expect(builderClient.getCreditCandidates({ id: round.id })).rejects.toThrow();
+
+    const candidates = await ownerClient.getCreditCandidates({ id: round.id });
+    expect(candidates).toEqual([{ accountId: "cb2.near", writtenCount: 1, recordedCount: 1 }]);
+  });
+
+  it("closes the round and records contributor credit", async () => {
+    const { round, ownerClient } = await roundWithFeedback("close3.near", "cb3.near");
+
+    const closed = await ownerClient.closeRound({
+      id: round.id,
+      credits: [
+        { builderAccountId: "cb3.near", contributedMeaningfully: true, summary: "Great catches" },
+      ],
+    });
+    expect(closed.status).toBe("closed");
+
+    const anon = await getPluginClient();
+    const credits = await anon.listRoundCredits({ id: round.id });
+    expect(credits).toHaveLength(1);
+    expect(credits[0]).toMatchObject({
+      builderAccountId: "cb3.near",
+      projectSlug: baseInput.projectSlug,
+      contributedMeaningfully: true,
+      summary: "Great catches",
+      writtenCount: 1,
+      recordedCount: 1,
+    });
+  });
+
+  it("rejects crediting someone who did not post feedback", async () => {
+    const { round, ownerClient } = await roundWithFeedback("close4.near", "cb4.near");
+    await expect(
+      ownerClient.closeRound({
+        id: round.id,
+        credits: [{ builderAccountId: "nobody.near", contributedMeaningfully: true }],
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects closing an already-closed round", async () => {
+    const { round, ownerClient } = await roundWithFeedback("close5.near", "cb5.near");
+    await ownerClient.closeRound({ id: round.id });
+    await expect(ownerClient.closeRound({ id: round.id })).rejects.toThrow("already closed");
+  });
+});

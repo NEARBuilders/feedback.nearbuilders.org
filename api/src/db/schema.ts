@@ -1,4 +1,14 @@
-import { index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const tenantStatus = pgEnum("tenant_status", [
   "active",
@@ -85,5 +95,30 @@ export const roundFeedback = pgTable(
   },
   (table) => ({
     roundCreatedIdx: index("round_feedback_round_created_idx").on(table.roundId, table.createdAt),
+  }),
+);
+
+export const roundCredits = pgTable(
+  "round_credits",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    roundId: uuid("round_id")
+      .notNull()
+      .references(() => rounds.id, { onDelete: "cascade" }),
+    builderAccountId: text("builder_account_id").notNull(),
+    projectSlug: text("project_slug").notNull(),
+    roundTitle: text("round_title").notNull(),
+    contributedMeaningfully: boolean("contributed_meaningfully").default(false).notNull(),
+    summary: text("summary"),
+    writtenCount: integer("written_count").default(0).notNull(),
+    recordedCount: integer("recorded_count").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    roundBuilderIdx: uniqueIndex("round_credits_round_builder_idx").on(
+      table.roundId,
+      table.builderAccountId,
+    ),
+    builderIdx: index("round_credits_builder_idx").on(table.builderAccountId),
   }),
 );

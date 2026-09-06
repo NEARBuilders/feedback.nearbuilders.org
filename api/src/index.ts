@@ -387,6 +387,59 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.rounds.listFeedback(round.id);
       }),
 
+      getCreditCandidates: builder.getCreditCandidates
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (round.ownerAccountId !== context.near?.primaryAccountId) {
+            throw new ORPCError("FORBIDDEN", { message: "Only the round owner can see this" });
+          }
+          return await services.rounds.getCreditCandidates(round.id);
+        }),
+
+      closeRound: builder.closeRound
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Link a NEAR account before closing a round",
+              data: { hint: "Link a NEAR wallet in settings" },
+            });
+          }
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (round.ownerAccountId !== accountId) {
+            throw new ORPCError("FORBIDDEN", { message: "Only the round owner can close it" });
+          }
+          if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
+          }
+          return await services.rounds.closeRound(round.id, input.credits ?? []);
+        }),
+
+      listRoundCredits: builder.listRoundCredits.handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        return await services.rounds.listRoundCredits(round.id);
+      }),
+
       testError: builder.testError.handler(async ({ input }) => {
         switch (input.kind) {
           case "unauthorized":
