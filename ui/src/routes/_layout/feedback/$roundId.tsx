@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Users } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient, useAuthClient } from "@/app";
-import { Badge, Button } from "@/components";
+import { Badge, Button, Card, Field, FieldLabel, Input, Textarea } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { Skeleton } from "@/components/ui/skeleton";
+
+type FeedbackFormat = "written" | "recorded";
 
 export const Route = createFileRoute("/_layout/feedback/$roundId")({
   head: ({ params }) => ({
@@ -145,7 +148,151 @@ function RoundDetailPage() {
             </Link>
           )}
         </div>
+
+        <FeedbackThread
+          roundId={roundId}
+          formats={round.formats.filter(
+            (f): f is FeedbackFormat => f === "written" || f === "recorded",
+          )}
+          canPost={joined && round.status === "open"}
+        />
       </div>
     </PageContainer>
+  );
+}
+
+function FeedbackThread({
+  roundId,
+  formats,
+  canPost,
+}: {
+  roundId: string;
+  formats: FeedbackFormat[];
+  canPost: boolean;
+}) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const [format, setFormat] = useState<FeedbackFormat>(formats[0] ?? "written");
+  const [body, setBody] = useState("");
+  const [url, setUrl] = useState("");
+
+  const feedbackQuery = useQuery({
+    queryKey: ["round", roundId, "feedback"],
+    queryFn: () => apiClient.listFeedback({ id: roundId }),
+  });
+
+  const postMutation = useMutation({
+    mutationFn: () =>
+      apiClient.postFeedback({
+        id: roundId,
+        format,
+        body: format === "written" ? body.trim() : undefined,
+        url: format === "recorded" ? url.trim() : undefined,
+      }),
+    onSuccess: () => {
+      setBody("");
+      setUrl("");
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "feedback"] });
+      toast.success("Feedback posted");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const entries = feedbackQuery.data ?? [];
+  const canSubmit =
+    !postMutation.isPending &&
+    (format === "written" ? !!body.trim() : !!url.trim()) &&
+    formats.includes(format);
+
+  return (
+    <div className="space-y-4 border-t border-border pt-6">
+      <h2 className="text-lg font-semibold text-foreground">Feedback</h2>
+
+      {canPost && formats.length > 0 && (
+        <Card className="p-4 space-y-3">
+          {formats.length > 1 && (
+            <div className="flex gap-1.5">
+              {formats.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFormat(f)}
+                  className={`rounded-[8px] border-2 px-3 py-1 text-xs font-medium ${
+                    format === f
+                      ? "border-inset border-foreground bg-foreground text-background"
+                      : "border-outset border-border-strong bg-card text-foreground"
+                  }`}
+                >
+                  {f === "written" ? "Written" : "Recorded"}
+                </button>
+              ))}
+            </div>
+          )}
+          {format === "written" ? (
+            <Field>
+              <FieldLabel htmlFor="feedback-body">your feedback</FieldLabel>
+              <Textarea
+                id="feedback-body"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={4}
+                placeholder="What worked, what didn't?"
+              />
+            </Field>
+          ) : (
+            <Field>
+              <FieldLabel htmlFor="feedback-url">recording link</FieldLabel>
+              <Input
+                id="feedback-url"
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://..."
+              />
+            </Field>
+          )}
+          <Button onClick={() => postMutation.mutate()} disabled={!canSubmit}>
+            {postMutation.isPending ? "Posting..." : "Post feedback"}
+          </Button>
+        </Card>
+      )}
+
+      {feedbackQuery.isLoading ? (
+        <Skeleton className="h-16 w-full" />
+      ) : entries.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No feedback yet.</p>
+      ) : (
+        <ul className="space-y-3">
+          {entries.map((entry) => (
+            <li
+              key={entry.id}
+              className="rounded-[10px] border border-border bg-card p-4 space-y-1.5"
+            >
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-mono text-foreground">{entry.authorAccountId}</span>
+                <Badge variant="outline" className="text-[10px]">
+                  {entry.format === "written" ? "Written" : "Recorded"}
+                </Badge>
+                <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
+              </div>
+              {entry.format === "written" ? (
+                <p className="text-sm text-foreground whitespace-pre-wrap">{entry.body}</p>
+              ) : (
+                entry.url && (
+                  <a
+                    href={entry.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-foreground underline break-all"
+                  >
+                    {entry.url}
+                  </a>
+                )
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
