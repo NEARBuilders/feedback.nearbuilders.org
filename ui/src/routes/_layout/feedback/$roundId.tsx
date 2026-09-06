@@ -149,6 +149,10 @@ function RoundDetailPage() {
           )}
         </div>
 
+        {isOwner && round.status === "open" && <OwnerClosePanel roundId={roundId} />}
+
+        {round.status === "closed" && <CreditsSection roundId={roundId} />}
+
         <FeedbackThread
           roundId={roundId}
           formats={round.formats.filter(
@@ -294,5 +298,154 @@ function FeedbackThread({
         </ul>
       )}
     </div>
+  );
+}
+
+function CreditsSection({ roundId }: { roundId: string }) {
+  const apiClient = useApiClient();
+  const { data: credits = [], isLoading } = useQuery({
+    queryKey: ["round", roundId, "credits"],
+    queryFn: () => apiClient.listRoundCredits({ id: roundId }),
+  });
+
+  if (isLoading || credits.length === 0) return null;
+
+  return (
+    <div className="space-y-3 border-t border-border pt-6">
+      <h2 className="text-lg font-semibold text-foreground">Credited contributors</h2>
+      <ul className="space-y-2">
+        {credits.map((credit) => (
+          <li key={credit.id} className="rounded-[10px] border border-border bg-card p-4 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm text-foreground">{credit.builderAccountId}</span>
+              {credit.contributedMeaningfully && (
+                <Badge variant="secondary" className="text-[10px]">
+                  meaningful
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {credit.writtenCount} written · {credit.recordedCount} recorded
+            </p>
+            {credit.summary && <p className="text-sm text-foreground">{credit.summary}</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function OwnerClosePanel({ roundId }: { roundId: string }) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [marks, setMarks] = useState<Record<string, { meaningful: boolean; summary: string }>>({});
+
+  const candidatesQuery = useQuery({
+    queryKey: ["round", roundId, "credit-candidates"],
+    queryFn: () => apiClient.getCreditCandidates({ id: roundId }),
+    enabled: open,
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: () => {
+      const credits = Object.entries(marks)
+        .filter(([, m]) => m.meaningful || m.summary.trim())
+        .map(([builderAccountId, m]) => ({
+          builderAccountId,
+          contributedMeaningfully: m.meaningful,
+          summary: m.summary.trim() || undefined,
+        }));
+      return apiClient.closeRound({ id: roundId, credits });
+    },
+    onSuccess: (detail) => {
+      queryClient.setQueryData(["round", roundId], detail);
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "credits"] });
+      toast.success("Round closed");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const candidates = candidatesQuery.data ?? [];
+
+  return (
+    <Card className="p-4 space-y-3 border-t border-border">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-foreground">Close this round</span>
+        {!open && (
+          <Button variant="outline" onClick={() => setOpen(true)}>
+            Close round
+          </Button>
+        )}
+      </div>
+
+      {open && (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Mark anyone who contributed meaningfully. Only people who posted feedback are listed.
+          </p>
+          {candidatesQuery.isLoading ? (
+            <Skeleton className="h-12 w-full" />
+          ) : candidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No feedback was posted.</p>
+          ) : (
+            <ul className="space-y-2">
+              {candidates.map((c) => {
+                const mark = marks[c.accountId] ?? { meaningful: false, summary: "" };
+                return (
+                  <li
+                    key={c.accountId}
+                    className="rounded-[8px] border border-border p-3 space-y-2"
+                  >
+                    <label
+                      className="flex items-center gap-2 text-sm"
+                      htmlFor={`mark-${c.accountId}`}
+                    >
+                      <input
+                        id={`mark-${c.accountId}`}
+                        type="checkbox"
+                        checked={mark.meaningful}
+                        onChange={(e) =>
+                          setMarks((prev) => ({
+                            ...prev,
+                            [c.accountId]: { ...mark, meaningful: e.target.checked },
+                          }))
+                        }
+                      />
+                      <span className="font-mono text-foreground">{c.accountId}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {c.writtenCount}w · {c.recordedCount}r
+                      </span>
+                    </label>
+                    <Input
+                      value={mark.summary}
+                      onChange={(e) =>
+                        setMarks((prev) => ({
+                          ...prev,
+                          [c.accountId]: { ...mark, summary: e.target.value },
+                        }))
+                      }
+                      placeholder="Optional summary"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <Button onClick={() => closeMutation.mutate()} disabled={closeMutation.isPending}>
+              {closeMutation.isPending ? "Closing..." : "Confirm close"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={closeMutation.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
