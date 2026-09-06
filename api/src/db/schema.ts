@@ -67,3 +67,23 @@ export const roundParticipants = pgTable(
     roundIdx: index("round_participants_round_idx").on(table.roundId),
   }),
 );
+
+export const roundFeedbackFormat = pgEnum("round_feedback_format", ["written", "recorded"]);
+
+export const roundFeedback = pgTable(
+  "round_feedback",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    roundId: uuid("round_id")
+      .notNull()
+      .references(() => rounds.id, { onDelete: "cascade" }),
+    authorAccountId: text("author_account_id").notNull(),
+    format: roundFeedbackFormat("format").notNull(),
+    body: text("body"),
+    url: text("url"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    roundCreatedIdx: index("round_feedback_round_created_idx").on(table.roundId, table.createdAt),
+  }),
+);

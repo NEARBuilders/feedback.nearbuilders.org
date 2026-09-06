@@ -53,6 +53,36 @@ export const RoundDetailSchema = RoundSchema.extend({
 
 export type RoundDetail = z.infer<typeof RoundDetailSchema>;
 
+export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
+
+export const RoundFeedbackSchema = z.object({
+  id: z.string(),
+  roundId: z.string(),
+  authorAccountId: z.string(),
+  format: RoundFeedbackFormatSchema,
+  body: z.string().nullable(),
+  url: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;
+
+const PostFeedbackInputSchema = z
+  .object({
+    id: z.string(),
+    format: RoundFeedbackFormatSchema,
+    body: z.string().max(5000).optional(),
+    url: z.string().url("Must be a valid URL").optional(),
+  })
+  .refine((v) => v.format !== "written" || !!v.body?.trim(), {
+    message: "Written feedback needs a non-empty body",
+    path: ["body"],
+  })
+  .refine((v) => v.format !== "recorded" || !!v.url, {
+    message: "Recorded feedback needs a session link",
+    path: ["url"],
+  });
+
 const CreateRoundInputSchema = z
   .object({
     projectSlug: z.string().min(1, "Project is required").max(100),
@@ -202,6 +232,18 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.object({ joined: z.boolean() }))
     .errors({ UNAUTHORIZED }),
+
+  postFeedback: oc
+    .route({ method: "POST", path: "/rounds/{id}/feedback" })
+    .input(PostFeedbackInputSchema)
+    .output(RoundFeedbackSchema)
+    .errors({ UNAUTHORIZED, BAD_REQUEST, FORBIDDEN, NOT_FOUND }),
+
+  listFeedback: oc
+    .route({ method: "GET", path: "/rounds/{id}/feedback" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(RoundFeedbackSchema))
+    .errors({ NOT_FOUND }),
 
   testError: oc
     .route({
