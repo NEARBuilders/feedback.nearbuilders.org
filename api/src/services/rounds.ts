@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -33,6 +33,7 @@ export interface CreateRoundInput {
 export interface RoundsService {
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
+  listRounds(status?: RoundStatus): Promise<RoundRecord[]>;
 }
 
 export class RoundsTag extends Context.Tag("api/Rounds")<RoundsService, RoundsService>() {}
@@ -97,6 +98,19 @@ export const RoundsLive = Layer.effect(
         try {
           const [row] = await db.select().from(roundsTable).where(eq(roundsTable.id, id)).limit(1);
           return row ? toRoundRecord(row) : null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listRounds: async (status) => {
+        try {
+          const rows = await db
+            .select()
+            .from(roundsTable)
+            .where(status ? eq(roundsTable.status, status) : undefined)
+            .orderBy(desc(roundsTable.createdAt));
+          return rows.map(toRoundRecord);
         } catch (error) {
           throw toOrpcError(error);
         }

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Badge } from "@/components";
@@ -50,9 +50,9 @@ function RoundDetailPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-24 text-center">
         <p className="text-base font-semibold text-foreground">Round not found.</p>
-        <a href="/feedback" className="text-sm text-muted-foreground underline">
+        <Link to="/feedback" className="text-sm text-muted-foreground underline">
           back to feedback rounds
-        </a>
+        </Link>
       </div>
     );
   }

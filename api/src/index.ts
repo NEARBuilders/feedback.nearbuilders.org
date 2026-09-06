@@ -263,6 +263,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         });
       }),
 
+      listRounds: builder.listRounds.handler(async ({ input }) =>
+        services.rounds.listRounds(input.status),
+      ),
+
       getRound: builder.getRound.handler(async ({ input, errors }) => {
         const round = await services.rounds.resolveRoundById(input.id);
         if (!round) {

@@ -168,6 +168,11 @@ export const contract = oc.router({
     .output(RoundSchema)
     .errors({ UNAUTHORIZED, BAD_REQUEST }),
 
+  listRounds: oc
+    .route({ method: "GET", path: "/rounds" })
+    .input(z.object({ status: RoundStatusSchema.optional() }))
+    .output(z.array(RoundSchema)),
+
   getRound: oc
     .route({ method: "GET", path: "/rounds/{id}" })
     .input(z.object({ id: z.string() }))

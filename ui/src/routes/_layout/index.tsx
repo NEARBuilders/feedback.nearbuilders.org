@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { MessageSquare } from "lucide-react";
 import { Button } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
@@ -30,9 +30,8 @@ function FeedbackRoundsLanding() {
             feedback in one place.
           </p>
         </div>
-        {/* /feedback lands in #4 (browse open rounds) — plain anchor until that route exists */}
         <Button asChild>
-          <a href="/feedback">browse rounds</a>
+          <Link to="/feedback">browse rounds</Link>
         </Button>
       </div>
     </PageContainer>
