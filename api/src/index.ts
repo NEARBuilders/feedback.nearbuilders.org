@@ -440,6 +440,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.rounds.listRoundCredits(round.id);
       }),
 
+      getBuilderRounds: builder.getBuilderRounds.handler(async ({ input }) =>
+        services.rounds.listBuilderRounds(input.accountId),
+      ),
+
       testError: builder.testError.handler(async ({ input }) => {
         switch (input.kind) {
           case "unauthorized":

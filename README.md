@@ -63,6 +63,32 @@ The project chooses one or more formats when requesting a round:
 - **Written feedback** — submitted in the app by a selected tester.
 - **Recorded session** — a link submitted in the app by a selected tester.
 
+### Builder profile feed
+
+`GET /api/v1/builders/{accountId}/rounds` is public and needs no sign-in. It returns the
+closed rounds the builder holds a credit record on, newest first, for the "Feedback rounds"
+section on their `nearbuilders.org` profile.
+
+```jsonc
+[
+  {
+    "roundId": "0f9e...",              // feedback.nearbuilders.org round id
+    "roundTitle": "Try the onboarding flow",
+    "projectSlug": "my-project",
+    "repoUrl": "https://github.com/near/feedback", // round repo, or null
+    "issuesUrl": "https://github.com/near/feedback/issues", // set only when the round collected GitHub issues, else null
+    "contributedMeaningfully": true,   // the owner marked this builder as a meaningful contributor
+    "summary": "Sharp bug reports",    // owner's note on the credit, or null
+    "writtenCount": 2,                 // in-app written feedback posts by this builder
+    "recordedCount": 1,                // in-app recorded-session links by this builder
+    "closedAt": "2026-04-03T12:00:00.000Z",
+    "creditedAt": "2026-04-03T12:00:00.000Z"
+  }
+]
+```
+
+An account with no credited closed rounds returns `[]`.
+
 ## User flows
 
 ### Project owner

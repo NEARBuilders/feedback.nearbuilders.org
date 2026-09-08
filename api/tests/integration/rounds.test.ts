@@ -289,3 +289,48 @@ describe("closeRound / credits", () => {
     await expect(ownerClient.closeRound({ id: round.id })).rejects.toThrow("already closed");
   });
 });
+
+describe("getBuilderRounds", () => {
+  it("is public and returns the closed rounds a builder was credited on", async () => {
+    const owner = await getPluginClient(nearAuthedContext("bp-owner.near"));
+    const round = await owner.createRound({
+      ...baseInput,
+      title: "Profile round",
+      formats: ["written", "issues"],
+      repoUrl: "https://github.com/near/feedback",
+    });
+    const builder = await getPluginClient(nearAuthedContext("bp-builder.near"));
+    await builder.joinRound({ id: round.id });
+    await builder.postFeedback({ id: round.id, format: "written", body: "Found a bug" });
+
+    const anonBefore = await getPluginClient();
+    expect(await anonBefore.getBuilderRounds({ accountId: "bp-builder.near" })).toEqual([]);
+
+    await owner.closeRound({
+      id: round.id,
+      credits: [
+        { builderAccountId: "bp-builder.near", contributedMeaningfully: true, summary: "Sharp" },
+      ],
+    });
+
+    const anon = await getPluginClient();
+    const rounds = await anon.getBuilderRounds({ accountId: "bp-builder.near" });
+    expect(rounds).toHaveLength(1);
+    expect(rounds[0]).toMatchObject({
+      roundId: round.id,
+      roundTitle: "Profile round",
+      projectSlug: baseInput.projectSlug,
+      contributedMeaningfully: true,
+      summary: "Sharp",
+      writtenCount: 1,
+      recordedCount: 0,
+      repoUrl: "https://github.com/near/feedback",
+      issuesUrl: "https://github.com/near/feedback/issues",
+    });
+  });
+
+  it("returns an empty list for an unknown account", async () => {
+    const anon = await getPluginClient();
+    expect(await anon.getBuilderRounds({ accountId: "nobody.near" })).toEqual([]);
+  });
+});

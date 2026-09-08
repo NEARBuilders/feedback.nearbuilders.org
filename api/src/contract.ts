@@ -82,6 +82,22 @@ export const RoundCreditSchema = z.object({
 
 export type RoundCredit = z.infer<typeof RoundCreditSchema>;
 
+export const BuilderRoundSchema = z.object({
+  roundId: z.string(),
+  roundTitle: z.string(),
+  projectSlug: z.string(),
+  repoUrl: z.string().nullable(),
+  issuesUrl: z.string().nullable(),
+  contributedMeaningfully: z.boolean(),
+  summary: z.string().nullable(),
+  writtenCount: z.number().int().nonnegative(),
+  recordedCount: z.number().int().nonnegative(),
+  closedAt: z.string(),
+  creditedAt: z.string(),
+});
+
+export type BuilderRound = z.infer<typeof BuilderRoundSchema>;
+
 export const CreditCandidateSchema = z.object({
   accountId: z.string(),
   writtenCount: z.number().int().nonnegative(),
@@ -296,6 +312,11 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.array(RoundCreditSchema))
     .errors({ NOT_FOUND }),
+
+  getBuilderRounds: oc
+    .route({ method: "GET", path: "/builders/{accountId}/rounds" })
+    .input(z.object({ accountId: z.string() }))
+    .output(z.array(BuilderRoundSchema)),
 
   testError: oc
     .route({

@@ -78,6 +78,20 @@ export interface RoundCreditRecord {
   createdAt: string;
 }
 
+export interface BuilderRoundRecord {
+  roundId: string;
+  roundTitle: string;
+  projectSlug: string;
+  repoUrl: string | null;
+  issuesUrl: string | null;
+  contributedMeaningfully: boolean;
+  summary: string | null;
+  writtenCount: number;
+  recordedCount: number;
+  closedAt: string;
+  creditedAt: string;
+}
+
 export interface CloseRoundCreditInput {
   builderAccountId: string;
   contributedMeaningfully: boolean;
@@ -97,6 +111,12 @@ export interface RoundsService {
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
+  listBuilderRounds(accountId: string): Promise<BuilderRoundRecord[]>;
+}
+
+function toIssuesUrl(formats: RoundFormat[], repoUrl: string | null): string | null {
+  if (!repoUrl || !formats.includes("issues")) return null;
+  return `${repoUrl.replace(/\/+$/, "")}/issues`;
 }
 
 export class RoundsTag extends Context.Tag("api/Rounds")<RoundsService, RoundsService>() {}
@@ -420,6 +440,59 @@ export const RoundsLive = Layer.effect(
             .where(eq(roundCreditsTable.roundId, roundId))
             .orderBy(asc(roundCreditsTable.builderAccountId));
           return rows.map(toCreditRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listBuilderRounds: async (accountId) => {
+        try {
+          const rows = await db
+            .select({
+              roundId: roundCreditsTable.roundId,
+              roundTitle: roundCreditsTable.roundTitle,
+              projectSlug: roundCreditsTable.projectSlug,
+              contributedMeaningfully: roundCreditsTable.contributedMeaningfully,
+              summary: roundCreditsTable.summary,
+              writtenCount: roundCreditsTable.writtenCount,
+              recordedCount: roundCreditsTable.recordedCount,
+              creditedAt: roundCreditsTable.createdAt,
+              formats: roundsTable.formats,
+              repoUrl: roundsTable.repoUrl,
+              closedAt: roundsTable.closedAt,
+            })
+            .from(roundCreditsTable)
+            .innerJoin(roundsTable, eq(roundsTable.id, roundCreditsTable.roundId))
+            .where(
+              and(
+                eq(roundCreditsTable.builderAccountId, accountId),
+                eq(roundsTable.status, "closed"),
+              ),
+            )
+            .orderBy(desc(roundsTable.closedAt));
+
+          return rows.map((row) => {
+            const formats = row.formats as RoundFormat[];
+            const closedAt =
+              row.closedAt instanceof Date ? row.closedAt.toISOString() : String(row.closedAt);
+            const creditedAt =
+              row.creditedAt instanceof Date
+                ? row.creditedAt.toISOString()
+                : String(row.creditedAt);
+            return {
+              roundId: row.roundId,
+              roundTitle: row.roundTitle,
+              projectSlug: row.projectSlug,
+              repoUrl: row.repoUrl,
+              issuesUrl: toIssuesUrl(formats, row.repoUrl),
+              contributedMeaningfully: row.contributedMeaningfully,
+              summary: row.summary,
+              writtenCount: row.writtenCount,
+              recordedCount: row.recordedCount,
+              closedAt,
+              creditedAt,
+            };
+          });
         } catch (error) {
           throw toOrpcError(error);
         }
