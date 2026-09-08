@@ -15,6 +15,8 @@ export default {
     variables: {},
     secrets: {
       API_DATABASE_URL: process.env.API_DATABASE_URL || "pglite:.bos/api/:memory:",
+      ACTIVITY_API_BASE_URL: process.env.ACTIVITY_API_BASE_URL || "",
+      ACTIVITY_API_KEY: process.env.ACTIVITY_API_KEY || "",
     },
   } satisfies PluginConfigInput<typeof Plugin>,
 };

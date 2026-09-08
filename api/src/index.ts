@@ -7,6 +7,7 @@ import { DatabaseLive } from "./db/layer";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
+import { createActivityEmitter } from "./services/activity-events";
 import { RoundsLive, RoundsTag } from "./services/rounds";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
@@ -59,6 +60,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   secrets: z.object({
     API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
+    // activity.nearbuilders.org producer integration. Both must be set to emit;
+    // otherwise event emission is a no-op. See README "Activity events".
+    ACTIVITY_API_BASE_URL: z.string().default(""),
+    ACTIVITY_API_KEY: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -74,11 +79,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const tenantsService = yield* tools.buildService(TenantsTag, tenantsLayer);
       const roundsService = yield* tools.buildService(RoundsTag, roundsLayer);
 
-      console.log("[API] Services Initialized");
+      const activityEvents = createActivityEmitter({
+        baseUrl: config.secrets.ACTIVITY_API_BASE_URL,
+        apiKey: config.secrets.ACTIVITY_API_KEY,
+      });
+
+      console.log(
+        `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"})`,
+      );
 
       return {
         tenants: tenantsService,
         rounds: roundsService,
+        activityEvents,
       };
     }),
 
@@ -253,7 +266,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             data: { hint: "Link a NEAR wallet in settings" },
           });
         }
-        return await services.rounds.createRound({
+        const round = await services.rounds.createRound({
           ownerAccountId,
           projectSlug: input.projectSlug,
           title: input.title,
@@ -261,6 +274,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
           formats: input.formats,
           repoUrl: input.repoUrl,
         });
+        await services.activityEvents.emitRoundOpened(round);
+        return round;
       }),
 
       listRounds: builder.listRounds.handler(async ({ input }) =>
@@ -367,13 +382,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Join the round before posting feedback",
             });
           }
-          return await services.rounds.addFeedback({
+          const feedback = await services.rounds.addFeedback({
             roundId: round.id,
             authorAccountId: accountId,
             format: input.format,
             body: input.format === "written" ? (input.body?.trim() ?? null) : null,
             url: input.format === "recorded" ? (input.url ?? null) : null,
           });
+          await services.activityEvents.emitFeedbackPosted(feedback);
+          return feedback;
         }),
 
       listFeedback: builder.listFeedback.handler(async ({ input, errors }) => {

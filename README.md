@@ -89,6 +89,38 @@ section on their `nearbuilders.org` profile.
 
 An account with no credited closed rounds returns `[]`.
 
+## Activity events
+
+feedback.nearbuilders.org is an [Activity Source](https://github.com/NEARBuilders/activity.nearbuilders.org)
+for `activity.nearbuilders.org`, so its feed and leaderboard pick this app up. This is a
+**producer integration only** — feedback keeps its own database; there are no shared tables and
+no Nostr or Redis here.
+
+The service emits one event when a round is created and one when feedback is posted:
+
+| Event type | Actor | When |
+| --- | --- | --- |
+| `round.opened` | round owner | a round is created |
+| `feedback.posted` | feedback author | a written or recorded post is accepted |
+
+Each emit is a best-effort `POST` to activity's `/api/v1/events` with the Source API Key as a
+bearer token and an idempotency key scoped to the round or feedback id (`round.opened:{roundId}`,
+`feedback.posted:{feedbackId}`). A failed, rejected, or unreachable gateway is logged and never
+blocks or fails the local action.
+
+### Configuration
+
+| Env var | Purpose |
+| --- | --- |
+| `ACTIVITY_API_BASE_URL` | Activity API gateway base URL, e.g. `https://activity.nearbuilders.org/api` |
+| `ACTIVITY_API_KEY` | Source API Key (`act_…`), a server-side bearer secret |
+
+Leave both blank to disable emission (the default in local development and tests). Registering the
+Activity Source and obtaining its API key is a manual step against activity.nearbuilders.org's
+onboarding flow — register the source id with event types `round.opened` and `feedback.posted`,
+bind a Signing Identity, then create the key and store it in the deployment platform's secret
+manager. Never commit the key.
+
 ## User flows
 
 ### Project owner
