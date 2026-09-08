@@ -188,6 +188,96 @@ describe("RoundsService", () => {
     expect(reloaded?.status).toBe("closed");
   });
 
+  it("lists a builder's credited closed rounds newest-first, with an issues link", async () => {
+    const layer = freshLayer();
+
+    const withIssues = await runService(layer, (svc) =>
+      svc.createRound({
+        ...baseInput,
+        title: "Round with issues",
+        formats: ["written", "issues"],
+        repoUrl: "https://github.com/near/feedback/",
+      }),
+    );
+    await runService(layer, (svc) => svc.addParticipant(withIssues.id, "tester.near"));
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: withIssues.id,
+        authorAccountId: "tester.near",
+        format: "written",
+        body: "note",
+        url: null,
+      }),
+    );
+    await runService(layer, (svc) =>
+      svc.closeRound(withIssues.id, [
+        { builderAccountId: "tester.near", contributedMeaningfully: true, summary: "solid" },
+      ]),
+    );
+
+    const writtenOnly = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, title: "Written-only round", formats: ["written"] }),
+    );
+    await runService(layer, (svc) => svc.addParticipant(writtenOnly.id, "tester.near"));
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: writtenOnly.id,
+        authorAccountId: "tester.near",
+        format: "written",
+        body: "hi",
+        url: null,
+      }),
+    );
+    await runService(layer, (svc) =>
+      svc.closeRound(writtenOnly.id, [
+        { builderAccountId: "tester.near", contributedMeaningfully: false },
+      ]),
+    );
+
+    const rounds = await runService(layer, (svc) => svc.listBuilderRounds("tester.near"));
+    expect(rounds.map((r) => r.roundTitle)).toEqual(["Written-only round", "Round with issues"]);
+
+    const issuesRound = rounds.find((r) => r.roundId === withIssues.id);
+    expect(issuesRound).toMatchObject({
+      projectSlug: baseInput.projectSlug,
+      contributedMeaningfully: true,
+      summary: "solid",
+      writtenCount: 1,
+      recordedCount: 0,
+      issuesUrl: "https://github.com/near/feedback/issues",
+    });
+
+    const writtenRound = rounds.find((r) => r.roundId === writtenOnly.id);
+    expect(writtenRound?.issuesUrl).toBeNull();
+    expect(writtenRound?.closedAt).toEqual(expect.any(String));
+  });
+
+  it("does not surface open rounds or other builders' credit on a profile", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, formats: ["written"] }),
+    );
+    await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "alice.near",
+        format: "written",
+        body: "hi",
+        url: null,
+      }),
+    );
+
+    expect(await runService(layer, (svc) => svc.listBuilderRounds("alice.near"))).toEqual([]);
+
+    await runService(layer, (svc) =>
+      svc.closeRound(round.id, [{ builderAccountId: "alice.near", contributedMeaningfully: true }]),
+    );
+
+    expect(await runService(layer, (svc) => svc.listBuilderRounds("alice.near"))).toHaveLength(1);
+    expect(await runService(layer, (svc) => svc.listBuilderRounds("bob.near"))).toEqual([]);
+  });
+
   it("rejects closing with a credit for a non-contributor", async () => {
     const layer = freshLayer();
     const round = await runService(layer, (svc) => svc.createRound(baseInput));
