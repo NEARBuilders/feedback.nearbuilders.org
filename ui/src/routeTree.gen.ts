@@ -17,6 +17,7 @@ import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
 import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
 import { Route as LayoutFeedbackIndexRouteImport } from './routes/_layout/feedback/index'
 import { Route as LayoutFeedbackRoundIdRouteImport } from './routes/_layout/feedback/$roundId'
+import { Route as LayoutBuildersAccountIdRouteImport } from './routes/_layout/builders/$accountId'
 import { Route as LayoutAuthenticatedSettingsRouteImport } from './routes/_layout/_authenticated/settings'
 import { Route as LayoutAuthenticatedHomeRouteImport } from './routes/_layout/_authenticated/home'
 import { Route as LayoutAuthenticatedAdminRouteImport } from './routes/_layout/_authenticated/admin'
@@ -69,6 +70,11 @@ const LayoutFeedbackIndexRoute = LayoutFeedbackIndexRouteImport.update({
 const LayoutFeedbackRoundIdRoute = LayoutFeedbackRoundIdRouteImport.update({
   id: '/feedback/$roundId',
   path: '/feedback/$roundId',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutBuildersAccountIdRoute = LayoutBuildersAccountIdRouteImport.update({
+  id: '/builders/$accountId',
+  path: '/builders/$accountId',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutAuthenticatedSettingsRoute =
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof LayoutAuthenticatedAdminRoute
   '/home': typeof LayoutAuthenticatedHomeRoute
   '/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
+  '/builders/$accountId': typeof LayoutBuildersAccountIdRoute
   '/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
   '/feedback/': typeof LayoutFeedbackIndexRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/skill': typeof LayoutSkillRoute
   '/admin': typeof LayoutAuthenticatedAdminRoute
   '/home': typeof LayoutAuthenticatedHomeRoute
+  '/builders/$accountId': typeof LayoutBuildersAccountIdRoute
   '/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
   '/feedback': typeof LayoutFeedbackIndexRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/admin': typeof LayoutAuthenticatedAdminRoute
   '/_layout/_authenticated/home': typeof LayoutAuthenticatedHomeRoute
   '/_layout/_authenticated/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
+  '/_layout/builders/$accountId': typeof LayoutBuildersAccountIdRoute
   '/_layout/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
   '/_layout/feedback/': typeof LayoutFeedbackIndexRoute
   '/_layout/_authenticated/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/home'
     | '/settings'
+    | '/builders/$accountId'
     | '/feedback/$roundId'
     | '/feedback/'
     | '/accept-invitation/$id'
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/skill'
     | '/admin'
     | '/home'
+    | '/builders/$accountId'
     | '/feedback/$roundId'
     | '/feedback'
     | '/accept-invitation/$id'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/admin'
     | '/_layout/_authenticated/home'
     | '/_layout/_authenticated/settings'
+    | '/_layout/builders/$accountId'
     | '/_layout/feedback/$roundId'
     | '/_layout/feedback/'
     | '/_layout/_authenticated/accept-invitation/$id'
@@ -365,6 +377,13 @@ declare module '@tanstack/react-router' {
       path: '/feedback/$roundId'
       fullPath: '/feedback/$roundId'
       preLoaderRoute: typeof LayoutFeedbackRoundIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/builders/$accountId': {
+      id: '/_layout/builders/$accountId'
+      path: '/builders/$accountId'
+      fullPath: '/builders/$accountId'
+      preLoaderRoute: typeof LayoutBuildersAccountIdRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/_authenticated/settings': {
@@ -543,6 +562,7 @@ interface LayoutRouteChildren {
   LayoutLoginRoute: typeof LayoutLoginRoute
   LayoutSkillRoute: typeof LayoutSkillRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutBuildersAccountIdRoute: typeof LayoutBuildersAccountIdRoute
   LayoutFeedbackRoundIdRoute: typeof LayoutFeedbackRoundIdRoute
   LayoutFeedbackIndexRoute: typeof LayoutFeedbackIndexRoute
 }
@@ -553,6 +573,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutLoginRoute: LayoutLoginRoute,
   LayoutSkillRoute: LayoutSkillRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutBuildersAccountIdRoute: LayoutBuildersAccountIdRoute,
   LayoutFeedbackRoundIdRoute: LayoutFeedbackRoundIdRoute,
   LayoutFeedbackIndexRoute: LayoutFeedbackIndexRoute,
 }
