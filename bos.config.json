@@ -2,15 +2,12 @@
   "extends": "bos://dev.everything.near/dev.everything.dev",
   "account": "nearbuilding.near",
   "domain": "feedback.nearbuilders.org",
-  "title": "everything.dev",
-  "description": "Open runtime for apps on NEAR, composed from published config and loaded through a shared host, UI, and API runtime.",
-  "staging": {
-    "domain": "dev.everything.dev"
-  },
+ "title": "Feedback | NearBuilders",
+  "description": "Feedback application",
   "repository": "https://github.com/NEARBuilders/feedback.nearbuilders.org",
   "ci": {
     "railway": {
-      "service": "app"
+      "service": "feedback-app"
     }
   },
   "app": {
@@ -24,5 +21,12 @@
       ]
     }
   },
-  "plugins": {}
+  "plugins": {
+    "nostr": {
+      "extends": "bos://nearbuilding.near/nostr.nearbuilders.org",
+      "variables": {
+        "clientName": "nearbuilders.org"
+      }
+    }
+  }
 }
