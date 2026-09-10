@@ -10,311 +10,573 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LayoutRouteImport } from './routes/_layout'
-import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
-import { Route as LayoutSkillRouteImport } from './routes/_layout/skill'
-import { Route as LayoutLoginRouteImport } from './routes/_layout/login'
-import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
+import { Route as LayoutAdminRouteImport } from './routes/_layout/_admin'
+import { Route as LayoutAnonRouteImport } from './routes/_layout/_anon'
 import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
-import { Route as LayoutFeedbackIndexRouteImport } from './routes/_layout/feedback/index'
-import { Route as LayoutFeedbackRoundIdRouteImport } from './routes/_layout/feedback/$roundId'
-import { Route as LayoutBuildersAccountIdRouteImport } from './routes/_layout/builders/$accountId'
-import { Route as LayoutAuthenticatedSettingsRouteImport } from './routes/_layout/_authenticated/settings'
-import { Route as LayoutAuthenticatedHomeRouteImport } from './routes/_layout/_authenticated/home'
-import { Route as LayoutAuthenticatedAdminRouteImport } from './routes/_layout/_authenticated/admin'
-import { Route as LayoutAuthenticatedTenantIndexRouteImport } from './routes/_layout/_authenticated/tenant/index'
-import { Route as LayoutAuthenticatedSettingsIndexRouteImport } from './routes/_layout/_authenticated/settings/index'
-import { Route as LayoutAuthenticatedOrganizationsIndexRouteImport } from './routes/_layout/_authenticated/organizations/index'
-import { Route as LayoutAuthenticatedTenantNewRouteImport } from './routes/_layout/_authenticated/tenant/new'
-import { Route as LayoutAuthenticatedTenantTenantIdRouteImport } from './routes/_layout/_authenticated/tenant/$tenantId'
-import { Route as LayoutAuthenticatedSettingsSecurityRouteImport } from './routes/_layout/_authenticated/settings/security'
-import { Route as LayoutAuthenticatedSettingsProfileRouteImport } from './routes/_layout/_authenticated/settings/profile'
-import { Route as LayoutAuthenticatedSettingsAuthMethodsRouteImport } from './routes/_layout/_authenticated/settings/auth-methods'
-import { Route as LayoutAuthenticatedOrganizationsNewRouteImport } from './routes/_layout/_authenticated/organizations/new'
-import { Route as LayoutAuthenticatedOrganizationsSlugRouteImport } from './routes/_layout/_authenticated/organizations/$slug'
-import { Route as LayoutAuthenticatedFeedbackRequestRouteImport } from './routes/_layout/_authenticated/feedback/request'
-import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './routes/_layout/_authenticated/accept-invitation.$id'
+import { Route as LayoutPublicRouteImport } from './routes/_layout/_public'
+import { Route as LayoutAdminDashboardRouteImport } from './routes/_layout/_admin/_dashboard'
+import { Route as LayoutAnonLoginRouteImport } from './routes/_layout/_anon/login'
+import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
+import { Route as LayoutPublicIndexRouteImport } from './routes/_layout/_public/index'
+import { Route as LayoutPublicAccountIdRouteImport } from './routes/_layout/_public/$accountId'
+import { Route as LayoutPublicAboutRouteImport } from './routes/_layout/_public/about'
+import { Route as LayoutPublicSkillRouteImport } from './routes/_layout/_public/skill'
+import { Route as LayoutAdminDashboardAdminRouteImport } from './routes/_layout/_admin/_dashboard/admin'
+import { Route as LayoutAuthenticatedDashboardApplyRouteImport } from './routes/_layout/_authenticated/_dashboard/apply'
+import { Route as LayoutAuthenticatedDashboardDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard'
+import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
+import { Route as LayoutAuthenticatedDashboardStakeRouteImport } from './routes/_layout/_authenticated/_dashboard/stake'
+import { Route as LayoutPublicAccountIdIndexRouteImport } from './routes/_layout/_public/$accountId/index'
+import { Route as LayoutPublicNSlugRouteImport } from './routes/_layout/_public/n/$slug'
+import { Route as LayoutAdminDashboardAdminIndexRouteImport } from './routes/_layout/_admin/_dashboard/admin/index'
+import { Route as LayoutAdminDashboardAdminRelayerRouteImport } from './routes/_layout/_admin/_dashboard/admin/relayer'
+import { Route as LayoutAdminDashboardAdminSystemRouteImport } from './routes/_layout/_admin/_dashboard/admin/system'
+import { Route as LayoutAdminDashboardAdminTenantsRouteImport } from './routes/_layout/_admin/_dashboard/admin/tenants'
+import { Route as LayoutAuthenticatedDashboardDashboardIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard/index'
+import { Route as LayoutAuthenticatedDashboardDashboardNodeRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard/node'
+import { Route as LayoutAuthenticatedDashboardOrgsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/orgs/index'
+import { Route as LayoutAuthenticatedDashboardOrgsSlugRouteImport } from './routes/_layout/_authenticated/_dashboard/orgs/$slug'
+import { Route as LayoutAuthenticatedDashboardOrgsNewRouteImport } from './routes/_layout/_authenticated/_dashboard/orgs/new'
+import { Route as LayoutAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/index'
+import { Route as LayoutAuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/api-keys'
+import { Route as LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/auth-methods'
+import { Route as LayoutAuthenticatedDashboardSettingsProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/profile'
+import { Route as LayoutAuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/security'
+import { Route as LayoutAuthenticatedDashboardTenantTenantIdRouteImport } from './routes/_layout/_authenticated/_dashboard/tenant/$tenantId'
+import { Route as LayoutAuthenticatedDashboardThingsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/things/index'
+import { Route as LayoutAuthenticatedDashboardThingsThingIdRouteImport } from './routes/_layout/_authenticated/_dashboard/things/$thingId'
+import { Route as LayoutAuthenticatedDashboardThingsLiveRouteImport } from './routes/_layout/_authenticated/_dashboard/things/live'
+import { Route as LayoutAuthenticatedDashboardThingsNewRouteImport } from './routes/_layout/_authenticated/_dashboard/things/new'
+import { Route as LayoutAdminDashboardAdminNodesIndexRouteImport } from './routes/_layout/_admin/_dashboard/admin/nodes/index'
+import { Route as LayoutAdminDashboardAdminNodesNodeIdRouteImport } from './routes/_layout/_admin/_dashboard/admin/nodes/$nodeId'
+import { Route as LayoutAdminDashboardAdminProposalsIndexRouteImport } from './routes/_layout/_admin/_dashboard/admin/proposals/index'
+import { Route as LayoutAdminDashboardAdminProposalsProposalIdRouteImport } from './routes/_layout/_admin/_dashboard/admin/proposals/$proposalId'
+import { Route as LayoutAdminDashboardAdminTenantsIndexRouteImport } from './routes/_layout/_admin/_dashboard/admin/tenants/index'
+import { Route as LayoutAdminDashboardAdminTenantsNewRouteImport } from './routes/_layout/_admin/_dashboard/admin/tenants/new'
+import { Route as LayoutAuthenticatedDashboardDashboardNodeIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard/node/index'
+import { Route as LayoutAuthenticatedDashboardOrgsInvitesIdRouteImport } from './routes/_layout/_authenticated/_dashboard/orgs/invites.$id'
+import { Route as LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard/node/proposals/index'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LayoutIndexRoute = LayoutIndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LayoutAdminRoute = LayoutAdminRouteImport.update({
+  id: '/_admin',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutSkillRoute = LayoutSkillRouteImport.update({
-  id: '/skill',
-  path: '/skill',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutLoginRoute = LayoutLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutAboutRoute = LayoutAboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const LayoutAnonRoute = LayoutAnonRouteImport.update({
+  id: '/_anon',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutAuthenticatedRoute = LayoutAuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutFeedbackIndexRoute = LayoutFeedbackIndexRouteImport.update({
-  id: '/feedback/',
-  path: '/feedback/',
+const LayoutPublicRoute = LayoutPublicRouteImport.update({
+  id: '/_public',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutFeedbackRoundIdRoute = LayoutFeedbackRoundIdRouteImport.update({
-  id: '/feedback/$roundId',
-  path: '/feedback/$roundId',
-  getParentRoute: () => LayoutRoute,
+const LayoutAdminDashboardRoute = LayoutAdminDashboardRouteImport.update({
+  id: '/_dashboard',
+  getParentRoute: () => LayoutAdminRoute,
 } as any)
-const LayoutBuildersAccountIdRoute = LayoutBuildersAccountIdRouteImport.update({
-  id: '/builders/$accountId',
-  path: '/builders/$accountId',
-  getParentRoute: () => LayoutRoute,
+const LayoutAnonLoginRoute = LayoutAnonLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => LayoutAnonRoute,
 } as any)
-const LayoutAuthenticatedSettingsRoute =
-  LayoutAuthenticatedSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
+const LayoutAuthenticatedDashboardRoute =
+  LayoutAuthenticatedDashboardRouteImport.update({
+    id: '/_dashboard',
     getParentRoute: () => LayoutAuthenticatedRoute,
   } as any)
-const LayoutAuthenticatedHomeRoute = LayoutAuthenticatedHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutPublicIndexRoute = LayoutPublicIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutPublicRoute,
 } as any)
-const LayoutAuthenticatedAdminRoute =
-  LayoutAuthenticatedAdminRouteImport.update({
+const LayoutPublicAccountIdRoute = LayoutPublicAccountIdRouteImport.update({
+  id: '/$accountId',
+  path: '/$accountId',
+  getParentRoute: () => LayoutPublicRoute,
+} as any)
+const LayoutPublicAboutRoute = LayoutPublicAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => LayoutPublicRoute,
+} as any)
+const LayoutPublicSkillRoute = LayoutPublicSkillRouteImport.update({
+  id: '/skill',
+  path: '/skill',
+  getParentRoute: () => LayoutPublicRoute,
+} as any)
+const LayoutAdminDashboardAdminRoute =
+  LayoutAdminDashboardAdminRouteImport.update({
     id: '/admin',
     path: '/admin',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+    getParentRoute: () => LayoutAdminDashboardRoute,
   } as any)
-const LayoutAuthenticatedTenantIndexRoute =
-  LayoutAuthenticatedTenantIndexRouteImport.update({
-    id: '/tenant/',
-    path: '/tenant/',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutAuthenticatedDashboardApplyRoute =
+  LayoutAuthenticatedDashboardApplyRouteImport.update({
+    id: '/apply',
+    path: '/apply',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedSettingsIndexRoute =
-  LayoutAuthenticatedSettingsIndexRouteImport.update({
+const LayoutAuthenticatedDashboardDashboardRoute =
+  LayoutAuthenticatedDashboardDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardSettingsRoute =
+  LayoutAuthenticatedDashboardSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardStakeRoute =
+  LayoutAuthenticatedDashboardStakeRouteImport.update({
+    id: '/stake',
+    path: '/stake',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutPublicAccountIdIndexRoute =
+  LayoutPublicAccountIdIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => LayoutAuthenticatedSettingsRoute,
+    getParentRoute: () => LayoutPublicAccountIdRoute,
   } as any)
-const LayoutAuthenticatedOrganizationsIndexRoute =
-  LayoutAuthenticatedOrganizationsIndexRouteImport.update({
-    id: '/organizations/',
-    path: '/organizations/',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutPublicNSlugRoute = LayoutPublicNSlugRouteImport.update({
+  id: '/n/$slug',
+  path: '/n/$slug',
+  getParentRoute: () => LayoutPublicRoute,
+} as any)
+const LayoutAdminDashboardAdminIndexRoute =
+  LayoutAdminDashboardAdminIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
   } as any)
-const LayoutAuthenticatedTenantNewRoute =
-  LayoutAuthenticatedTenantNewRouteImport.update({
-    id: '/tenant/new',
-    path: '/tenant/new',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutAdminDashboardAdminRelayerRoute =
+  LayoutAdminDashboardAdminRelayerRouteImport.update({
+    id: '/relayer',
+    path: '/relayer',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
   } as any)
-const LayoutAuthenticatedTenantTenantIdRoute =
-  LayoutAuthenticatedTenantTenantIdRouteImport.update({
-    id: '/tenant/$tenantId',
-    path: '/tenant/$tenantId',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutAdminDashboardAdminSystemRoute =
+  LayoutAdminDashboardAdminSystemRouteImport.update({
+    id: '/system',
+    path: '/system',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
   } as any)
-const LayoutAuthenticatedSettingsSecurityRoute =
-  LayoutAuthenticatedSettingsSecurityRouteImport.update({
-    id: '/security',
-    path: '/security',
-    getParentRoute: () => LayoutAuthenticatedSettingsRoute,
+const LayoutAdminDashboardAdminTenantsRoute =
+  LayoutAdminDashboardAdminTenantsRouteImport.update({
+    id: '/tenants',
+    path: '/tenants',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
   } as any)
-const LayoutAuthenticatedSettingsProfileRoute =
-  LayoutAuthenticatedSettingsProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
-    getParentRoute: () => LayoutAuthenticatedSettingsRoute,
+const LayoutAuthenticatedDashboardDashboardIndexRoute =
+  LayoutAuthenticatedDashboardDashboardIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutAuthenticatedDashboardDashboardRoute,
   } as any)
-const LayoutAuthenticatedSettingsAuthMethodsRoute =
-  LayoutAuthenticatedSettingsAuthMethodsRouteImport.update({
+const LayoutAuthenticatedDashboardDashboardNodeRoute =
+  LayoutAuthenticatedDashboardDashboardNodeRouteImport.update({
+    id: '/node',
+    path: '/node',
+    getParentRoute: () => LayoutAuthenticatedDashboardDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardOrgsIndexRoute =
+  LayoutAuthenticatedDashboardOrgsIndexRouteImport.update({
+    id: '/orgs/',
+    path: '/orgs/',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardOrgsSlugRoute =
+  LayoutAuthenticatedDashboardOrgsSlugRouteImport.update({
+    id: '/orgs/$slug',
+    path: '/orgs/$slug',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardOrgsNewRoute =
+  LayoutAuthenticatedDashboardOrgsNewRouteImport.update({
+    id: '/orgs/new',
+    path: '/orgs/new',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardSettingsIndexRoute =
+  LayoutAuthenticatedDashboardSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
+  } as any)
+const LayoutAuthenticatedDashboardSettingsApiKeysRoute =
+  LayoutAuthenticatedDashboardSettingsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
+  } as any)
+const LayoutAuthenticatedDashboardSettingsAuthMethodsRoute =
+  LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport.update({
     id: '/auth-methods',
     path: '/auth-methods',
-    getParentRoute: () => LayoutAuthenticatedSettingsRoute,
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
   } as any)
-const LayoutAuthenticatedOrganizationsNewRoute =
-  LayoutAuthenticatedOrganizationsNewRouteImport.update({
-    id: '/organizations/new',
-    path: '/organizations/new',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutAuthenticatedDashboardSettingsProfileRoute =
+  LayoutAuthenticatedDashboardSettingsProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
   } as any)
-const LayoutAuthenticatedOrganizationsSlugRoute =
-  LayoutAuthenticatedOrganizationsSlugRouteImport.update({
-    id: '/organizations/$slug',
-    path: '/organizations/$slug',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutAuthenticatedDashboardSettingsSecurityRoute =
+  LayoutAuthenticatedDashboardSettingsSecurityRouteImport.update({
+    id: '/security',
+    path: '/security',
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
   } as any)
-const LayoutAuthenticatedFeedbackRequestRoute =
-  LayoutAuthenticatedFeedbackRequestRouteImport.update({
-    id: '/feedback/request',
-    path: '/feedback/request',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutAuthenticatedDashboardTenantTenantIdRoute =
+  LayoutAuthenticatedDashboardTenantTenantIdRouteImport.update({
+    id: '/tenant/$tenantId',
+    path: '/tenant/$tenantId',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedAcceptInvitationIdRoute =
-  LayoutAuthenticatedAcceptInvitationIdRouteImport.update({
-    id: '/accept-invitation/$id',
-    path: '/accept-invitation/$id',
-    getParentRoute: () => LayoutAuthenticatedRoute,
+const LayoutAuthenticatedDashboardThingsIndexRoute =
+  LayoutAuthenticatedDashboardThingsIndexRouteImport.update({
+    id: '/things/',
+    path: '/things/',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardThingsThingIdRoute =
+  LayoutAuthenticatedDashboardThingsThingIdRouteImport.update({
+    id: '/things/$thingId',
+    path: '/things/$thingId',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardThingsLiveRoute =
+  LayoutAuthenticatedDashboardThingsLiveRouteImport.update({
+    id: '/things/live',
+    path: '/things/live',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardThingsNewRoute =
+  LayoutAuthenticatedDashboardThingsNewRouteImport.update({
+    id: '/things/new',
+    path: '/things/new',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAdminDashboardAdminNodesIndexRoute =
+  LayoutAdminDashboardAdminNodesIndexRouteImport.update({
+    id: '/nodes/',
+    path: '/nodes/',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
+  } as any)
+const LayoutAdminDashboardAdminNodesNodeIdRoute =
+  LayoutAdminDashboardAdminNodesNodeIdRouteImport.update({
+    id: '/nodes/$nodeId',
+    path: '/nodes/$nodeId',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
+  } as any)
+const LayoutAdminDashboardAdminProposalsIndexRoute =
+  LayoutAdminDashboardAdminProposalsIndexRouteImport.update({
+    id: '/proposals/',
+    path: '/proposals/',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
+  } as any)
+const LayoutAdminDashboardAdminProposalsProposalIdRoute =
+  LayoutAdminDashboardAdminProposalsProposalIdRouteImport.update({
+    id: '/proposals/$proposalId',
+    path: '/proposals/$proposalId',
+    getParentRoute: () => LayoutAdminDashboardAdminRoute,
+  } as any)
+const LayoutAdminDashboardAdminTenantsIndexRoute =
+  LayoutAdminDashboardAdminTenantsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutAdminDashboardAdminTenantsRoute,
+  } as any)
+const LayoutAdminDashboardAdminTenantsNewRoute =
+  LayoutAdminDashboardAdminTenantsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => LayoutAdminDashboardAdminTenantsRoute,
+  } as any)
+const LayoutAuthenticatedDashboardDashboardNodeIndexRoute =
+  LayoutAuthenticatedDashboardDashboardNodeIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutAuthenticatedDashboardDashboardNodeRoute,
+  } as any)
+const LayoutAuthenticatedDashboardOrgsInvitesIdRoute =
+  LayoutAuthenticatedDashboardOrgsInvitesIdRouteImport.update({
+    id: '/orgs/invites/$id',
+    path: '/orgs/invites/$id',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute =
+  LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRouteImport.update({
+    id: '/proposals/',
+    path: '/proposals/',
+    getParentRoute: () => LayoutAuthenticatedDashboardDashboardNodeRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof LayoutIndexRoute
-  '/about': typeof LayoutAboutRoute
-  '/login': typeof LayoutLoginRoute
-  '/skill': typeof LayoutSkillRoute
-  '/admin': typeof LayoutAuthenticatedAdminRoute
-  '/home': typeof LayoutAuthenticatedHomeRoute
-  '/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
-  '/builders/$accountId': typeof LayoutBuildersAccountIdRoute
-  '/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
-  '/feedback/': typeof LayoutFeedbackIndexRoute
-  '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
-  '/feedback/request': typeof LayoutAuthenticatedFeedbackRequestRoute
-  '/organizations/$slug': typeof LayoutAuthenticatedOrganizationsSlugRoute
-  '/organizations/new': typeof LayoutAuthenticatedOrganizationsNewRoute
-  '/settings/auth-methods': typeof LayoutAuthenticatedSettingsAuthMethodsRoute
-  '/settings/profile': typeof LayoutAuthenticatedSettingsProfileRoute
-  '/settings/security': typeof LayoutAuthenticatedSettingsSecurityRoute
-  '/tenant/$tenantId': typeof LayoutAuthenticatedTenantTenantIdRoute
-  '/tenant/new': typeof LayoutAuthenticatedTenantNewRoute
-  '/organizations/': typeof LayoutAuthenticatedOrganizationsIndexRoute
-  '/settings/': typeof LayoutAuthenticatedSettingsIndexRoute
-  '/tenant/': typeof LayoutAuthenticatedTenantIndexRoute
+  '/': typeof LayoutPublicIndexRoute
+  '/login': typeof LayoutAnonLoginRoute
+  '/$accountId': typeof LayoutPublicAccountIdRouteWithChildren
+  '/about': typeof LayoutPublicAboutRoute
+  '/skill': typeof LayoutPublicSkillRoute
+  '/admin': typeof LayoutAdminDashboardAdminRouteWithChildren
+  '/apply': typeof LayoutAuthenticatedDashboardApplyRoute
+  '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRouteWithChildren
+  '/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
+  '/stake': typeof LayoutAuthenticatedDashboardStakeRoute
+  '/n/$slug': typeof LayoutPublicNSlugRoute
+  '/$accountId/': typeof LayoutPublicAccountIdIndexRoute
+  '/admin/relayer': typeof LayoutAdminDashboardAdminRelayerRoute
+  '/admin/system': typeof LayoutAdminDashboardAdminSystemRoute
+  '/admin/tenants': typeof LayoutAdminDashboardAdminTenantsRouteWithChildren
+  '/dashboard/node': typeof LayoutAuthenticatedDashboardDashboardNodeRouteWithChildren
+  '/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
+  '/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
+  '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
+  '/settings/auth-methods': typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRoute
+  '/settings/profile': typeof LayoutAuthenticatedDashboardSettingsProfileRoute
+  '/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
+  '/tenant/$tenantId': typeof LayoutAuthenticatedDashboardTenantTenantIdRoute
+  '/things/$thingId': typeof LayoutAuthenticatedDashboardThingsThingIdRoute
+  '/things/live': typeof LayoutAuthenticatedDashboardThingsLiveRoute
+  '/things/new': typeof LayoutAuthenticatedDashboardThingsNewRoute
+  '/admin/': typeof LayoutAdminDashboardAdminIndexRoute
+  '/dashboard/': typeof LayoutAuthenticatedDashboardDashboardIndexRoute
+  '/orgs/': typeof LayoutAuthenticatedDashboardOrgsIndexRoute
+  '/settings/': typeof LayoutAuthenticatedDashboardSettingsIndexRoute
+  '/things/': typeof LayoutAuthenticatedDashboardThingsIndexRoute
+  '/admin/nodes/$nodeId': typeof LayoutAdminDashboardAdminNodesNodeIdRoute
+  '/admin/proposals/$proposalId': typeof LayoutAdminDashboardAdminProposalsProposalIdRoute
+  '/admin/tenants/new': typeof LayoutAdminDashboardAdminTenantsNewRoute
+  '/orgs/invites/$id': typeof LayoutAuthenticatedDashboardOrgsInvitesIdRoute
+  '/admin/nodes/': typeof LayoutAdminDashboardAdminNodesIndexRoute
+  '/admin/proposals/': typeof LayoutAdminDashboardAdminProposalsIndexRoute
+  '/admin/tenants/': typeof LayoutAdminDashboardAdminTenantsIndexRoute
+  '/dashboard/node/': typeof LayoutAuthenticatedDashboardDashboardNodeIndexRoute
+  '/dashboard/node/proposals/': typeof LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof LayoutIndexRoute
-  '/about': typeof LayoutAboutRoute
-  '/login': typeof LayoutLoginRoute
-  '/skill': typeof LayoutSkillRoute
-  '/admin': typeof LayoutAuthenticatedAdminRoute
-  '/home': typeof LayoutAuthenticatedHomeRoute
-  '/builders/$accountId': typeof LayoutBuildersAccountIdRoute
-  '/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
-  '/feedback': typeof LayoutFeedbackIndexRoute
-  '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
-  '/feedback/request': typeof LayoutAuthenticatedFeedbackRequestRoute
-  '/organizations/$slug': typeof LayoutAuthenticatedOrganizationsSlugRoute
-  '/organizations/new': typeof LayoutAuthenticatedOrganizationsNewRoute
-  '/settings/auth-methods': typeof LayoutAuthenticatedSettingsAuthMethodsRoute
-  '/settings/profile': typeof LayoutAuthenticatedSettingsProfileRoute
-  '/settings/security': typeof LayoutAuthenticatedSettingsSecurityRoute
-  '/tenant/$tenantId': typeof LayoutAuthenticatedTenantTenantIdRoute
-  '/tenant/new': typeof LayoutAuthenticatedTenantNewRoute
-  '/organizations': typeof LayoutAuthenticatedOrganizationsIndexRoute
-  '/settings': typeof LayoutAuthenticatedSettingsIndexRoute
-  '/tenant': typeof LayoutAuthenticatedTenantIndexRoute
+  '/': typeof LayoutPublicIndexRoute
+  '/login': typeof LayoutAnonLoginRoute
+  '/about': typeof LayoutPublicAboutRoute
+  '/skill': typeof LayoutPublicSkillRoute
+  '/apply': typeof LayoutAuthenticatedDashboardApplyRoute
+  '/stake': typeof LayoutAuthenticatedDashboardStakeRoute
+  '/n/$slug': typeof LayoutPublicNSlugRoute
+  '/$accountId': typeof LayoutPublicAccountIdIndexRoute
+  '/admin/relayer': typeof LayoutAdminDashboardAdminRelayerRoute
+  '/admin/system': typeof LayoutAdminDashboardAdminSystemRoute
+  '/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
+  '/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
+  '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
+  '/settings/auth-methods': typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRoute
+  '/settings/profile': typeof LayoutAuthenticatedDashboardSettingsProfileRoute
+  '/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
+  '/tenant/$tenantId': typeof LayoutAuthenticatedDashboardTenantTenantIdRoute
+  '/things/$thingId': typeof LayoutAuthenticatedDashboardThingsThingIdRoute
+  '/things/live': typeof LayoutAuthenticatedDashboardThingsLiveRoute
+  '/things/new': typeof LayoutAuthenticatedDashboardThingsNewRoute
+  '/admin': typeof LayoutAdminDashboardAdminIndexRoute
+  '/dashboard': typeof LayoutAuthenticatedDashboardDashboardIndexRoute
+  '/orgs': typeof LayoutAuthenticatedDashboardOrgsIndexRoute
+  '/settings': typeof LayoutAuthenticatedDashboardSettingsIndexRoute
+  '/things': typeof LayoutAuthenticatedDashboardThingsIndexRoute
+  '/admin/nodes/$nodeId': typeof LayoutAdminDashboardAdminNodesNodeIdRoute
+  '/admin/proposals/$proposalId': typeof LayoutAdminDashboardAdminProposalsProposalIdRoute
+  '/admin/tenants/new': typeof LayoutAdminDashboardAdminTenantsNewRoute
+  '/orgs/invites/$id': typeof LayoutAuthenticatedDashboardOrgsInvitesIdRoute
+  '/admin/nodes': typeof LayoutAdminDashboardAdminNodesIndexRoute
+  '/admin/proposals': typeof LayoutAdminDashboardAdminProposalsIndexRoute
+  '/admin/tenants': typeof LayoutAdminDashboardAdminTenantsIndexRoute
+  '/dashboard/node': typeof LayoutAuthenticatedDashboardDashboardNodeIndexRoute
+  '/dashboard/node/proposals': typeof LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
+  '/_layout/_admin': typeof LayoutAdminRouteWithChildren
+  '/_layout/_anon': typeof LayoutAnonRouteWithChildren
   '/_layout/_authenticated': typeof LayoutAuthenticatedRouteWithChildren
-  '/_layout/about': typeof LayoutAboutRoute
-  '/_layout/login': typeof LayoutLoginRoute
-  '/_layout/skill': typeof LayoutSkillRoute
-  '/_layout/': typeof LayoutIndexRoute
-  '/_layout/_authenticated/admin': typeof LayoutAuthenticatedAdminRoute
-  '/_layout/_authenticated/home': typeof LayoutAuthenticatedHomeRoute
-  '/_layout/_authenticated/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
-  '/_layout/builders/$accountId': typeof LayoutBuildersAccountIdRoute
-  '/_layout/feedback/$roundId': typeof LayoutFeedbackRoundIdRoute
-  '/_layout/feedback/': typeof LayoutFeedbackIndexRoute
-  '/_layout/_authenticated/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
-  '/_layout/_authenticated/feedback/request': typeof LayoutAuthenticatedFeedbackRequestRoute
-  '/_layout/_authenticated/organizations/$slug': typeof LayoutAuthenticatedOrganizationsSlugRoute
-  '/_layout/_authenticated/organizations/new': typeof LayoutAuthenticatedOrganizationsNewRoute
-  '/_layout/_authenticated/settings/auth-methods': typeof LayoutAuthenticatedSettingsAuthMethodsRoute
-  '/_layout/_authenticated/settings/profile': typeof LayoutAuthenticatedSettingsProfileRoute
-  '/_layout/_authenticated/settings/security': typeof LayoutAuthenticatedSettingsSecurityRoute
-  '/_layout/_authenticated/tenant/$tenantId': typeof LayoutAuthenticatedTenantTenantIdRoute
-  '/_layout/_authenticated/tenant/new': typeof LayoutAuthenticatedTenantNewRoute
-  '/_layout/_authenticated/organizations/': typeof LayoutAuthenticatedOrganizationsIndexRoute
-  '/_layout/_authenticated/settings/': typeof LayoutAuthenticatedSettingsIndexRoute
-  '/_layout/_authenticated/tenant/': typeof LayoutAuthenticatedTenantIndexRoute
+  '/_layout/_public': typeof LayoutPublicRouteWithChildren
+  '/_layout/_admin/_dashboard': typeof LayoutAdminDashboardRouteWithChildren
+  '/_layout/_anon/login': typeof LayoutAnonLoginRoute
+  '/_layout/_authenticated/_dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
+  '/_layout/_public/$accountId': typeof LayoutPublicAccountIdRouteWithChildren
+  '/_layout/_public/about': typeof LayoutPublicAboutRoute
+  '/_layout/_public/skill': typeof LayoutPublicSkillRoute
+  '/_layout/_public/': typeof LayoutPublicIndexRoute
+  '/_layout/_admin/_dashboard/admin': typeof LayoutAdminDashboardAdminRouteWithChildren
+  '/_layout/_authenticated/_dashboard/apply': typeof LayoutAuthenticatedDashboardApplyRoute
+  '/_layout/_authenticated/_dashboard/dashboard': typeof LayoutAuthenticatedDashboardDashboardRouteWithChildren
+  '/_layout/_authenticated/_dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
+  '/_layout/_authenticated/_dashboard/stake': typeof LayoutAuthenticatedDashboardStakeRoute
+  '/_layout/_public/n/$slug': typeof LayoutPublicNSlugRoute
+  '/_layout/_public/$accountId/': typeof LayoutPublicAccountIdIndexRoute
+  '/_layout/_admin/_dashboard/admin/relayer': typeof LayoutAdminDashboardAdminRelayerRoute
+  '/_layout/_admin/_dashboard/admin/system': typeof LayoutAdminDashboardAdminSystemRoute
+  '/_layout/_admin/_dashboard/admin/tenants': typeof LayoutAdminDashboardAdminTenantsRouteWithChildren
+  '/_layout/_authenticated/_dashboard/dashboard/node': typeof LayoutAuthenticatedDashboardDashboardNodeRouteWithChildren
+  '/_layout/_authenticated/_dashboard/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
+  '/_layout/_authenticated/_dashboard/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
+  '/_layout/_authenticated/_dashboard/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
+  '/_layout/_authenticated/_dashboard/settings/auth-methods': typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRoute
+  '/_layout/_authenticated/_dashboard/settings/profile': typeof LayoutAuthenticatedDashboardSettingsProfileRoute
+  '/_layout/_authenticated/_dashboard/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
+  '/_layout/_authenticated/_dashboard/tenant/$tenantId': typeof LayoutAuthenticatedDashboardTenantTenantIdRoute
+  '/_layout/_authenticated/_dashboard/things/$thingId': typeof LayoutAuthenticatedDashboardThingsThingIdRoute
+  '/_layout/_authenticated/_dashboard/things/live': typeof LayoutAuthenticatedDashboardThingsLiveRoute
+  '/_layout/_authenticated/_dashboard/things/new': typeof LayoutAuthenticatedDashboardThingsNewRoute
+  '/_layout/_admin/_dashboard/admin/': typeof LayoutAdminDashboardAdminIndexRoute
+  '/_layout/_authenticated/_dashboard/dashboard/': typeof LayoutAuthenticatedDashboardDashboardIndexRoute
+  '/_layout/_authenticated/_dashboard/orgs/': typeof LayoutAuthenticatedDashboardOrgsIndexRoute
+  '/_layout/_authenticated/_dashboard/settings/': typeof LayoutAuthenticatedDashboardSettingsIndexRoute
+  '/_layout/_authenticated/_dashboard/things/': typeof LayoutAuthenticatedDashboardThingsIndexRoute
+  '/_layout/_admin/_dashboard/admin/nodes/$nodeId': typeof LayoutAdminDashboardAdminNodesNodeIdRoute
+  '/_layout/_admin/_dashboard/admin/proposals/$proposalId': typeof LayoutAdminDashboardAdminProposalsProposalIdRoute
+  '/_layout/_admin/_dashboard/admin/tenants/new': typeof LayoutAdminDashboardAdminTenantsNewRoute
+  '/_layout/_authenticated/_dashboard/orgs/invites/$id': typeof LayoutAuthenticatedDashboardOrgsInvitesIdRoute
+  '/_layout/_admin/_dashboard/admin/nodes/': typeof LayoutAdminDashboardAdminNodesIndexRoute
+  '/_layout/_admin/_dashboard/admin/proposals/': typeof LayoutAdminDashboardAdminProposalsIndexRoute
+  '/_layout/_admin/_dashboard/admin/tenants/': typeof LayoutAdminDashboardAdminTenantsIndexRoute
+  '/_layout/_authenticated/_dashboard/dashboard/node/': typeof LayoutAuthenticatedDashboardDashboardNodeIndexRoute
+  '/_layout/_authenticated/_dashboard/dashboard/node/proposals/': typeof LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
     | '/login'
+    | '/$accountId'
+    | '/about'
     | '/skill'
     | '/admin'
-    | '/home'
+    | '/apply'
+    | '/dashboard'
     | '/settings'
-    | '/builders/$accountId'
-    | '/feedback/$roundId'
-    | '/feedback/'
-    | '/accept-invitation/$id'
-    | '/feedback/request'
-    | '/organizations/$slug'
-    | '/organizations/new'
+    | '/stake'
+    | '/n/$slug'
+    | '/$accountId/'
+    | '/admin/relayer'
+    | '/admin/system'
+    | '/admin/tenants'
+    | '/dashboard/node'
+    | '/orgs/$slug'
+    | '/orgs/new'
+    | '/settings/api-keys'
     | '/settings/auth-methods'
     | '/settings/profile'
     | '/settings/security'
     | '/tenant/$tenantId'
-    | '/tenant/new'
-    | '/organizations/'
+    | '/things/$thingId'
+    | '/things/live'
+    | '/things/new'
+    | '/admin/'
+    | '/dashboard/'
+    | '/orgs/'
     | '/settings/'
-    | '/tenant/'
+    | '/things/'
+    | '/admin/nodes/$nodeId'
+    | '/admin/proposals/$proposalId'
+    | '/admin/tenants/new'
+    | '/orgs/invites/$id'
+    | '/admin/nodes/'
+    | '/admin/proposals/'
+    | '/admin/tenants/'
+    | '/dashboard/node/'
+    | '/dashboard/node/proposals/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/about'
     | '/login'
+    | '/about'
     | '/skill'
-    | '/admin'
-    | '/home'
-    | '/builders/$accountId'
-    | '/feedback/$roundId'
-    | '/feedback'
-    | '/accept-invitation/$id'
-    | '/feedback/request'
-    | '/organizations/$slug'
-    | '/organizations/new'
+    | '/apply'
+    | '/stake'
+    | '/n/$slug'
+    | '/$accountId'
+    | '/admin/relayer'
+    | '/admin/system'
+    | '/orgs/$slug'
+    | '/orgs/new'
+    | '/settings/api-keys'
     | '/settings/auth-methods'
     | '/settings/profile'
     | '/settings/security'
     | '/tenant/$tenantId'
-    | '/tenant/new'
-    | '/organizations'
+    | '/things/$thingId'
+    | '/things/live'
+    | '/things/new'
+    | '/admin'
+    | '/dashboard'
+    | '/orgs'
     | '/settings'
-    | '/tenant'
+    | '/things'
+    | '/admin/nodes/$nodeId'
+    | '/admin/proposals/$proposalId'
+    | '/admin/tenants/new'
+    | '/orgs/invites/$id'
+    | '/admin/nodes'
+    | '/admin/proposals'
+    | '/admin/tenants'
+    | '/dashboard/node'
+    | '/dashboard/node/proposals'
   id:
     | '__root__'
     | '/_layout'
+    | '/_layout/_admin'
+    | '/_layout/_anon'
     | '/_layout/_authenticated'
-    | '/_layout/about'
-    | '/_layout/login'
-    | '/_layout/skill'
-    | '/_layout/'
-    | '/_layout/_authenticated/admin'
-    | '/_layout/_authenticated/home'
-    | '/_layout/_authenticated/settings'
-    | '/_layout/builders/$accountId'
-    | '/_layout/feedback/$roundId'
-    | '/_layout/feedback/'
-    | '/_layout/_authenticated/accept-invitation/$id'
-    | '/_layout/_authenticated/feedback/request'
-    | '/_layout/_authenticated/organizations/$slug'
-    | '/_layout/_authenticated/organizations/new'
-    | '/_layout/_authenticated/settings/auth-methods'
-    | '/_layout/_authenticated/settings/profile'
-    | '/_layout/_authenticated/settings/security'
-    | '/_layout/_authenticated/tenant/$tenantId'
-    | '/_layout/_authenticated/tenant/new'
-    | '/_layout/_authenticated/organizations/'
-    | '/_layout/_authenticated/settings/'
-    | '/_layout/_authenticated/tenant/'
+    | '/_layout/_public'
+    | '/_layout/_admin/_dashboard'
+    | '/_layout/_anon/login'
+    | '/_layout/_authenticated/_dashboard'
+    | '/_layout/_public/$accountId'
+    | '/_layout/_public/about'
+    | '/_layout/_public/skill'
+    | '/_layout/_public/'
+    | '/_layout/_admin/_dashboard/admin'
+    | '/_layout/_authenticated/_dashboard/apply'
+    | '/_layout/_authenticated/_dashboard/dashboard'
+    | '/_layout/_authenticated/_dashboard/settings'
+    | '/_layout/_authenticated/_dashboard/stake'
+    | '/_layout/_public/n/$slug'
+    | '/_layout/_public/$accountId/'
+    | '/_layout/_admin/_dashboard/admin/relayer'
+    | '/_layout/_admin/_dashboard/admin/system'
+    | '/_layout/_admin/_dashboard/admin/tenants'
+    | '/_layout/_authenticated/_dashboard/dashboard/node'
+    | '/_layout/_authenticated/_dashboard/orgs/$slug'
+    | '/_layout/_authenticated/_dashboard/orgs/new'
+    | '/_layout/_authenticated/_dashboard/settings/api-keys'
+    | '/_layout/_authenticated/_dashboard/settings/auth-methods'
+    | '/_layout/_authenticated/_dashboard/settings/profile'
+    | '/_layout/_authenticated/_dashboard/settings/security'
+    | '/_layout/_authenticated/_dashboard/tenant/$tenantId'
+    | '/_layout/_authenticated/_dashboard/things/$thingId'
+    | '/_layout/_authenticated/_dashboard/things/live'
+    | '/_layout/_authenticated/_dashboard/things/new'
+    | '/_layout/_admin/_dashboard/admin/'
+    | '/_layout/_authenticated/_dashboard/dashboard/'
+    | '/_layout/_authenticated/_dashboard/orgs/'
+    | '/_layout/_authenticated/_dashboard/settings/'
+    | '/_layout/_authenticated/_dashboard/things/'
+    | '/_layout/_admin/_dashboard/admin/nodes/$nodeId'
+    | '/_layout/_admin/_dashboard/admin/proposals/$proposalId'
+    | '/_layout/_admin/_dashboard/admin/tenants/new'
+    | '/_layout/_authenticated/_dashboard/orgs/invites/$id'
+    | '/_layout/_admin/_dashboard/admin/nodes/'
+    | '/_layout/_admin/_dashboard/admin/proposals/'
+    | '/_layout/_admin/_dashboard/admin/tenants/'
+    | '/_layout/_authenticated/_dashboard/dashboard/node/'
+    | '/_layout/_authenticated/_dashboard/dashboard/node/proposals/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -330,32 +592,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_layout/': {
-      id: '/_layout/'
-      path: '/'
+    '/_layout/_admin': {
+      id: '/_layout/_admin'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof LayoutIndexRouteImport
+      preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/skill': {
-      id: '/_layout/skill'
-      path: '/skill'
-      fullPath: '/skill'
-      preLoaderRoute: typeof LayoutSkillRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/login': {
-      id: '/_layout/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LayoutLoginRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/about': {
-      id: '/_layout/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof LayoutAboutRouteImport
+    '/_layout/_anon': {
+      id: '/_layout/_anon'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutAnonRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/_authenticated': {
@@ -365,217 +613,568 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/feedback/': {
-      id: '/_layout/feedback/'
-      path: '/feedback'
-      fullPath: '/feedback/'
-      preLoaderRoute: typeof LayoutFeedbackIndexRouteImport
+    '/_layout/_public': {
+      id: '/_layout/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutPublicRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/feedback/$roundId': {
-      id: '/_layout/feedback/$roundId'
-      path: '/feedback/$roundId'
-      fullPath: '/feedback/$roundId'
-      preLoaderRoute: typeof LayoutFeedbackRoundIdRouteImport
-      parentRoute: typeof LayoutRoute
+    '/_layout/_admin/_dashboard': {
+      id: '/_layout/_admin/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutAdminDashboardRouteImport
+      parentRoute: typeof LayoutAdminRoute
     }
-    '/_layout/builders/$accountId': {
-      id: '/_layout/builders/$accountId'
-      path: '/builders/$accountId'
-      fullPath: '/builders/$accountId'
-      preLoaderRoute: typeof LayoutBuildersAccountIdRouteImport
-      parentRoute: typeof LayoutRoute
+    '/_layout/_anon/login': {
+      id: '/_layout/_anon/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LayoutAnonLoginRouteImport
+      parentRoute: typeof LayoutAnonRoute
     }
-    '/_layout/_authenticated/settings': {
-      id: '/_layout/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof LayoutAuthenticatedSettingsRouteImport
+    '/_layout/_authenticated/_dashboard': {
+      id: '/_layout/_authenticated/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardRouteImport
       parentRoute: typeof LayoutAuthenticatedRoute
     }
-    '/_layout/_authenticated/home': {
-      id: '/_layout/_authenticated/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof LayoutAuthenticatedHomeRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+    '/_layout/_public/': {
+      id: '/_layout/_public/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutPublicIndexRouteImport
+      parentRoute: typeof LayoutPublicRoute
     }
-    '/_layout/_authenticated/admin': {
-      id: '/_layout/_authenticated/admin'
+    '/_layout/_public/$accountId': {
+      id: '/_layout/_public/$accountId'
+      path: '/$accountId'
+      fullPath: '/$accountId'
+      preLoaderRoute: typeof LayoutPublicAccountIdRouteImport
+      parentRoute: typeof LayoutPublicRoute
+    }
+    '/_layout/_public/about': {
+      id: '/_layout/_public/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof LayoutPublicAboutRouteImport
+      parentRoute: typeof LayoutPublicRoute
+    }
+    '/_layout/_public/skill': {
+      id: '/_layout/_public/skill'
+      path: '/skill'
+      fullPath: '/skill'
+      preLoaderRoute: typeof LayoutPublicSkillRouteImport
+      parentRoute: typeof LayoutPublicRoute
+    }
+    '/_layout/_admin/_dashboard/admin': {
+      id: '/_layout/_admin/_dashboard/admin'
       path: '/admin'
       fullPath: '/admin'
-      preLoaderRoute: typeof LayoutAuthenticatedAdminRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+      preLoaderRoute: typeof LayoutAdminDashboardAdminRouteImport
+      parentRoute: typeof LayoutAdminDashboardRoute
     }
-    '/_layout/_authenticated/tenant/': {
-      id: '/_layout/_authenticated/tenant/'
-      path: '/tenant'
-      fullPath: '/tenant/'
-      preLoaderRoute: typeof LayoutAuthenticatedTenantIndexRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+    '/_layout/_authenticated/_dashboard/apply': {
+      id: '/_layout/_authenticated/_dashboard/apply'
+      path: '/apply'
+      fullPath: '/apply'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardApplyRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/_authenticated/settings/': {
-      id: '/_layout/_authenticated/settings/'
+    '/_layout/_authenticated/_dashboard/dashboard': {
+      id: '/_layout/_authenticated/_dashboard/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/settings': {
+      id: '/_layout/_authenticated/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/stake': {
+      id: '/_layout/_authenticated/_dashboard/stake'
+      path: '/stake'
+      fullPath: '/stake'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardStakeRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_public/$accountId/': {
+      id: '/_layout/_public/$accountId/'
+      path: '/'
+      fullPath: '/$accountId/'
+      preLoaderRoute: typeof LayoutPublicAccountIdIndexRouteImport
+      parentRoute: typeof LayoutPublicAccountIdRoute
+    }
+    '/_layout/_public/n/$slug': {
+      id: '/_layout/_public/n/$slug'
+      path: '/n/$slug'
+      fullPath: '/n/$slug'
+      preLoaderRoute: typeof LayoutPublicNSlugRouteImport
+      parentRoute: typeof LayoutPublicRoute
+    }
+    '/_layout/_admin/_dashboard/admin/': {
+      id: '/_layout/_admin/_dashboard/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminIndexRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_admin/_dashboard/admin/relayer': {
+      id: '/_layout/_admin/_dashboard/admin/relayer'
+      path: '/relayer'
+      fullPath: '/admin/relayer'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminRelayerRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_admin/_dashboard/admin/system': {
+      id: '/_layout/_admin/_dashboard/admin/system'
+      path: '/system'
+      fullPath: '/admin/system'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminSystemRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_admin/_dashboard/admin/tenants': {
+      id: '/_layout/_admin/_dashboard/admin/tenants'
+      path: '/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminTenantsRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_authenticated/_dashboard/dashboard/': {
+      id: '/_layout/_authenticated/_dashboard/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/dashboard/node': {
+      id: '/_layout/_authenticated/_dashboard/dashboard/node'
+      path: '/node'
+      fullPath: '/dashboard/node'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardNodeRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/orgs/': {
+      id: '/_layout/_authenticated/_dashboard/orgs/'
+      path: '/orgs'
+      fullPath: '/orgs/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrgsIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/orgs/$slug': {
+      id: '/_layout/_authenticated/_dashboard/orgs/$slug'
+      path: '/orgs/$slug'
+      fullPath: '/orgs/$slug'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrgsSlugRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/orgs/new': {
+      id: '/_layout/_authenticated/_dashboard/orgs/new'
+      path: '/orgs/new'
+      fullPath: '/orgs/new'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrgsNewRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/settings/': {
+      id: '/_layout/_authenticated/_dashboard/settings/'
       path: '/'
       fullPath: '/settings/'
-      preLoaderRoute: typeof LayoutAuthenticatedSettingsIndexRouteImport
-      parentRoute: typeof LayoutAuthenticatedSettingsRoute
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/_authenticated/organizations/': {
-      id: '/_layout/_authenticated/organizations/'
-      path: '/organizations'
-      fullPath: '/organizations/'
-      preLoaderRoute: typeof LayoutAuthenticatedOrganizationsIndexRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+    '/_layout/_authenticated/_dashboard/settings/api-keys': {
+      id: '/_layout/_authenticated/_dashboard/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsApiKeysRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/_authenticated/tenant/new': {
-      id: '/_layout/_authenticated/tenant/new'
-      path: '/tenant/new'
-      fullPath: '/tenant/new'
-      preLoaderRoute: typeof LayoutAuthenticatedTenantNewRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
-    }
-    '/_layout/_authenticated/tenant/$tenantId': {
-      id: '/_layout/_authenticated/tenant/$tenantId'
-      path: '/tenant/$tenantId'
-      fullPath: '/tenant/$tenantId'
-      preLoaderRoute: typeof LayoutAuthenticatedTenantTenantIdRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
-    }
-    '/_layout/_authenticated/settings/security': {
-      id: '/_layout/_authenticated/settings/security'
-      path: '/security'
-      fullPath: '/settings/security'
-      preLoaderRoute: typeof LayoutAuthenticatedSettingsSecurityRouteImport
-      parentRoute: typeof LayoutAuthenticatedSettingsRoute
-    }
-    '/_layout/_authenticated/settings/profile': {
-      id: '/_layout/_authenticated/settings/profile'
-      path: '/profile'
-      fullPath: '/settings/profile'
-      preLoaderRoute: typeof LayoutAuthenticatedSettingsProfileRouteImport
-      parentRoute: typeof LayoutAuthenticatedSettingsRoute
-    }
-    '/_layout/_authenticated/settings/auth-methods': {
-      id: '/_layout/_authenticated/settings/auth-methods'
+    '/_layout/_authenticated/_dashboard/settings/auth-methods': {
+      id: '/_layout/_authenticated/_dashboard/settings/auth-methods'
       path: '/auth-methods'
       fullPath: '/settings/auth-methods'
-      preLoaderRoute: typeof LayoutAuthenticatedSettingsAuthMethodsRouteImport
-      parentRoute: typeof LayoutAuthenticatedSettingsRoute
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/_authenticated/organizations/new': {
-      id: '/_layout/_authenticated/organizations/new'
-      path: '/organizations/new'
-      fullPath: '/organizations/new'
-      preLoaderRoute: typeof LayoutAuthenticatedOrganizationsNewRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+    '/_layout/_authenticated/_dashboard/settings/profile': {
+      id: '/_layout/_authenticated/_dashboard/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsProfileRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/_authenticated/organizations/$slug': {
-      id: '/_layout/_authenticated/organizations/$slug'
-      path: '/organizations/$slug'
-      fullPath: '/organizations/$slug'
-      preLoaderRoute: typeof LayoutAuthenticatedOrganizationsSlugRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+    '/_layout/_authenticated/_dashboard/settings/security': {
+      id: '/_layout/_authenticated/_dashboard/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsSecurityRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/_authenticated/feedback/request': {
-      id: '/_layout/_authenticated/feedback/request'
-      path: '/feedback/request'
-      fullPath: '/feedback/request'
-      preLoaderRoute: typeof LayoutAuthenticatedFeedbackRequestRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+    '/_layout/_authenticated/_dashboard/tenant/$tenantId': {
+      id: '/_layout/_authenticated/_dashboard/tenant/$tenantId'
+      path: '/tenant/$tenantId'
+      fullPath: '/tenant/$tenantId'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardTenantTenantIdRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/_authenticated/accept-invitation/$id': {
-      id: '/_layout/_authenticated/accept-invitation/$id'
-      path: '/accept-invitation/$id'
-      fullPath: '/accept-invitation/$id'
-      preLoaderRoute: typeof LayoutAuthenticatedAcceptInvitationIdRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
+    '/_layout/_authenticated/_dashboard/things/': {
+      id: '/_layout/_authenticated/_dashboard/things/'
+      path: '/things'
+      fullPath: '/things/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardThingsIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/things/$thingId': {
+      id: '/_layout/_authenticated/_dashboard/things/$thingId'
+      path: '/things/$thingId'
+      fullPath: '/things/$thingId'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardThingsThingIdRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/things/live': {
+      id: '/_layout/_authenticated/_dashboard/things/live'
+      path: '/things/live'
+      fullPath: '/things/live'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardThingsLiveRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/things/new': {
+      id: '/_layout/_authenticated/_dashboard/things/new'
+      path: '/things/new'
+      fullPath: '/things/new'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardThingsNewRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_admin/_dashboard/admin/nodes/': {
+      id: '/_layout/_admin/_dashboard/admin/nodes/'
+      path: '/nodes'
+      fullPath: '/admin/nodes/'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminNodesIndexRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_admin/_dashboard/admin/nodes/$nodeId': {
+      id: '/_layout/_admin/_dashboard/admin/nodes/$nodeId'
+      path: '/nodes/$nodeId'
+      fullPath: '/admin/nodes/$nodeId'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminNodesNodeIdRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_admin/_dashboard/admin/proposals/': {
+      id: '/_layout/_admin/_dashboard/admin/proposals/'
+      path: '/proposals'
+      fullPath: '/admin/proposals/'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminProposalsIndexRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_admin/_dashboard/admin/proposals/$proposalId': {
+      id: '/_layout/_admin/_dashboard/admin/proposals/$proposalId'
+      path: '/proposals/$proposalId'
+      fullPath: '/admin/proposals/$proposalId'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminProposalsProposalIdRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminRoute
+    }
+    '/_layout/_admin/_dashboard/admin/tenants/': {
+      id: '/_layout/_admin/_dashboard/admin/tenants/'
+      path: '/'
+      fullPath: '/admin/tenants/'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminTenantsIndexRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminTenantsRoute
+    }
+    '/_layout/_admin/_dashboard/admin/tenants/new': {
+      id: '/_layout/_admin/_dashboard/admin/tenants/new'
+      path: '/new'
+      fullPath: '/admin/tenants/new'
+      preLoaderRoute: typeof LayoutAdminDashboardAdminTenantsNewRouteImport
+      parentRoute: typeof LayoutAdminDashboardAdminTenantsRoute
+    }
+    '/_layout/_authenticated/_dashboard/dashboard/node/': {
+      id: '/_layout/_authenticated/_dashboard/dashboard/node/'
+      path: '/'
+      fullPath: '/dashboard/node/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardNodeIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardDashboardNodeRoute
+    }
+    '/_layout/_authenticated/_dashboard/orgs/invites/$id': {
+      id: '/_layout/_authenticated/_dashboard/orgs/invites/$id'
+      path: '/orgs/invites/$id'
+      fullPath: '/orgs/invites/$id'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrgsInvitesIdRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/dashboard/node/proposals/': {
+      id: '/_layout/_authenticated/_dashboard/dashboard/node/proposals/'
+      path: '/proposals'
+      fullPath: '/dashboard/node/proposals/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardDashboardNodeRoute
     }
   }
 }
 
-interface LayoutAuthenticatedSettingsRouteChildren {
-  LayoutAuthenticatedSettingsAuthMethodsRoute: typeof LayoutAuthenticatedSettingsAuthMethodsRoute
-  LayoutAuthenticatedSettingsProfileRoute: typeof LayoutAuthenticatedSettingsProfileRoute
-  LayoutAuthenticatedSettingsSecurityRoute: typeof LayoutAuthenticatedSettingsSecurityRoute
-  LayoutAuthenticatedSettingsIndexRoute: typeof LayoutAuthenticatedSettingsIndexRoute
+interface LayoutAdminDashboardAdminTenantsRouteChildren {
+  LayoutAdminDashboardAdminTenantsNewRoute: typeof LayoutAdminDashboardAdminTenantsNewRoute
+  LayoutAdminDashboardAdminTenantsIndexRoute: typeof LayoutAdminDashboardAdminTenantsIndexRoute
 }
 
-const LayoutAuthenticatedSettingsRouteChildren: LayoutAuthenticatedSettingsRouteChildren =
+const LayoutAdminDashboardAdminTenantsRouteChildren: LayoutAdminDashboardAdminTenantsRouteChildren =
   {
-    LayoutAuthenticatedSettingsAuthMethodsRoute:
-      LayoutAuthenticatedSettingsAuthMethodsRoute,
-    LayoutAuthenticatedSettingsProfileRoute:
-      LayoutAuthenticatedSettingsProfileRoute,
-    LayoutAuthenticatedSettingsSecurityRoute:
-      LayoutAuthenticatedSettingsSecurityRoute,
-    LayoutAuthenticatedSettingsIndexRoute:
-      LayoutAuthenticatedSettingsIndexRoute,
+    LayoutAdminDashboardAdminTenantsNewRoute:
+      LayoutAdminDashboardAdminTenantsNewRoute,
+    LayoutAdminDashboardAdminTenantsIndexRoute:
+      LayoutAdminDashboardAdminTenantsIndexRoute,
   }
 
-const LayoutAuthenticatedSettingsRouteWithChildren =
-  LayoutAuthenticatedSettingsRoute._addFileChildren(
-    LayoutAuthenticatedSettingsRouteChildren,
+const LayoutAdminDashboardAdminTenantsRouteWithChildren =
+  LayoutAdminDashboardAdminTenantsRoute._addFileChildren(
+    LayoutAdminDashboardAdminTenantsRouteChildren,
+  )
+
+interface LayoutAdminDashboardAdminRouteChildren {
+  LayoutAdminDashboardAdminRelayerRoute: typeof LayoutAdminDashboardAdminRelayerRoute
+  LayoutAdminDashboardAdminSystemRoute: typeof LayoutAdminDashboardAdminSystemRoute
+  LayoutAdminDashboardAdminTenantsRoute: typeof LayoutAdminDashboardAdminTenantsRouteWithChildren
+  LayoutAdminDashboardAdminIndexRoute: typeof LayoutAdminDashboardAdminIndexRoute
+  LayoutAdminDashboardAdminNodesNodeIdRoute: typeof LayoutAdminDashboardAdminNodesNodeIdRoute
+  LayoutAdminDashboardAdminProposalsProposalIdRoute: typeof LayoutAdminDashboardAdminProposalsProposalIdRoute
+  LayoutAdminDashboardAdminNodesIndexRoute: typeof LayoutAdminDashboardAdminNodesIndexRoute
+  LayoutAdminDashboardAdminProposalsIndexRoute: typeof LayoutAdminDashboardAdminProposalsIndexRoute
+}
+
+const LayoutAdminDashboardAdminRouteChildren: LayoutAdminDashboardAdminRouteChildren =
+  {
+    LayoutAdminDashboardAdminRelayerRoute:
+      LayoutAdminDashboardAdminRelayerRoute,
+    LayoutAdminDashboardAdminSystemRoute: LayoutAdminDashboardAdminSystemRoute,
+    LayoutAdminDashboardAdminTenantsRoute:
+      LayoutAdminDashboardAdminTenantsRouteWithChildren,
+    LayoutAdminDashboardAdminIndexRoute: LayoutAdminDashboardAdminIndexRoute,
+    LayoutAdminDashboardAdminNodesNodeIdRoute:
+      LayoutAdminDashboardAdminNodesNodeIdRoute,
+    LayoutAdminDashboardAdminProposalsProposalIdRoute:
+      LayoutAdminDashboardAdminProposalsProposalIdRoute,
+    LayoutAdminDashboardAdminNodesIndexRoute:
+      LayoutAdminDashboardAdminNodesIndexRoute,
+    LayoutAdminDashboardAdminProposalsIndexRoute:
+      LayoutAdminDashboardAdminProposalsIndexRoute,
+  }
+
+const LayoutAdminDashboardAdminRouteWithChildren =
+  LayoutAdminDashboardAdminRoute._addFileChildren(
+    LayoutAdminDashboardAdminRouteChildren,
+  )
+
+interface LayoutAdminDashboardRouteChildren {
+  LayoutAdminDashboardAdminRoute: typeof LayoutAdminDashboardAdminRouteWithChildren
+}
+
+const LayoutAdminDashboardRouteChildren: LayoutAdminDashboardRouteChildren = {
+  LayoutAdminDashboardAdminRoute: LayoutAdminDashboardAdminRouteWithChildren,
+}
+
+const LayoutAdminDashboardRouteWithChildren =
+  LayoutAdminDashboardRoute._addFileChildren(LayoutAdminDashboardRouteChildren)
+
+interface LayoutAdminRouteChildren {
+  LayoutAdminDashboardRoute: typeof LayoutAdminDashboardRouteWithChildren
+}
+
+const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
+  LayoutAdminDashboardRoute: LayoutAdminDashboardRouteWithChildren,
+}
+
+const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(
+  LayoutAdminRouteChildren,
+)
+
+interface LayoutAnonRouteChildren {
+  LayoutAnonLoginRoute: typeof LayoutAnonLoginRoute
+}
+
+const LayoutAnonRouteChildren: LayoutAnonRouteChildren = {
+  LayoutAnonLoginRoute: LayoutAnonLoginRoute,
+}
+
+const LayoutAnonRouteWithChildren = LayoutAnonRoute._addFileChildren(
+  LayoutAnonRouteChildren,
+)
+
+interface LayoutAuthenticatedDashboardDashboardNodeRouteChildren {
+  LayoutAuthenticatedDashboardDashboardNodeIndexRoute: typeof LayoutAuthenticatedDashboardDashboardNodeIndexRoute
+  LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute: typeof LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute
+}
+
+const LayoutAuthenticatedDashboardDashboardNodeRouteChildren: LayoutAuthenticatedDashboardDashboardNodeRouteChildren =
+  {
+    LayoutAuthenticatedDashboardDashboardNodeIndexRoute:
+      LayoutAuthenticatedDashboardDashboardNodeIndexRoute,
+    LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute:
+      LayoutAuthenticatedDashboardDashboardNodeProposalsIndexRoute,
+  }
+
+const LayoutAuthenticatedDashboardDashboardNodeRouteWithChildren =
+  LayoutAuthenticatedDashboardDashboardNodeRoute._addFileChildren(
+    LayoutAuthenticatedDashboardDashboardNodeRouteChildren,
+  )
+
+interface LayoutAuthenticatedDashboardDashboardRouteChildren {
+  LayoutAuthenticatedDashboardDashboardNodeRoute: typeof LayoutAuthenticatedDashboardDashboardNodeRouteWithChildren
+  LayoutAuthenticatedDashboardDashboardIndexRoute: typeof LayoutAuthenticatedDashboardDashboardIndexRoute
+}
+
+const LayoutAuthenticatedDashboardDashboardRouteChildren: LayoutAuthenticatedDashboardDashboardRouteChildren =
+  {
+    LayoutAuthenticatedDashboardDashboardNodeRoute:
+      LayoutAuthenticatedDashboardDashboardNodeRouteWithChildren,
+    LayoutAuthenticatedDashboardDashboardIndexRoute:
+      LayoutAuthenticatedDashboardDashboardIndexRoute,
+  }
+
+const LayoutAuthenticatedDashboardDashboardRouteWithChildren =
+  LayoutAuthenticatedDashboardDashboardRoute._addFileChildren(
+    LayoutAuthenticatedDashboardDashboardRouteChildren,
+  )
+
+interface LayoutAuthenticatedDashboardSettingsRouteChildren {
+  LayoutAuthenticatedDashboardSettingsApiKeysRoute: typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
+  LayoutAuthenticatedDashboardSettingsAuthMethodsRoute: typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRoute
+  LayoutAuthenticatedDashboardSettingsProfileRoute: typeof LayoutAuthenticatedDashboardSettingsProfileRoute
+  LayoutAuthenticatedDashboardSettingsSecurityRoute: typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
+  LayoutAuthenticatedDashboardSettingsIndexRoute: typeof LayoutAuthenticatedDashboardSettingsIndexRoute
+}
+
+const LayoutAuthenticatedDashboardSettingsRouteChildren: LayoutAuthenticatedDashboardSettingsRouteChildren =
+  {
+    LayoutAuthenticatedDashboardSettingsApiKeysRoute:
+      LayoutAuthenticatedDashboardSettingsApiKeysRoute,
+    LayoutAuthenticatedDashboardSettingsAuthMethodsRoute:
+      LayoutAuthenticatedDashboardSettingsAuthMethodsRoute,
+    LayoutAuthenticatedDashboardSettingsProfileRoute:
+      LayoutAuthenticatedDashboardSettingsProfileRoute,
+    LayoutAuthenticatedDashboardSettingsSecurityRoute:
+      LayoutAuthenticatedDashboardSettingsSecurityRoute,
+    LayoutAuthenticatedDashboardSettingsIndexRoute:
+      LayoutAuthenticatedDashboardSettingsIndexRoute,
+  }
+
+const LayoutAuthenticatedDashboardSettingsRouteWithChildren =
+  LayoutAuthenticatedDashboardSettingsRoute._addFileChildren(
+    LayoutAuthenticatedDashboardSettingsRouteChildren,
+  )
+
+interface LayoutAuthenticatedDashboardRouteChildren {
+  LayoutAuthenticatedDashboardApplyRoute: typeof LayoutAuthenticatedDashboardApplyRoute
+  LayoutAuthenticatedDashboardDashboardRoute: typeof LayoutAuthenticatedDashboardDashboardRouteWithChildren
+  LayoutAuthenticatedDashboardSettingsRoute: typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
+  LayoutAuthenticatedDashboardStakeRoute: typeof LayoutAuthenticatedDashboardStakeRoute
+  LayoutAuthenticatedDashboardOrgsSlugRoute: typeof LayoutAuthenticatedDashboardOrgsSlugRoute
+  LayoutAuthenticatedDashboardOrgsNewRoute: typeof LayoutAuthenticatedDashboardOrgsNewRoute
+  LayoutAuthenticatedDashboardTenantTenantIdRoute: typeof LayoutAuthenticatedDashboardTenantTenantIdRoute
+  LayoutAuthenticatedDashboardThingsThingIdRoute: typeof LayoutAuthenticatedDashboardThingsThingIdRoute
+  LayoutAuthenticatedDashboardThingsLiveRoute: typeof LayoutAuthenticatedDashboardThingsLiveRoute
+  LayoutAuthenticatedDashboardThingsNewRoute: typeof LayoutAuthenticatedDashboardThingsNewRoute
+  LayoutAuthenticatedDashboardOrgsIndexRoute: typeof LayoutAuthenticatedDashboardOrgsIndexRoute
+  LayoutAuthenticatedDashboardThingsIndexRoute: typeof LayoutAuthenticatedDashboardThingsIndexRoute
+  LayoutAuthenticatedDashboardOrgsInvitesIdRoute: typeof LayoutAuthenticatedDashboardOrgsInvitesIdRoute
+}
+
+const LayoutAuthenticatedDashboardRouteChildren: LayoutAuthenticatedDashboardRouteChildren =
+  {
+    LayoutAuthenticatedDashboardApplyRoute:
+      LayoutAuthenticatedDashboardApplyRoute,
+    LayoutAuthenticatedDashboardDashboardRoute:
+      LayoutAuthenticatedDashboardDashboardRouteWithChildren,
+    LayoutAuthenticatedDashboardSettingsRoute:
+      LayoutAuthenticatedDashboardSettingsRouteWithChildren,
+    LayoutAuthenticatedDashboardStakeRoute:
+      LayoutAuthenticatedDashboardStakeRoute,
+    LayoutAuthenticatedDashboardOrgsSlugRoute:
+      LayoutAuthenticatedDashboardOrgsSlugRoute,
+    LayoutAuthenticatedDashboardOrgsNewRoute:
+      LayoutAuthenticatedDashboardOrgsNewRoute,
+    LayoutAuthenticatedDashboardTenantTenantIdRoute:
+      LayoutAuthenticatedDashboardTenantTenantIdRoute,
+    LayoutAuthenticatedDashboardThingsThingIdRoute:
+      LayoutAuthenticatedDashboardThingsThingIdRoute,
+    LayoutAuthenticatedDashboardThingsLiveRoute:
+      LayoutAuthenticatedDashboardThingsLiveRoute,
+    LayoutAuthenticatedDashboardThingsNewRoute:
+      LayoutAuthenticatedDashboardThingsNewRoute,
+    LayoutAuthenticatedDashboardOrgsIndexRoute:
+      LayoutAuthenticatedDashboardOrgsIndexRoute,
+    LayoutAuthenticatedDashboardThingsIndexRoute:
+      LayoutAuthenticatedDashboardThingsIndexRoute,
+    LayoutAuthenticatedDashboardOrgsInvitesIdRoute:
+      LayoutAuthenticatedDashboardOrgsInvitesIdRoute,
+  }
+
+const LayoutAuthenticatedDashboardRouteWithChildren =
+  LayoutAuthenticatedDashboardRoute._addFileChildren(
+    LayoutAuthenticatedDashboardRouteChildren,
   )
 
 interface LayoutAuthenticatedRouteChildren {
-  LayoutAuthenticatedAdminRoute: typeof LayoutAuthenticatedAdminRoute
-  LayoutAuthenticatedHomeRoute: typeof LayoutAuthenticatedHomeRoute
-  LayoutAuthenticatedSettingsRoute: typeof LayoutAuthenticatedSettingsRouteWithChildren
-  LayoutAuthenticatedAcceptInvitationIdRoute: typeof LayoutAuthenticatedAcceptInvitationIdRoute
-  LayoutAuthenticatedFeedbackRequestRoute: typeof LayoutAuthenticatedFeedbackRequestRoute
-  LayoutAuthenticatedOrganizationsSlugRoute: typeof LayoutAuthenticatedOrganizationsSlugRoute
-  LayoutAuthenticatedOrganizationsNewRoute: typeof LayoutAuthenticatedOrganizationsNewRoute
-  LayoutAuthenticatedTenantTenantIdRoute: typeof LayoutAuthenticatedTenantTenantIdRoute
-  LayoutAuthenticatedTenantNewRoute: typeof LayoutAuthenticatedTenantNewRoute
-  LayoutAuthenticatedOrganizationsIndexRoute: typeof LayoutAuthenticatedOrganizationsIndexRoute
-  LayoutAuthenticatedTenantIndexRoute: typeof LayoutAuthenticatedTenantIndexRoute
+  LayoutAuthenticatedDashboardRoute: typeof LayoutAuthenticatedDashboardRouteWithChildren
 }
 
 const LayoutAuthenticatedRouteChildren: LayoutAuthenticatedRouteChildren = {
-  LayoutAuthenticatedAdminRoute: LayoutAuthenticatedAdminRoute,
-  LayoutAuthenticatedHomeRoute: LayoutAuthenticatedHomeRoute,
-  LayoutAuthenticatedSettingsRoute:
-    LayoutAuthenticatedSettingsRouteWithChildren,
-  LayoutAuthenticatedAcceptInvitationIdRoute:
-    LayoutAuthenticatedAcceptInvitationIdRoute,
-  LayoutAuthenticatedFeedbackRequestRoute:
-    LayoutAuthenticatedFeedbackRequestRoute,
-  LayoutAuthenticatedOrganizationsSlugRoute:
-    LayoutAuthenticatedOrganizationsSlugRoute,
-  LayoutAuthenticatedOrganizationsNewRoute:
-    LayoutAuthenticatedOrganizationsNewRoute,
-  LayoutAuthenticatedTenantTenantIdRoute:
-    LayoutAuthenticatedTenantTenantIdRoute,
-  LayoutAuthenticatedTenantNewRoute: LayoutAuthenticatedTenantNewRoute,
-  LayoutAuthenticatedOrganizationsIndexRoute:
-    LayoutAuthenticatedOrganizationsIndexRoute,
-  LayoutAuthenticatedTenantIndexRoute: LayoutAuthenticatedTenantIndexRoute,
+  LayoutAuthenticatedDashboardRoute:
+    LayoutAuthenticatedDashboardRouteWithChildren,
 }
 
 const LayoutAuthenticatedRouteWithChildren =
   LayoutAuthenticatedRoute._addFileChildren(LayoutAuthenticatedRouteChildren)
 
+interface LayoutPublicAccountIdRouteChildren {
+  LayoutPublicAccountIdIndexRoute: typeof LayoutPublicAccountIdIndexRoute
+}
+
+const LayoutPublicAccountIdRouteChildren: LayoutPublicAccountIdRouteChildren = {
+  LayoutPublicAccountIdIndexRoute: LayoutPublicAccountIdIndexRoute,
+}
+
+const LayoutPublicAccountIdRouteWithChildren =
+  LayoutPublicAccountIdRoute._addFileChildren(
+    LayoutPublicAccountIdRouteChildren,
+  )
+
+interface LayoutPublicRouteChildren {
+  LayoutPublicAccountIdRoute: typeof LayoutPublicAccountIdRouteWithChildren
+  LayoutPublicAboutRoute: typeof LayoutPublicAboutRoute
+  LayoutPublicSkillRoute: typeof LayoutPublicSkillRoute
+  LayoutPublicIndexRoute: typeof LayoutPublicIndexRoute
+  LayoutPublicNSlugRoute: typeof LayoutPublicNSlugRoute
+}
+
+const LayoutPublicRouteChildren: LayoutPublicRouteChildren = {
+  LayoutPublicAccountIdRoute: LayoutPublicAccountIdRouteWithChildren,
+  LayoutPublicAboutRoute: LayoutPublicAboutRoute,
+  LayoutPublicSkillRoute: LayoutPublicSkillRoute,
+  LayoutPublicIndexRoute: LayoutPublicIndexRoute,
+  LayoutPublicNSlugRoute: LayoutPublicNSlugRoute,
+}
+
+const LayoutPublicRouteWithChildren = LayoutPublicRoute._addFileChildren(
+  LayoutPublicRouteChildren,
+)
+
 interface LayoutRouteChildren {
+  LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
+  LayoutAnonRoute: typeof LayoutAnonRouteWithChildren
   LayoutAuthenticatedRoute: typeof LayoutAuthenticatedRouteWithChildren
-  LayoutAboutRoute: typeof LayoutAboutRoute
-  LayoutLoginRoute: typeof LayoutLoginRoute
-  LayoutSkillRoute: typeof LayoutSkillRoute
-  LayoutIndexRoute: typeof LayoutIndexRoute
-  LayoutBuildersAccountIdRoute: typeof LayoutBuildersAccountIdRoute
-  LayoutFeedbackRoundIdRoute: typeof LayoutFeedbackRoundIdRoute
-  LayoutFeedbackIndexRoute: typeof LayoutFeedbackIndexRoute
+  LayoutPublicRoute: typeof LayoutPublicRouteWithChildren
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
+  LayoutAdminRoute: LayoutAdminRouteWithChildren,
+  LayoutAnonRoute: LayoutAnonRouteWithChildren,
   LayoutAuthenticatedRoute: LayoutAuthenticatedRouteWithChildren,
-  LayoutAboutRoute: LayoutAboutRoute,
-  LayoutLoginRoute: LayoutLoginRoute,
-  LayoutSkillRoute: LayoutSkillRoute,
-  LayoutIndexRoute: LayoutIndexRoute,
-  LayoutBuildersAccountIdRoute: LayoutBuildersAccountIdRoute,
-  LayoutFeedbackRoundIdRoute: LayoutFeedbackRoundIdRoute,
-  LayoutFeedbackIndexRoute: LayoutFeedbackIndexRoute,
+  LayoutPublicRoute: LayoutPublicRouteWithChildren,
 }
 
 const LayoutRouteWithChildren =
