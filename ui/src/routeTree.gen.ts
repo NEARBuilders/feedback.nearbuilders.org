@@ -21,6 +21,7 @@ import { Route as LayoutPublicAccountIdRouteImport } from './routes/_layout/_pub
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
 import { Route as LayoutAnonLoginRouteImport } from './routes/_layout/_anon/login'
 import { Route as LayoutAdminDashboardRouteImport } from './routes/_layout/_admin/_dashboard'
+import { Route as LayoutPublicFeedIndexRouteImport } from './routes/_layout/_public/feed/index'
 import { Route as LayoutPublicAccountIdIndexRouteImport } from './routes/_layout/_public/$accountId/index'
 import { Route as LayoutPublicFeedRoundIdRouteImport } from './routes/_layout/_public/feed/$roundId'
 import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
@@ -91,6 +92,11 @@ const LayoutAnonLoginRoute = LayoutAnonLoginRouteImport.update({
 const LayoutAdminDashboardRoute = LayoutAdminDashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => LayoutAdminRoute,
+} as any)
+const LayoutPublicFeedIndexRoute = LayoutPublicFeedIndexRouteImport.update({
+  id: '/feed/',
+  path: '/feed/',
+  getParentRoute: () => LayoutPublicRoute,
 } as any)
 const LayoutPublicAccountIdIndexRoute =
   LayoutPublicAccountIdIndexRouteImport.update({
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/feed/$roundId': typeof LayoutPublicFeedRoundIdRoute
   '/$accountId/': typeof LayoutPublicAccountIdIndexRoute
+  '/feed/': typeof LayoutPublicFeedIndexRoute
   '/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
   '/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
   '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -218,6 +225,7 @@ export interface FileRoutesByTo {
   '/skill': typeof LayoutPublicSkillRoute
   '/feed/$roundId': typeof LayoutPublicFeedRoundIdRoute
   '/$accountId': typeof LayoutPublicAccountIdIndexRoute
+  '/feed': typeof LayoutPublicFeedIndexRoute
   '/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
   '/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
   '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/_dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/_layout/_public/feed/$roundId': typeof LayoutPublicFeedRoundIdRoute
   '/_layout/_public/$accountId/': typeof LayoutPublicAccountIdIndexRoute
+  '/_layout/_public/feed/': typeof LayoutPublicFeedIndexRoute
   '/_layout/_authenticated/_dashboard/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
   '/_layout/_authenticated/_dashboard/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
   '/_layout/_authenticated/_dashboard/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -274,6 +283,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/feed/$roundId'
     | '/$accountId/'
+    | '/feed/'
     | '/orgs/$slug'
     | '/orgs/new'
     | '/settings/api-keys'
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
     | '/skill'
     | '/feed/$roundId'
     | '/$accountId'
+    | '/feed'
     | '/orgs/$slug'
     | '/orgs/new'
     | '/settings/api-keys'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/_dashboard/settings'
     | '/_layout/_public/feed/$roundId'
     | '/_layout/_public/$accountId/'
+    | '/_layout/_public/feed/'
     | '/_layout/_authenticated/_dashboard/orgs/$slug'
     | '/_layout/_authenticated/_dashboard/orgs/new'
     | '/_layout/_authenticated/_dashboard/settings/api-keys'
@@ -425,6 +437,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof LayoutAdminDashboardRouteImport
       parentRoute: typeof LayoutAdminRoute
+    }
+    '/_layout/_public/feed/': {
+      id: '/_layout/_public/feed/'
+      path: '/feed'
+      fullPath: '/feed/'
+      preLoaderRoute: typeof LayoutPublicFeedIndexRouteImport
+      parentRoute: typeof LayoutPublicRoute
     }
     '/_layout/_public/$accountId/': {
       id: '/_layout/_public/$accountId/'
@@ -693,6 +712,7 @@ interface LayoutPublicRouteChildren {
   LayoutPublicSkillRoute: typeof LayoutPublicSkillRoute
   LayoutPublicIndexRoute: typeof LayoutPublicIndexRoute
   LayoutPublicFeedRoundIdRoute: typeof LayoutPublicFeedRoundIdRoute
+  LayoutPublicFeedIndexRoute: typeof LayoutPublicFeedIndexRoute
 }
 
 const LayoutPublicRouteChildren: LayoutPublicRouteChildren = {
@@ -701,6 +721,7 @@ const LayoutPublicRouteChildren: LayoutPublicRouteChildren = {
   LayoutPublicSkillRoute: LayoutPublicSkillRoute,
   LayoutPublicIndexRoute: LayoutPublicIndexRoute,
   LayoutPublicFeedRoundIdRoute: LayoutPublicFeedRoundIdRoute,
+  LayoutPublicFeedIndexRoute: LayoutPublicFeedIndexRoute,
 }
 
 const LayoutPublicRouteWithChildren = LayoutPublicRoute._addFileChildren(
