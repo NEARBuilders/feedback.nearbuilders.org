@@ -16,6 +16,7 @@ import { Route as LayoutAnonRouteImport } from './routes/_layout/_anon'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/_admin'
 import { Route as LayoutPublicIndexRouteImport } from './routes/_layout/_public/index'
 import { Route as LayoutPublicSkillRouteImport } from './routes/_layout/_public/skill'
+import { Route as LayoutPublicHowToIntegrateRouteImport } from './routes/_layout/_public/how-to-integrate'
 import { Route as LayoutPublicAboutRouteImport } from './routes/_layout/_public/about'
 import { Route as LayoutPublicAccountIdRouteImport } from './routes/_layout/_public/$accountId'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
@@ -69,6 +70,12 @@ const LayoutPublicSkillRoute = LayoutPublicSkillRouteImport.update({
   path: '/skill',
   getParentRoute: () => LayoutPublicRoute,
 } as any)
+const LayoutPublicHowToIntegrateRoute =
+  LayoutPublicHowToIntegrateRouteImport.update({
+    id: '/how-to-integrate',
+    path: '/how-to-integrate',
+    getParentRoute: () => LayoutPublicRoute,
+  } as any)
 const LayoutPublicAboutRoute = LayoutPublicAboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -199,6 +206,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LayoutAnonLoginRoute
   '/$accountId': typeof LayoutPublicAccountIdRouteWithChildren
   '/about': typeof LayoutPublicAboutRoute
+  '/how-to-integrate': typeof LayoutPublicHowToIntegrateRoute
   '/skill': typeof LayoutPublicSkillRoute
   '/admin': typeof LayoutAdminDashboardAdminRouteWithChildren
   '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRouteWithChildren
@@ -222,6 +230,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutPublicIndexRoute
   '/login': typeof LayoutAnonLoginRoute
   '/about': typeof LayoutPublicAboutRoute
+  '/how-to-integrate': typeof LayoutPublicHowToIntegrateRoute
   '/skill': typeof LayoutPublicSkillRoute
   '/feed/$roundId': typeof LayoutPublicFeedRoundIdRoute
   '/$accountId': typeof LayoutPublicAccountIdIndexRoute
@@ -250,6 +259,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/_dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/_layout/_public/$accountId': typeof LayoutPublicAccountIdRouteWithChildren
   '/_layout/_public/about': typeof LayoutPublicAboutRoute
+  '/_layout/_public/how-to-integrate': typeof LayoutPublicHowToIntegrateRoute
   '/_layout/_public/skill': typeof LayoutPublicSkillRoute
   '/_layout/_public/': typeof LayoutPublicIndexRoute
   '/_layout/_admin/_dashboard/admin': typeof LayoutAdminDashboardAdminRouteWithChildren
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/$accountId'
     | '/about'
+    | '/how-to-integrate'
     | '/skill'
     | '/admin'
     | '/dashboard'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/about'
+    | '/how-to-integrate'
     | '/skill'
     | '/feed/$roundId'
     | '/$accountId'
@@ -327,6 +339,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/_dashboard'
     | '/_layout/_public/$accountId'
     | '/_layout/_public/about'
+    | '/_layout/_public/how-to-integrate'
     | '/_layout/_public/skill'
     | '/_layout/_public/'
     | '/_layout/_admin/_dashboard/admin'
@@ -401,6 +414,13 @@ declare module '@tanstack/react-router' {
       path: '/skill'
       fullPath: '/skill'
       preLoaderRoute: typeof LayoutPublicSkillRouteImport
+      parentRoute: typeof LayoutPublicRoute
+    }
+    '/_layout/_public/how-to-integrate': {
+      id: '/_layout/_public/how-to-integrate'
+      path: '/how-to-integrate'
+      fullPath: '/how-to-integrate'
+      preLoaderRoute: typeof LayoutPublicHowToIntegrateRouteImport
       parentRoute: typeof LayoutPublicRoute
     }
     '/_layout/_public/about': {
@@ -709,6 +729,7 @@ const LayoutPublicAccountIdRouteWithChildren =
 interface LayoutPublicRouteChildren {
   LayoutPublicAccountIdRoute: typeof LayoutPublicAccountIdRouteWithChildren
   LayoutPublicAboutRoute: typeof LayoutPublicAboutRoute
+  LayoutPublicHowToIntegrateRoute: typeof LayoutPublicHowToIntegrateRoute
   LayoutPublicSkillRoute: typeof LayoutPublicSkillRoute
   LayoutPublicIndexRoute: typeof LayoutPublicIndexRoute
   LayoutPublicFeedRoundIdRoute: typeof LayoutPublicFeedRoundIdRoute
@@ -718,6 +739,7 @@ interface LayoutPublicRouteChildren {
 const LayoutPublicRouteChildren: LayoutPublicRouteChildren = {
   LayoutPublicAccountIdRoute: LayoutPublicAccountIdRouteWithChildren,
   LayoutPublicAboutRoute: LayoutPublicAboutRoute,
+  LayoutPublicHowToIntegrateRoute: LayoutPublicHowToIntegrateRoute,
   LayoutPublicSkillRoute: LayoutPublicSkillRoute,
   LayoutPublicIndexRoute: LayoutPublicIndexRoute,
   LayoutPublicFeedRoundIdRoute: LayoutPublicFeedRoundIdRoute,
