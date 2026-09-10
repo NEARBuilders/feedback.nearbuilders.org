@@ -1,19 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Building2, Fuel, Gavel, LayoutDashboard, Network, Settings, Shield } from "lucide-react";
-import { getAccount, useApiClient } from "@/app";
-import { Badge, Button, EmptyState, PageContainer, PageHeader } from "@/components";
-import { organizationByIdQueryOptions } from "@/lib/queries/organizations";
-import { useRelayerInfoQuery } from "@/lib/use-relayer";
-import { cn } from "@/lib/utils";
-import { pendingProposalCountQueryOptions } from "./admin/proposals/-proposal-review";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { Shield } from "lucide-react";
+import { getAccount } from "@/app";
+import { PageContainer, PageHeader } from "@/components";
 
 export const Route = createFileRoute("/_layout/_admin/_dashboard/admin")({
   head: () => ({
-    meta: [{ title: "Admin | app" }],
+    meta: [{ title: "Admin" }],
   }),
   beforeLoad: async ({ context }) => {
-    const { apiClient, queryClient, runtimeConfig } = context;
+    const { apiClient, runtimeConfig } = context;
     const accountId = getAccount(runtimeConfig);
     let tenant: Awaited<ReturnType<typeof apiClient.resolveTenant>> | null = null;
     try {
@@ -21,192 +16,26 @@ export const Route = createFileRoute("/_layout/_admin/_dashboard/admin")({
     } catch {
       tenant = null;
     }
-    const tenantOrganization = tenant?.orgId
-      ? await queryClient
-          .ensureQueryData(organizationByIdQueryOptions(apiClient, tenant.orgId))
-          .catch(() => null)
-      : null;
-    const tenantOrganizationSlug = tenantOrganization?.slug ?? null;
-    return { tenant, tenantOrganizationSlug };
+    return { tenant };
   },
   component: AdminPage,
 });
 
+// TODO(phase 6): real admin surface for feedback rounds (moderation, source trust, etc.).
 function AdminPage() {
-  const { tenant, tenantOrganizationSlug, session } = Route.useRouteContext();
-  const apiClient = useApiClient();
-
-  const activeOrgId = session?.session?.activeOrganizationId ?? null;
-  const isMember = !!tenant && !!activeOrgId && activeOrgId === tenant.orgId;
-  const isAdmin = session?.user?.role === "admin";
-  const authorized = isMember || isAdmin;
-
-  const { data: relayerInfo } = useRelayerInfoQuery();
-  const pendingProposalsQuery = useQuery(pendingProposalCountQueryOptions(apiClient));
-
-  const relayerNeedsFunding =
-    relayerInfo && relayerInfo.enabled === false && !!relayerInfo.accountId;
-
-  if (tenant && !authorized) {
-    return (
-      <EmptyState
-        icon={Shield}
-        title="Not authorized"
-        description={
-          <>
-            You need to be a member of <span className="font-mono">{tenant.id.slice(0, 8)}</span>'s
-            organization to access tenant admin.
-          </>
-        }
-        action={
-          <div className="flex justify-center gap-2">
-            <Button asChild variant="outline">
-              <Link to="/">home</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/orgs">organizations</Link>
-            </Button>
-          </div>
-        }
-      />
-    );
-  }
+  const { tenant } = Route.useRouteContext();
 
   return (
     <PageContainer variant="wide">
       <div className="space-y-8">
-        {tenant && (
-          <PageHeader
-            icon={Shield}
-            label="Admin"
-            title={tenant.name}
-            subtitle={`${tenant.id.slice(0, 8)} · ${tenant.accountId}`}
-          />
-        )}
-
-        {tenant && (
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Subdomain" value={tenant.id.slice(0, 8)} mono />
-            <StatCard label="Account" value={tenant.accountId} mono />
-            <StatCard
-              label="Organization"
-              value={
-                tenantOrganizationSlug ? (
-                  <Link
-                    to="/orgs/$slug"
-                    params={{ slug: tenantOrganizationSlug }}
-                    className="font-mono text-foreground hover:underline"
-                  >
-                    {tenantOrganizationSlug}
-                  </Link>
-                ) : (
-                  <Link to="/orgs" className="text-foreground hover:underline">
-                    organizations
-                  </Link>
-                )
-              }
-            />
-            <StatCard
-              label="Created"
-              value={tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : "—"}
-            />
-          </section>
-        )}
-
-        {relayerNeedsFunding && (
-          <Link
-            to="/admin/relayer"
-            className="block border-2 border-outset border-destructive/40 bg-destructive/5 hover:bg-destructive/10 p-4 rounded-[12px] shadow-sm transition-all duration-200"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <Fuel className="h-5 w-5 text-destructive mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-foreground">Relayer needs funding</p>
-                  <p className="text-xs text-muted-foreground">
-                    The ephemeral relayer{" "}
-                    <span className="font-mono text-foreground">{relayerInfo?.accountId}</span> has
-                    zero balance — gasless relay is disabled. Fund it with NEAR to enable tenant +
-                    app meta publishes.
-                  </p>
-                </div>
-              </div>
-              <Badge variant="destructive">action needed</Badge>
-            </div>
-          </Link>
-        )}
-
-        <AdminNav pendingProposalCount={pendingProposalsQuery.data?.meta.total} />
-
+        <PageHeader
+          icon={Shield}
+          label="Admin"
+          title={tenant?.name ?? "Admin"}
+          subtitle={tenant ? `${tenant.id.slice(0, 8)} · ${tenant.accountId}` : undefined}
+        />
         <Outlet />
       </div>
     </PageContainer>
-  );
-}
-
-const NAV_ITEMS = [
-  { label: "dashboard", to: "/admin", icon: LayoutDashboard },
-  { label: "nodes", to: "/admin/nodes", icon: Network },
-  { label: "proposals", to: "/admin/proposals", icon: Gavel },
-  { label: "tenants", to: "/admin/tenants", icon: Building2 },
-  { label: "relayer", to: "/admin/relayer", icon: Fuel },
-  { label: "system", to: "/admin/system", icon: Settings },
-] as const;
-
-function AdminNav({ pendingProposalCount }: { pendingProposalCount?: number }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isActive = (to: string) =>
-    to === "/admin" ? pathname === "/admin" || pathname === "/admin/" : pathname.startsWith(to);
-
-  return (
-    <nav className="flex flex-wrap gap-2">
-      {NAV_ITEMS.map(({ label, to, icon: Icon }) => {
-        const active = isActive(to);
-        return (
-          <Link
-            key={to}
-            to={to}
-            className={cn(
-              "inline-flex items-center gap-1.5 h-9 px-3.5 text-sm font-medium border-2 border-outset border-border-strong rounded-[10px] shadow-sm transition-all duration-200 hover:shadow-md",
-              active ? "bg-foreground text-background" : "bg-card text-foreground",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-            {label === "proposals" && pendingProposalCount !== undefined && (
-              <Badge
-                variant={active ? "outline" : "secondary"}
-                className="ml-1 h-5 min-w-5 px-1.5 text-[10px]"
-              >
-                {pendingProposalCount}
-              </Badge>
-            )}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="border-2 border-outset border-border-strong bg-card p-4 rounded-[12px] shadow-sm space-y-1">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={`text-sm text-foreground break-all ${mono ? "font-mono text-xs" : "font-semibold"}`}
-      >
-        {value}
-      </div>
-    </div>
   );
 }
