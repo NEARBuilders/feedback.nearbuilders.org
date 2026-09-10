@@ -12,7 +12,7 @@ interface AuthContext {
   isBanned: boolean;
 }
 
-export const Route = createFileRoute("/_layout/_authenticated")({
+export const Route = createFileRoute("/_layout/_admin")({
   beforeLoad: async ({ context, location }) => {
     const { queryClient, authClient } = context;
 
@@ -36,6 +36,10 @@ export const Route = createFileRoute("/_layout/_authenticated")({
       });
     }
 
+    if (session.user.role !== "admin") {
+      throw redirect({ to: "/dashboard" });
+    }
+
     const auth: AuthContext = {
       isAuthenticated: true,
       user: session.user,
@@ -50,9 +54,9 @@ export const Route = createFileRoute("/_layout/_authenticated")({
       session,
     };
   },
-  component: AuthenticatedLayout,
+  component: AdminGate,
 });
 
-function AuthenticatedLayout() {
+function AdminGate() {
   return <Outlet />;
 }

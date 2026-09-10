@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Badge, Button, Field, FieldLabel, Input, Textarea } from "@/components";
 import { highlightJson } from "@/lib/json-highlight";
-import { getOptionalAppsClient } from "@/lib/optional-plugin-clients";
+import { useNearAccount } from "@/lib/use-near-account";
 
 type RegistryAppDetail = {
   accountId: string;
@@ -70,7 +70,7 @@ export function AppDetailContent({
   const auth = useAuthClient();
 
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
-  const nearAccountId = auth.near.getAccountId();
+  const nearAccountId = useNearAccount();
   const user = session?.user;
 
   const [title, setTitle] = useState(app?.metadata?.title ?? "");
@@ -109,9 +109,7 @@ export function AppDetailContent({
   const prepareMetadataMutation = useMutation({
     mutationFn: async () => {
       if (!nearAccountId) throw new Error("Connect a NEAR wallet to publish metadata.");
-      const appsClient = getOptionalAppsClient(apiClient);
-      if (!appsClient) throw new Error("The apps plugin is not included in this deployment.");
-      return appsClient.prepareRegistryMetadataWrite({
+      return apiClient.apps.prepareRegistryMetadataWrite({
         accountId,
         gatewayId,
         claimedBy: nearAccountId,
@@ -129,13 +127,11 @@ export function AppDetailContent({
       const prepared = await prepareMetadataMutation.mutateAsync();
       const signed = await auth.near.buildSignedDelegateAction(
         prepared.data.contractId,
-        (builder: TransactionBuilder) =>
-          builder.functionCall(
-            prepared.data.contractId,
-            prepared.data.methodName,
-            prepared.data.args,
-            { gas: "10000000000000", attachedDeposit: 0n },
-          ),
+        (builder: TransactionBuilder, receiverId: string) =>
+          builder.functionCall(receiverId, prepared.data.methodName, prepared.data.args, {
+            gas: "10000000000000",
+            attachedDeposit: 0n,
+          }),
       );
       const result = await auth.near.relayTransaction({ payload: signed });
       if (result.error) throw new Error(result.error.message || "Relay failed");
@@ -156,13 +152,11 @@ export function AppDetailContent({
       const prepared = await prepareMetadataMutation.mutateAsync();
       return auth.near.buildSignedDelegateAction(
         prepared.data.contractId,
-        (builder: TransactionBuilder) =>
-          builder.functionCall(
-            prepared.data.contractId,
-            prepared.data.methodName,
-            prepared.data.args,
-            { gas: "10000000000000", attachedDeposit: 0n },
-          ),
+        (builder: TransactionBuilder, receiverId: string) =>
+          builder.functionCall(receiverId, prepared.data.methodName, prepared.data.args, {
+            gas: "10000000000000",
+            attachedDeposit: 0n,
+          }),
       );
     },
     onSuccess: (payload: string) => {
