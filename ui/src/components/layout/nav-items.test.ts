@@ -1,25 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { filterSidebarByRole, NAV_ITEMS } from "./nav-items";
 
-describe("node dashboard navigation", () => {
-  it("shows My Node to authenticated members and admins only", () => {
+describe("dashboard navigation", () => {
+  it("shows the feed, how-it-works, and request-a-round links to everyone in the shell", () => {
     const anonymousPaths = filterSidebarByRole(NAV_ITEMS, "anon").map((item) => item.to);
-    const memberPaths = filterSidebarByRole(NAV_ITEMS, "member").map((item) => item.to);
-    const adminPaths = filterSidebarByRole(NAV_ITEMS, "admin").map((item) => item.to);
 
-    expect(anonymousPaths).not.toContain("/dashboard/node");
-    expect(memberPaths).toContain("/dashboard/node");
-    expect(adminPaths).toContain("/dashboard/node");
+    expect(anonymousPaths).toEqual(
+      expect.arrayContaining(["/feed", "/feed/request", "/how-to-integrate"]),
+    );
   });
 
-  it("shows Things and New Thing to signed-in members and admins only", () => {
-    const anonymousPaths = filterSidebarByRole(NAV_ITEMS, "anon").map((item) => item.to);
+  it("shows admin to admins only", () => {
     const memberPaths = filterSidebarByRole(NAV_ITEMS, "member").map((item) => item.to);
     const adminPaths = filterSidebarByRole(NAV_ITEMS, "admin").map((item) => item.to);
 
-    expect(anonymousPaths).not.toContain("/things");
-    expect(anonymousPaths).not.toContain("/things/new");
-    expect(memberPaths).toEqual(expect.arrayContaining(["/things", "/things/new"]));
-    expect(adminPaths).toEqual(expect.arrayContaining(["/things", "/things/new"]));
+    expect(memberPaths).not.toContain("/admin");
+    expect(adminPaths).toContain("/admin");
   });
 });
