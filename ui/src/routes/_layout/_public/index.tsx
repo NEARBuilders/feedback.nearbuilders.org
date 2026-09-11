@@ -86,7 +86,7 @@ function LandingPage() {
             and when it closes.
           </p>
           <Button asChild size="lg">
-            <Link to="/login">sign in to get started</Link>
+            <Link to="/feed/request">request a round</Link>
           </Button>
         </section>
       </div>

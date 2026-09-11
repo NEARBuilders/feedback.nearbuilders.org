@@ -38,6 +38,7 @@ import { Route as LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport } f
 import { Route as LayoutAuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/api-keys'
 import { Route as LayoutAuthenticatedDashboardOrgsNewRouteImport } from './routes/_layout/_authenticated/_dashboard/orgs/new'
 import { Route as LayoutAuthenticatedDashboardOrgsSlugRouteImport } from './routes/_layout/_authenticated/_dashboard/orgs/$slug'
+import { Route as LayoutAuthenticatedDashboardFeedRequestRouteImport } from './routes/_layout/_authenticated/_dashboard/feed/request'
 import { Route as LayoutAuthenticatedDashboardOrgsInvitesIdRouteImport } from './routes/_layout/_authenticated/_dashboard/orgs/invites.$id'
 
 const LayoutRoute = LayoutRouteImport.update({
@@ -194,6 +195,12 @@ const LayoutAuthenticatedDashboardOrgsSlugRoute =
     path: '/orgs/$slug',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
+const LayoutAuthenticatedDashboardFeedRequestRoute =
+  LayoutAuthenticatedDashboardFeedRequestRouteImport.update({
+    id: '/feed/request',
+    path: '/feed/request',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
 const LayoutAuthenticatedDashboardOrgsInvitesIdRoute =
   LayoutAuthenticatedDashboardOrgsInvitesIdRouteImport.update({
     id: '/orgs/invites/$id',
@@ -214,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/feed/$roundId': typeof LayoutPublicFeedRoundIdRoute
   '/$accountId/': typeof LayoutPublicAccountIdIndexRoute
   '/feed/': typeof LayoutPublicFeedIndexRoute
+  '/feed/request': typeof LayoutAuthenticatedDashboardFeedRequestRoute
   '/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
   '/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
   '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -235,6 +243,7 @@ export interface FileRoutesByTo {
   '/feed/$roundId': typeof LayoutPublicFeedRoundIdRoute
   '/$accountId': typeof LayoutPublicAccountIdIndexRoute
   '/feed': typeof LayoutPublicFeedIndexRoute
+  '/feed/request': typeof LayoutAuthenticatedDashboardFeedRequestRoute
   '/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
   '/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
   '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -268,6 +277,7 @@ export interface FileRoutesById {
   '/_layout/_public/feed/$roundId': typeof LayoutPublicFeedRoundIdRoute
   '/_layout/_public/$accountId/': typeof LayoutPublicAccountIdIndexRoute
   '/_layout/_public/feed/': typeof LayoutPublicFeedIndexRoute
+  '/_layout/_authenticated/_dashboard/feed/request': typeof LayoutAuthenticatedDashboardFeedRequestRoute
   '/_layout/_authenticated/_dashboard/orgs/$slug': typeof LayoutAuthenticatedDashboardOrgsSlugRoute
   '/_layout/_authenticated/_dashboard/orgs/new': typeof LayoutAuthenticatedDashboardOrgsNewRoute
   '/_layout/_authenticated/_dashboard/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/feed/$roundId'
     | '/$accountId/'
     | '/feed/'
+    | '/feed/request'
     | '/orgs/$slug'
     | '/orgs/new'
     | '/settings/api-keys'
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/feed/$roundId'
     | '/$accountId'
     | '/feed'
+    | '/feed/request'
     | '/orgs/$slug'
     | '/orgs/new'
     | '/settings/api-keys'
@@ -348,6 +360,7 @@ export interface FileRouteTypes {
     | '/_layout/_public/feed/$roundId'
     | '/_layout/_public/$accountId/'
     | '/_layout/_public/feed/'
+    | '/_layout/_authenticated/_dashboard/feed/request'
     | '/_layout/_authenticated/_dashboard/orgs/$slug'
     | '/_layout/_authenticated/_dashboard/orgs/new'
     | '/_layout/_authenticated/_dashboard/settings/api-keys'
@@ -570,6 +583,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedDashboardOrgsSlugRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
+    '/_layout/_authenticated/_dashboard/feed/request': {
+      id: '/_layout/_authenticated/_dashboard/feed/request'
+      path: '/feed/request'
+      fullPath: '/feed/request'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardFeedRequestRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
     '/_layout/_authenticated/_dashboard/orgs/invites/$id': {
       id: '/_layout/_authenticated/_dashboard/orgs/invites/$id'
       path: '/orgs/invites/$id'
@@ -674,6 +694,7 @@ const LayoutAuthenticatedDashboardSettingsRouteWithChildren =
 interface LayoutAuthenticatedDashboardRouteChildren {
   LayoutAuthenticatedDashboardDashboardRoute: typeof LayoutAuthenticatedDashboardDashboardRouteWithChildren
   LayoutAuthenticatedDashboardSettingsRoute: typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
+  LayoutAuthenticatedDashboardFeedRequestRoute: typeof LayoutAuthenticatedDashboardFeedRequestRoute
   LayoutAuthenticatedDashboardOrgsSlugRoute: typeof LayoutAuthenticatedDashboardOrgsSlugRoute
   LayoutAuthenticatedDashboardOrgsNewRoute: typeof LayoutAuthenticatedDashboardOrgsNewRoute
   LayoutAuthenticatedDashboardOrgsIndexRoute: typeof LayoutAuthenticatedDashboardOrgsIndexRoute
@@ -686,6 +707,8 @@ const LayoutAuthenticatedDashboardRouteChildren: LayoutAuthenticatedDashboardRou
       LayoutAuthenticatedDashboardDashboardRouteWithChildren,
     LayoutAuthenticatedDashboardSettingsRoute:
       LayoutAuthenticatedDashboardSettingsRouteWithChildren,
+    LayoutAuthenticatedDashboardFeedRequestRoute:
+      LayoutAuthenticatedDashboardFeedRequestRoute,
     LayoutAuthenticatedDashboardOrgsSlugRoute:
       LayoutAuthenticatedDashboardOrgsSlugRoute,
     LayoutAuthenticatedDashboardOrgsNewRoute:
