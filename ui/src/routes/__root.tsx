@@ -16,7 +16,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { getRemoteScripts } from "everything-dev/ui/head";
+import { getRemoteScripts, getThemeInitScript } from "everything-dev/ui/head";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { ThemeProvider } from "next-themes";
 import type { RouterContext } from "@/app";
@@ -120,9 +120,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         ...(siteUrl ? [{ rel: "canonical", href: siteUrl }] : []),
       ],
       scripts: [
-        ...(typeof window === "undefined"
-          ? [{ children: "window.__EVERYTHING_DEV_SSR__=true" }]
-          : []),
+        getThemeInitScript(),
         ...getRemoteScripts({
           runtimeConfig: runtimeConfig ?? undefined,
           containerName: "ui",
@@ -145,14 +143,20 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
   const { cspNonce } = Route.useRouteContext();
   const isDesktop = useMediaQuery("(min-width: 640px)");
+  const isSsr = typeof window === "undefined";
   return (
-    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+    <html
+      lang="en"
+      className="scroll-smooth"
+      suppressHydrationWarning
+      data-everything-ssr={isSsr ? "true" : undefined}
+    >
       <head>
         <HeadContent />
         <style nonce={cspNonce} dangerouslySetInnerHTML={{ __html: getBaseStyles() }} />
       </head>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={cspNonce}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem nonce={cspNonce}>
           <div id="root">
             <Outlet />
           </div>

@@ -2,7 +2,7 @@
 
 `feedback.nearbuilders.org` is a standalone service for project-requested product testing rounds. A project owner requests a round on their product, builders sign up to test it, the project picks who they want, testers use the product and submit feedback during a set window, and when the round closes the selected testers get credit on their NEAR Builders profile.
 
-This repository extends [`dev.everything`](https://everything.dev/) with local UI and API overrides. It is currently an initialized application scaffold; the feedback-rounds features described below are the implementation scope, not a claim that they are already live.
+This repository extends [`dev.everything`](https://everything.dev/) with local UI and API overrides, implementing the feedback-rounds features described below.
 
 The product scope comes from [NEAR Builders issue #221](https://github.com/NEARBuilders/nearbuilders.org/issues/221) and its linked [build scope](https://nearbuilders.org/projects/scope/feedback-rounds-build-scope-qgsqd6). The service follows the `citynode.app` pattern: its own API, reached from a button on the project-owner dashboard in `nearbuilders.org` — not a tab in the main navigation.
 
@@ -153,8 +153,6 @@ manager. Never commit the key.
 - A "Feedback rounds" section on builder profiles showing credited rounds and what the builder submitted, with issues linked to GitHub.
 - The plumbing: storage, permission rules, the automatic state transitions, and the GitHub issue read path.
 - A button on the `nearbuilders.org` project-owner dashboard that opens this service.
-
-No application plugins are imported in this scaffold yet.
 
 ## Out of scope for the initial release
 
