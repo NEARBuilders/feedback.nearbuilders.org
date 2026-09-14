@@ -3,7 +3,7 @@
   "account": "nearbuilding.near",
   "domain": "feedback.nearbuilders.org",
  "title": "Feedback | NearBuilders",
-  "description": "Feedback application",
+  "description": "Request a feedback round, get matched with builders, and turn testing into portable credit.",
   "repository": "https://github.com/NEARBuilders/feedback.nearbuilders.org",
   "ci": {
     "railway": {
