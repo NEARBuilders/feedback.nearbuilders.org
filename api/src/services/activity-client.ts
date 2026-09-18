@@ -217,13 +217,16 @@ export class ActivityClient {
       options.timeoutMs ?? 10_000,
     );
     try {
-      const response = await this.#fetch(`${this.#apiBaseUrl}/v1/events/stream${queryString(input)}`, {
-        headers: {
-          accept: "text/event-stream",
-          ...(options.lastEventId ? { "last-event-id": options.lastEventId } : {}),
+      const response = await this.#fetch(
+        `${this.#apiBaseUrl}/v1/events/stream${queryString(input)}`,
+        {
+          headers: {
+            accept: "text/event-stream",
+            ...(options.lastEventId ? { "last-event-id": options.lastEventId } : {}),
+          },
+          signal: controller.signal,
         },
-        signal: controller.signal,
-      });
+      );
       if (!response.ok || !response.body) {
         clearTimeout(timeout);
         throw await activityError(response);
