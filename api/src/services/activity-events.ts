@@ -1,20 +1,29 @@
 /**
- * Producer-side client for activity.nearbuilders.org.
+ * Producer-side integration with activity.nearbuilders.org.
  *
- * feedback.nearbuilders.org is registered as an Activity Source and emits one
- * event when a round opens and one when feedback is posted, so activity's feed
- * and leaderboard can pick this app up. This is a producer integration only —
- * feedback keeps its own database; there are no shared tables and no Nostr/Redis
- * here.
+ * feedback.nearbuilders.org is registered as an Activity Source and emits
+ * events for a round opening, feedback being posted, a round closing, and
+ * credit being awarded, so activity's feed and leaderboard can pick this app
+ * up. This is a producer integration only — feedback keeps its own database;
+ * there are no shared tables and no Nostr/Redis here.
  *
  * Every emit is best-effort: a failed, rejected, or unreachable gateway is
  * logged and swallowed, and never blocks or fails the local action that
- * triggered it. Submissions carry an idempotency key scoped to the round or
- * feedback id, so a retry of the same logical event is de-duplicated by the
- * gateway (see docs/integration-guide.md in activity.nearbuilders.org).
+ * triggered it. Submissions carry an idempotency key scoped to the round,
+ * feedback, or credit, so a retry of the same logical event is de-duplicated
+ * by the gateway (see docs/integration-guide.md in activity.nearbuilders.org).
+ *
+ * Wire plumbing (submit/listEvents/leaderboard/retract) lives in
+ * `./activity-client`, the ported activity.nearbuilders.org reference client.
  */
 
-export type ActivityEventType = "round.opened" | "feedback.posted";
+import { ActivityApiError, ActivityClient, type JsonValue } from "./activity-client";
+
+export type ActivityEventType =
+  | "round.opened"
+  | "feedback.posted"
+  | "round.closed"
+  | "credit.awarded";
 
 const REQUEST_TIMEOUT_MS = 5000;
 
@@ -49,47 +58,64 @@ export interface FeedbackPostedInput {
   format: string;
 }
 
+export interface RoundClosedInput {
+  id: string;
+  ownerAccountId: string;
+  projectSlug: string;
+  title: string;
+}
+
+export interface CreditAwardedInput {
+  roundId: string;
+  builderAccountId: string;
+  projectSlug: string;
+  roundTitle: string;
+  writtenCount: number;
+  recordedCount: number;
+  summary: string | null;
+}
+
 export interface ActivityEmitter {
   /** True when a gateway URL and API key are configured. */
   readonly enabled: boolean;
   emitRoundOpened(round: RoundOpenedInput): Promise<void>;
   emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<void>;
+  emitRoundClosed(round: RoundClosedInput): Promise<void>;
+  emitCreditAwarded(credit: CreditAwardedInput): Promise<void>;
 }
 
 interface ActivityEventSubmission {
   eventType: ActivityEventType;
   actor: string;
   idempotencyKey: string;
-  payload: Record<string, unknown>;
+  payload: Record<string, JsonValue>;
 }
 
 export function createActivityEmitter(options: ActivityEmitterOptions = {}): ActivityEmitter {
   const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
   const apiKey = options.apiKey ?? "";
-  const doFetch: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
   const logger = options.logger ?? console;
   const enabled = Boolean(baseUrl && apiKey);
+
+  const client = new ActivityClient({
+    apiBaseUrl: baseUrl,
+    apiKey: apiKey || undefined,
+    fetch: options.fetch,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+  });
 
   async function submit(event: ActivityEventSubmission): Promise<void> {
     if (!enabled) return;
 
     try {
-      const response = await doFetch(`${baseUrl}/v1/events`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(event),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-
-      if (response.ok) return;
-
-      logger.warn(
-        `[activity] ${event.eventType} (${event.idempotencyKey}) rejected: HTTP ${response.status}`,
-      );
+      await client.submit(event);
     } catch (error) {
+      if (error instanceof ActivityApiError) {
+        logger.warn(
+          `[activity] ${event.eventType} (${event.idempotencyKey}) rejected: HTTP ${error.status}`,
+        );
+        return;
+      }
       logger.warn(
         `[activity] ${event.eventType} (${event.idempotencyKey}) failed: ${
           error instanceof Error ? error.message : String(error)
@@ -124,6 +150,33 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           feedbackId: feedback.id,
           roundId: feedback.roundId,
           format: feedback.format,
+        },
+      }),
+
+    emitRoundClosed: (round) =>
+      submit({
+        eventType: "round.closed",
+        actor: round.ownerAccountId,
+        idempotencyKey: `round.closed:${round.id}`,
+        payload: {
+          roundId: round.id,
+          projectSlug: round.projectSlug,
+          title: round.title,
+        },
+      }),
+
+    emitCreditAwarded: (credit) =>
+      submit({
+        eventType: "credit.awarded",
+        actor: credit.builderAccountId,
+        idempotencyKey: `credit.awarded:${credit.roundId}:${credit.builderAccountId}`,
+        payload: {
+          roundId: credit.roundId,
+          projectSlug: credit.projectSlug,
+          roundTitle: credit.roundTitle,
+          writtenCount: credit.writtenCount,
+          recordedCount: credit.recordedCount,
+          summary: credit.summary,
         },
       }),
   };

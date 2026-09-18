@@ -443,7 +443,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (round.status !== "open") {
             throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
           }
-          return await services.rounds.closeRound(round.id, input.credits ?? []);
+          const detail = await services.rounds.closeRound(round.id, input.credits ?? []);
+          await services.activityEvents.emitRoundClosed(detail);
+          const credits = await services.rounds.listRoundCredits(round.id);
+          for (const credit of credits) {
+            if (!credit.contributedMeaningfully) continue;
+            await services.activityEvents.emitCreditAwarded(credit);
+          }
+          return detail;
         }),
 
       listRoundCredits: builder.listRoundCredits.handler(async ({ input, errors }) => {

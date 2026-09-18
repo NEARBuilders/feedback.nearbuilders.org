@@ -18,7 +18,11 @@ const feedback = {
 };
 
 function okResponse(status = 200): Response {
-  return { ok: status >= 200 && status < 300, status } as Response;
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => ({ eventId: "evt_test" }),
+  } as Response;
 }
 
 let warn: ReturnType<typeof vi.fn<(message: string) => void>>;
