@@ -127,4 +127,38 @@ describe("createActivityEmitter (enabled)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain("ECONNREFUSED");
   });
+
+  it("fetches the leaderboard scoped to the configured source", async () => {
+    const leaderboardBody = { period: "weekly", data: [] };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => leaderboardBody,
+    } as Response);
+    const emitter = createActivityEmitter({
+      ...config,
+      sourceId: "feedback.nearbuilders.org",
+      fetch: fetchMock,
+      logger: { warn },
+    });
+
+    const result = await emitter.leaderboard({ period: "weekly", type: "feedback.posted" });
+
+    expect(result).toEqual(leaderboardBody);
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain("/v1/leaderboard?");
+    expect(url).toContain("source=feedback.nearbuilders.org");
+    expect(url).toContain("type=feedback.posted");
+    expect(url).toContain("period=weekly");
+  });
+
+  it("returns null and logs when the leaderboard request fails", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    const result = await emitter.leaderboard({ period: "all-time" });
+
+    expect(result).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
 });

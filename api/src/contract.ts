@@ -104,6 +104,22 @@ export const CreditCandidateSchema = z.object({
   recordedCount: z.number().int().nonnegative(),
 });
 
+export const LeaderboardPeriodSchema = z.enum(["weekly", "monthly", "all-time"]);
+
+export const LeaderboardEntrySchema = z.object({
+  rank: z.number().int().positive(),
+  actor: z.string(),
+  score: z.number(),
+  eventCount: z.number().int().nonnegative(),
+});
+
+export const LeaderboardSchema = z.object({
+  period: LeaderboardPeriodSchema,
+  data: z.array(LeaderboardEntrySchema),
+});
+
+export type Leaderboard = z.infer<typeof LeaderboardSchema>;
+
 const PostFeedbackInputSchema = z
   .object({
     id: z.string(),
@@ -317,6 +333,16 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/builders/{accountId}/rounds" })
     .input(z.object({ accountId: z.string() }))
     .output(z.array(BuilderRoundSchema)),
+
+  getLeaderboard: oc
+    .route({ method: "GET", path: "/activity/leaderboard" })
+    .input(
+      z.object({
+        period: LeaderboardPeriodSchema.default("all-time"),
+        limit: z.number().int().positive().max(100).optional(),
+      }),
+    )
+    .output(LeaderboardSchema),
 
   testError: oc
     .route({
