@@ -64,6 +64,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
     // otherwise event emission is a no-op. See README "Activity events".
     ACTIVITY_API_BASE_URL: z.string().default(""),
     ACTIVITY_API_KEY: z.string().default(""),
+    // This app's registered Activity Source id, used to scope leaderboard reads.
+    ACTIVITY_SOURCE_ID: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -82,6 +84,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const activityEvents = createActivityEmitter({
         baseUrl: config.secrets.ACTIVITY_API_BASE_URL,
         apiKey: config.secrets.ACTIVITY_API_KEY,
+        sourceId: config.secrets.ACTIVITY_SOURCE_ID,
       });
 
       console.log(
@@ -467,6 +470,25 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getBuilderRounds: builder.getBuilderRounds.handler(async ({ input }) =>
         services.rounds.listBuilderRounds(input.accountId),
       ),
+
+      getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
+        const result = await services.activityEvents.leaderboard({
+          period: input.period,
+          type: "feedback.posted",
+          limit: input.limit,
+        });
+        return result
+          ? {
+              period: result.period,
+              data: result.data.map((entry) => ({
+                rank: entry.rank,
+                actor: entry.actor,
+                score: entry.score,
+                eventCount: entry.eventCount,
+              })),
+            }
+          : { period: input.period, data: [] };
+      }),
 
       testError: builder.testError.handler(async ({ input }) => {
         switch (input.kind) {

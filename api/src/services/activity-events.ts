@@ -17,7 +17,12 @@
  * `./activity-client`, the ported activity.nearbuilders.org reference client.
  */
 
-import { ActivityApiError, ActivityClient, type JsonValue } from "./activity-client";
+import {
+  ActivityApiError,
+  ActivityClient,
+  type ActivityLeaderboard,
+  type JsonValue,
+} from "./activity-client";
 
 export type ActivityEventType =
   | "round.opened"
@@ -38,6 +43,8 @@ export interface ActivityEmitterOptions {
   baseUrl?: string | null;
   /** Source API Key (`act_…`). Server-side bearer credential. */
   apiKey?: string | null;
+  /** This app's registered Activity Source id, used to scope leaderboard reads. */
+  sourceId?: string | null;
   fetch?: FetchLike;
   logger?: EmitterLogger;
 }
@@ -75,6 +82,12 @@ export interface CreditAwardedInput {
   summary: string | null;
 }
 
+export interface LeaderboardInput {
+  period: "weekly" | "monthly" | "all-time";
+  type?: ActivityEventType;
+  limit?: number;
+}
+
 export interface ActivityEmitter {
   /** True when a gateway URL and API key are configured. */
   readonly enabled: boolean;
@@ -82,6 +95,8 @@ export interface ActivityEmitter {
   emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<void>;
   emitRoundClosed(round: RoundClosedInput): Promise<void>;
   emitCreditAwarded(credit: CreditAwardedInput): Promise<void>;
+  /** Read-only; works even when submission is disabled (no API key required). */
+  leaderboard(input: LeaderboardInput): Promise<ActivityLeaderboard | null>;
 }
 
 interface ActivityEventSubmission {
@@ -94,6 +109,7 @@ interface ActivityEventSubmission {
 export function createActivityEmitter(options: ActivityEmitterOptions = {}): ActivityEmitter {
   const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
   const apiKey = options.apiKey ?? "";
+  const sourceId = options.sourceId ?? "";
   const logger = options.logger ?? console;
   const enabled = Boolean(baseUrl && apiKey);
 
@@ -179,5 +195,25 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           summary: credit.summary,
         },
       }),
+
+    leaderboard: async (input) => {
+      try {
+        return await client.leaderboard({
+          period: input.period,
+          type: input.type,
+          limit: input.limit,
+          source: sourceId || undefined,
+        });
+      } catch (error) {
+        if (error instanceof ActivityApiError) {
+          logger.warn(`[activity] leaderboard rejected: HTTP ${error.status}`);
+          return null;
+        }
+        logger.warn(
+          `[activity] leaderboard failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return null;
+      }
+    },
   };
 }

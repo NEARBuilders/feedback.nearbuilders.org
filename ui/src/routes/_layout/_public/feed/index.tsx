@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useApiClient } from "@/app";
 import { Badge, Card, Input } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
+import { TopTesters } from "@/components/top-testers";
 
 type RoundStatusFilter = "open" | "closed";
 
@@ -83,6 +84,8 @@ function FeedPage() {
             </div>
           </div>
         </header>
+
+        <TopTesters />
 
         {isLoading ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
