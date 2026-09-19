@@ -57,6 +57,21 @@ describe("createRound", () => {
     });
     expect(round.repoUrl).toBe("https://github.com/near/feedback");
   });
+
+  it("numbers rounds sequentially per project, independent of other projects", async () => {
+    const client = await getPluginClient(nearAuthedContext("numbering-owner.near"));
+
+    const first = await client.createRound({ ...baseInput, projectSlug: "numbered-project" });
+    const second = await client.createRound({ ...baseInput, projectSlug: "numbered-project" });
+    expect(first.projectRoundNumber).toBe(1);
+    expect(second.projectRoundNumber).toBe(2);
+
+    const otherProject = await client.createRound({
+      ...baseInput,
+      projectSlug: "other-numbered-project",
+    });
+    expect(otherProject.projectRoundNumber).toBe(1);
+  });
 });
 
 describe("listRounds", () => {
