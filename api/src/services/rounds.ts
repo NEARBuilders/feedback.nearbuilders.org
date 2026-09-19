@@ -26,6 +26,7 @@ export interface RoundRecord {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  activityEventId: string | null;
 }
 
 export interface CreateRoundInput {
@@ -49,6 +50,7 @@ export interface RoundFeedbackRecord {
   body: string | null;
   url: string | null;
   createdAt: string;
+  activityEventId: string | null;
 }
 
 export interface AddFeedbackInput {
@@ -98,6 +100,15 @@ export interface CloseRoundCreditInput {
   summary?: string;
 }
 
+export interface DeletedRoundResult {
+  activityEventId: string | null;
+}
+
+export interface DeletedFeedbackResult {
+  roundId: string;
+  activityEventId: string | null;
+}
+
 export interface RoundsService {
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
@@ -112,6 +123,10 @@ export interface RoundsService {
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
   listBuilderRounds(accountId: string): Promise<BuilderRoundRecord[]>;
+  setRoundActivityEventId(roundId: string, eventId: string): Promise<void>;
+  setFeedbackActivityEventId(feedbackId: string, eventId: string): Promise<void>;
+  deleteRound(roundId: string): Promise<DeletedRoundResult | null>;
+  deleteFeedback(feedbackId: string): Promise<DeletedFeedbackResult | null>;
 }
 
 function toIssuesUrl(formats: RoundFormat[], repoUrl: string | null): string | null {
@@ -136,6 +151,7 @@ function toRoundRecord(row: RoundRow): RoundRecord {
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
     closedAt: row.closedAt instanceof Date ? row.closedAt.toISOString() : null,
+    activityEventId: row.activityEventId,
   };
 }
 
@@ -150,6 +166,7 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     body: row.body,
     url: row.url,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    activityEventId: row.activityEventId,
   };
 }
 
@@ -493,6 +510,55 @@ export const RoundsLive = Layer.effect(
               creditedAt,
             };
           });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setRoundActivityEventId: async (roundId, eventId) => {
+        try {
+          await db
+            .update(roundsTable)
+            .set({ activityEventId: eventId })
+            .where(eq(roundsTable.id, roundId));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setFeedbackActivityEventId: async (feedbackId, eventId) => {
+        try {
+          await db
+            .update(roundFeedbackTable)
+            .set({ activityEventId: eventId })
+            .where(eq(roundFeedbackTable.id, feedbackId));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      deleteRound: async (roundId) => {
+        try {
+          const [row] = await db
+            .delete(roundsTable)
+            .where(eq(roundsTable.id, roundId))
+            .returning({ activityEventId: roundsTable.activityEventId });
+          return row ? { activityEventId: row.activityEventId } : null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      deleteFeedback: async (feedbackId) => {
+        try {
+          const [row] = await db
+            .delete(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.id, feedbackId))
+            .returning({
+              roundId: roundFeedbackTable.roundId,
+              activityEventId: roundFeedbackTable.activityEventId,
+            });
+          return row ? { roundId: row.roundId, activityEventId: row.activityEventId } : null;
         } catch (error) {
           throw toOrpcError(error);
         }

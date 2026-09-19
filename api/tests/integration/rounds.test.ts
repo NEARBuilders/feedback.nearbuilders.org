@@ -334,3 +334,86 @@ describe("getBuilderRounds", () => {
     expect(await anon.getBuilderRounds({ accountId: "nobody.near" })).toEqual([]);
   });
 });
+
+describe("deleteRound", () => {
+  async function freshRound(owner = "del-owner.near") {
+    const client = await getPluginClient(nearAuthedContext(owner));
+    return client.createRound({ ...baseInput, title: `Round for ${owner}` });
+  }
+
+  it("rejects a non-owner deleting the round", async () => {
+    const round = await freshRound("del1.near");
+    const stranger = await getPluginClient(nearAuthedContext("del-stranger1.near"));
+    await expect(stranger.deleteRound({ id: round.id })).rejects.toThrow("owner");
+  });
+
+  it("deletes an open round so it no longer resolves", async () => {
+    const round = await freshRound("del2.near");
+    const owner = await getPluginClient(nearAuthedContext("del2.near"));
+    const deleted = await owner.deleteRound({ id: round.id });
+    expect(deleted.id).toBe(round.id);
+
+    const anon = await getPluginClient();
+    await expect(anon.getRound({ id: round.id })).rejects.toThrow();
+  });
+
+  it("rejects deleting an already-closed round", async () => {
+    const round = await freshRound("del3.near");
+    const owner = await getPluginClient(nearAuthedContext("del3.near"));
+    await owner.closeRound({ id: round.id });
+    await expect(owner.deleteRound({ id: round.id })).rejects.toThrow("can't be deleted");
+  });
+
+  it("fails with NOT_FOUND deleting an unknown round", async () => {
+    const owner = await getPluginClient(nearAuthedContext("del4.near"));
+    await expect(
+      owner.deleteRound({ id: "00000000-0000-0000-0000-000000000000" }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("deleteFeedback", () => {
+  async function roundWithFeedback(owner: string, builder: string) {
+    const ownerClient = await getPluginClient(nearAuthedContext(owner));
+    const round = await ownerClient.createRound({
+      ...baseInput,
+      title: `Moderated round ${owner}`,
+    });
+    const builderClient = await getPluginClient(nearAuthedContext(builder));
+    await builderClient.joinRound({ id: round.id });
+    const feedback = await builderClient.postFeedback({
+      id: round.id,
+      format: "written",
+      body: "Spam link",
+    });
+    return { round, ownerClient, feedback };
+  }
+
+  it("rejects a non-owner removing feedback", async () => {
+    const { round, feedback } = await roundWithFeedback("mod1.near", "mod-b1.near");
+    const stranger = await getPluginClient(nearAuthedContext("mod-stranger1.near"));
+    await expect(
+      stranger.deleteFeedback({ id: round.id, feedbackId: feedback.id }),
+    ).rejects.toThrow("owner");
+  });
+
+  it("removes feedback so it no longer appears in the thread", async () => {
+    const { round, ownerClient, feedback } = await roundWithFeedback("mod2.near", "mod-b2.near");
+    const removed = await ownerClient.deleteFeedback({ id: round.id, feedbackId: feedback.id });
+    expect(removed.id).toBe(feedback.id);
+
+    const anon = await getPluginClient();
+    const thread = await anon.listFeedback({ id: round.id });
+    expect(thread.find((f) => f.id === feedback.id)).toBeUndefined();
+  });
+
+  it("fails with NOT_FOUND removing feedback that doesn't exist", async () => {
+    const { round, ownerClient } = await roundWithFeedback("mod3.near", "mod-b3.near");
+    await expect(
+      ownerClient.deleteFeedback({
+        id: round.id,
+        feedbackId: "00000000-0000-0000-0000-000000000000",
+      }),
+    ).rejects.toThrow();
+  });
+});
