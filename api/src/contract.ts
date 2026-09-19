@@ -35,6 +35,7 @@ export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
   projectSlug: z.string(),
+  projectRoundNumber: z.number().int().positive(),
   title: z.string(),
   description: z.string(),
   formats: z.array(RoundFormatSchema),

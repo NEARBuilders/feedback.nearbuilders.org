@@ -1,8 +1,9 @@
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import {
+  projectRoundCounters as projectRoundCountersTable,
   roundCredits as roundCreditsTable,
   roundFeedback as roundFeedbackTable,
   roundParticipants as roundParticipantsTable,
@@ -18,6 +19,7 @@ export interface RoundRecord {
   id: string;
   ownerAccountId: string;
   projectSlug: string;
+  projectRoundNumber: number;
   title: string;
   description: string;
   formats: RoundFormat[];
@@ -143,6 +145,7 @@ function toRoundRecord(row: RoundRow): RoundRecord {
     id: row.id,
     ownerAccountId: row.ownerAccountId,
     projectSlug: row.projectSlug,
+    projectRoundNumber: row.projectRoundNumber,
     title: row.title,
     description: row.description,
     formats: row.formats as RoundFormat[],
@@ -203,17 +206,31 @@ export const RoundsLive = Layer.effect(
     const service: RoundsService = {
       createRound: async (input) => {
         try {
-          const [row] = await db
-            .insert(roundsTable)
-            .values({
-              ownerAccountId: input.ownerAccountId,
-              projectSlug: input.projectSlug,
-              title: input.title,
-              description: input.description,
-              formats: input.formats,
-              repoUrl: input.repoUrl ?? null,
-            })
-            .returning();
+          const row = await db.transaction(async (tx) => {
+            const [counter] = await tx
+              .insert(projectRoundCountersTable)
+              .values({ projectSlug: input.projectSlug, lastNumber: 1 })
+              .onConflictDoUpdate({
+                target: projectRoundCountersTable.projectSlug,
+                set: { lastNumber: sql`${projectRoundCountersTable.lastNumber} + 1` },
+              })
+              .returning({ lastNumber: projectRoundCountersTable.lastNumber });
+
+            const [inserted] = await tx
+              .insert(roundsTable)
+              .values({
+                ownerAccountId: input.ownerAccountId,
+                projectSlug: input.projectSlug,
+                projectRoundNumber: counter!.lastNumber,
+                title: input.title,
+                description: input.description,
+                formats: input.formats,
+                repoUrl: input.repoUrl ?? null,
+              })
+              .returning();
+
+            return inserted;
+          });
 
           if (!row) {
             throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to create round" });
