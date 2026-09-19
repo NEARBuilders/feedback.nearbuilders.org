@@ -91,10 +91,13 @@ export interface LeaderboardInput {
 export interface ActivityEmitter {
   /** True when a gateway URL and API key are configured. */
   readonly enabled: boolean;
-  emitRoundOpened(round: RoundOpenedInput): Promise<void>;
-  emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<void>;
-  emitRoundClosed(round: RoundClosedInput): Promise<void>;
-  emitCreditAwarded(credit: CreditAwardedInput): Promise<void>;
+  /** Returns the gateway's event id on success, or null if disabled/failed. */
+  emitRoundOpened(round: RoundOpenedInput): Promise<string | null>;
+  emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<string | null>;
+  emitRoundClosed(round: RoundClosedInput): Promise<string | null>;
+  emitCreditAwarded(credit: CreditAwardedInput): Promise<string | null>;
+  /** Hides a previously emitted event, e.g. because its round/feedback was deleted. */
+  retract(eventId: string, reason: string): Promise<void>;
   /** Read-only; works even when submission is disabled (no API key required). */
   leaderboard(input: LeaderboardInput): Promise<ActivityLeaderboard | null>;
 }
@@ -120,23 +123,25 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
     timeoutMs: REQUEST_TIMEOUT_MS,
   });
 
-  async function submit(event: ActivityEventSubmission): Promise<void> {
-    if (!enabled) return;
+  async function submit(event: ActivityEventSubmission): Promise<string | null> {
+    if (!enabled) return null;
 
     try {
-      await client.submit(event);
+      const { eventId } = await client.submit(event);
+      return eventId;
     } catch (error) {
       if (error instanceof ActivityApiError) {
         logger.warn(
           `[activity] ${event.eventType} (${event.idempotencyKey}) rejected: HTTP ${error.status}`,
         );
-        return;
+        return null;
       }
       logger.warn(
         `[activity] ${event.eventType} (${event.idempotencyKey}) failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      return null;
     }
   }
 
@@ -195,6 +200,24 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           summary: credit.summary,
         },
       }),
+
+    retract: async (eventId, reason) => {
+      if (!enabled) return;
+
+      try {
+        await client.retract(eventId, { reason, idempotencyKey: `retract:${eventId}` });
+      } catch (error) {
+        if (error instanceof ActivityApiError) {
+          logger.warn(`[activity] retract ${eventId} rejected: HTTP ${error.status}`);
+          return;
+        }
+        logger.warn(
+          `[activity] retract ${eventId} failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    },
 
     leaderboard: async (input) => {
       try {

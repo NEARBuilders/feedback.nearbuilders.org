@@ -262,6 +262,12 @@ export const contract = oc.router({
     .input(z.object({ status: RoundStatusSchema.optional() }))
     .output(z.array(RoundSchema)),
 
+  deleteRound: oc
+    .route({ method: "DELETE", path: "/rounds/{id}" })
+    .input(z.object({ id: z.string() }))
+    .output(RoundSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
   getRound: oc
     .route({ method: "GET", path: "/rounds/{id}" })
     .input(z.object({ id: z.string() }))
@@ -297,6 +303,12 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.array(RoundFeedbackSchema))
     .errors({ NOT_FOUND }),
+
+  deleteFeedback: oc
+    .route({ method: "DELETE", path: "/rounds/{id}/feedback/{feedbackId}" })
+    .input(z.object({ id: z.string(), feedbackId: z.string() }))
+    .output(RoundFeedbackSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   getCreditCandidates: oc
     .route({ method: "GET", path: "/rounds/{id}/credit-candidates" })
