@@ -52,6 +52,7 @@ export const rounds = pgTable(
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     closedAt: timestamp("closed_at", { mode: "date", withTimezone: true }),
+    activityEventId: text("activity_event_id"),
   },
   (table) => ({
     ownerAccountIdIdx: index("rounds_owner_account_id_idx").on(table.ownerAccountId),
@@ -92,6 +93,7 @@ export const roundFeedback = pgTable(
     body: text("body"),
     url: text("url"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    activityEventId: text("activity_event_id"),
   },
   (table) => ({
     roundCreatedIdx: index("round_feedback_round_created_idx").on(table.roundId, table.createdAt),

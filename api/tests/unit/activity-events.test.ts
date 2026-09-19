@@ -112,7 +112,7 @@ describe("createActivityEmitter (enabled)", () => {
     const fetchMock = vi.fn().mockResolvedValue(okResponse(503));
     const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
 
-    await expect(emitter.emitRoundOpened(round)).resolves.toBeUndefined();
+    await expect(emitter.emitRoundOpened(round)).resolves.toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0]?.[0]);
     expect(message).toContain("HTTP 503");
@@ -123,9 +123,52 @@ describe("createActivityEmitter (enabled)", () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
     const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
 
-    await expect(emitter.emitFeedbackPosted(feedback)).resolves.toBeUndefined();
+    await expect(emitter.emitFeedbackPosted(feedback)).resolves.toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain("ECONNREFUSED");
+  });
+
+  it("returns the gateway's event id on success", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse());
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    await expect(emitter.emitRoundOpened(round)).resolves.toBe("evt_test");
+  });
+
+  it("retracts a previously emitted event", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        hiddenEvent: { eventId: "evt_test", reason: "round deleted" },
+        projection: { updateId: "upd_1", operation: "exclude" },
+      }),
+    } as Response);
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    await emitter.retract("evt_test", "round deleted");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ];
+    expect(url).toBe("https://activity.nearbuilders.org/api/v1/events/evt_test/retract");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      reason: "round deleted",
+      idempotencyKey: "retract:evt_test",
+    });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op to retract when disabled", async () => {
+    const fetchMock = vi.fn();
+    const emitter = createActivityEmitter({ fetch: fetchMock, logger: { warn } });
+
+    await emitter.retract("evt_test", "round deleted");
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("fetches the leaderboard scoped to the configured source", async () => {

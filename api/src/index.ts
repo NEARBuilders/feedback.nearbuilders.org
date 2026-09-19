@@ -277,13 +277,43 @@ export default createPlugin.withPlugins<PluginsClient>()({
           formats: input.formats,
           repoUrl: input.repoUrl,
         });
-        await services.activityEvents.emitRoundOpened(round);
+        const eventId = await services.activityEvents.emitRoundOpened(round);
+        if (eventId) await services.rounds.setRoundActivityEventId(round.id, eventId);
         return round;
       }),
 
       listRounds: builder.listRounds.handler(async ({ input }) =>
         services.rounds.listRounds(input.status),
       ),
+
+      deleteRound: builder.deleteRound
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Link a NEAR account before deleting a round",
+            });
+          }
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (round.ownerAccountId !== accountId) {
+            throw new ORPCError("FORBIDDEN", { message: "Only the round owner can delete it" });
+          }
+          if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", { message: "Closed rounds can't be deleted" });
+          }
+          const result = await services.rounds.deleteRound(round.id);
+          if (result?.activityEventId) {
+            await services.activityEvents.retract(result.activityEventId, "round deleted");
+          }
+          return round;
+        }),
 
       getRound: builder.getRound.handler(async ({ input, errors }) => {
         const round = await services.rounds.getRoundDetail(input.id);
@@ -392,7 +422,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
             body: input.format === "written" ? (input.body?.trim() ?? null) : null,
             url: input.format === "recorded" ? (input.url ?? null) : null,
           });
-          await services.activityEvents.emitFeedbackPosted(feedback);
+          const eventId = await services.activityEvents.emitFeedbackPosted(feedback);
+          if (eventId) await services.rounds.setFeedbackActivityEventId(feedback.id, eventId);
           return feedback;
         }),
 
@@ -406,6 +437,42 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }
         return await services.rounds.listFeedback(round.id);
       }),
+
+      deleteFeedback: builder.deleteFeedback
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("UNAUTHORIZED", {
+              message: "Link a NEAR account before removing feedback",
+            });
+          }
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (round.ownerAccountId !== accountId) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the round owner can remove feedback",
+            });
+          }
+          const feedbackList = await services.rounds.listFeedback(round.id);
+          const feedback = feedbackList.find((f) => f.id === input.feedbackId);
+          if (!feedback) {
+            throw errors.NOT_FOUND({
+              message: "Feedback not found",
+              data: { resource: "feedback", resourceId: input.feedbackId },
+            });
+          }
+          const result = await services.rounds.deleteFeedback(input.feedbackId);
+          if (result?.activityEventId) {
+            await services.activityEvents.retract(result.activityEventId, "feedback invalidated");
+          }
+          return feedback;
+        }),
 
       getCreditCandidates: builder.getCreditCandidates
         .use(requireAuth)
