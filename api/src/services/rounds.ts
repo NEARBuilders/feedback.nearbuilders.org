@@ -53,6 +53,7 @@ export interface RoundFeedbackRecord {
   url: string | null;
   createdAt: string;
   activityEventId: string | null;
+  nostrEventId: string | null;
 }
 
 export interface AddFeedbackInput {
@@ -127,6 +128,7 @@ export interface RoundsService {
   listBuilderRounds(accountId: string): Promise<BuilderRoundRecord[]>;
   setRoundActivityEventId(roundId: string, eventId: string): Promise<void>;
   setFeedbackActivityEventId(feedbackId: string, eventId: string): Promise<void>;
+  setFeedbackNostrEventId(feedbackId: string, nostrEventId: string): Promise<void>;
   deleteRound(roundId: string): Promise<DeletedRoundResult | null>;
   deleteFeedback(feedbackId: string): Promise<DeletedFeedbackResult | null>;
 }
@@ -170,6 +172,7 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     url: row.url,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     activityEventId: row.activityEventId,
+    nostrEventId: row.nostrEventId,
   };
 }
 
@@ -548,6 +551,17 @@ export const RoundsLive = Layer.effect(
           await db
             .update(roundFeedbackTable)
             .set({ activityEventId: eventId })
+            .where(eq(roundFeedbackTable.id, feedbackId));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setFeedbackNostrEventId: async (feedbackId, nostrEventId) => {
+        try {
+          await db
+            .update(roundFeedbackTable)
+            .set({ nostrEventId })
             .where(eq(roundFeedbackTable.id, feedbackId));
         } catch (error) {
           throw toOrpcError(error);

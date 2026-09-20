@@ -104,6 +104,7 @@ export const roundFeedback = pgTable(
     url: text("url"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     activityEventId: text("activity_event_id"),
+    nostrEventId: text("nostr_event_id"),
   },
   (table) => ({
     roundCreatedIdx: index("round_feedback_round_created_idx").on(table.roundId, table.createdAt),

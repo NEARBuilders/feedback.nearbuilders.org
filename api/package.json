@@ -25,6 +25,7 @@
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "every-plugin": "catalog:",
+    "nostr-tools": "^2.10.0",
     "pg": "catalog:",
     "@electric-sql/pglite": "catalog:",
     "zod": "catalog:"
