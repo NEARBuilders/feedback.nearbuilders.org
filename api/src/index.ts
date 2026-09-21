@@ -8,6 +8,7 @@ import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
+import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { RoundsLive, RoundsTag } from "./services/rounds";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
@@ -66,13 +67,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
     ACTIVITY_API_KEY: z.string().default(""),
     // This app's registered Activity Source id, used to scope leaderboard reads.
     ACTIVITY_SOURCE_ID: z.string().default(""),
+    // Hex-encoded secret key for this app's service Nostr identity, used to
+    // publish feedback submissions as Nostr comments (#32). Best-effort:
+    // publishing is a no-op when unset. See services/feedback-nostr.ts.
+    NOSTR_SECRET_KEY_HEX: z.string().default(""),
   }),
 
   context: ContextSchema,
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
+  initialize: (config, plugins, tools) =>
     Effect.gen(function* () {
       const database = DatabaseLive(config.secrets.API_DATABASE_URL);
       const tenantsLayer = TenantsLive.pipe(Layer.provide(database));
@@ -87,14 +92,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
         sourceId: config.secrets.ACTIVITY_SOURCE_ID,
       });
 
+      const feedbackNostr = createFeedbackNostrEmitter({
+        nostr: plugins.nostr,
+        secretKeyHex: config.secrets.NOSTR_SECRET_KEY_HEX,
+      });
+
       console.log(
-        `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"})`,
+        `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"})`,
       );
 
       return {
         tenants: tenantsService,
         rounds: roundsService,
         activityEvents,
+        feedbackNostr,
       };
     }),
 
@@ -415,16 +426,30 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Join the round before posting feedback",
             });
           }
+          const body = input.format === "written" ? (input.body?.trim() ?? null) : null;
+          const url = input.format === "recorded" ? (input.url ?? null) : null;
           const feedback = await services.rounds.addFeedback({
             roundId: round.id,
             authorAccountId: accountId,
             format: input.format,
-            body: input.format === "written" ? (input.body?.trim() ?? null) : null,
-            url: input.format === "recorded" ? (input.url ?? null) : null,
+            body,
+            url,
           });
           const eventId = await services.activityEvents.emitFeedbackPosted(feedback);
           if (eventId) await services.rounds.setFeedbackActivityEventId(feedback.id, eventId);
-          return feedback;
+          const nostrEventId = await services.feedbackNostr.publish(
+            {
+              projectSlug: round.projectSlug,
+              roundNumber: round.projectRoundNumber,
+              format: input.format,
+              content: (input.format === "written" ? body : url) ?? "",
+              authorAccountId: accountId,
+            },
+            context,
+          );
+          if (nostrEventId)
+            await services.rounds.setFeedbackNostrEventId(feedback.id, nostrEventId);
+          return { ...feedback, nostrEventId: nostrEventId ?? feedback.nostrEventId };
         }),
 
       listFeedback: builder.listFeedback.handler(async ({ input, errors }) => {

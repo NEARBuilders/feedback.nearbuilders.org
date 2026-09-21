@@ -1,0 +1,1 @@
+ALTER TABLE "round_feedback" ADD COLUMN "nostr_event_id" text;

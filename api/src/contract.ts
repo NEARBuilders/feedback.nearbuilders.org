@@ -64,6 +64,7 @@ export const RoundFeedbackSchema = z.object({
   body: z.string().nullable(),
   url: z.string().nullable(),
   createdAt: z.string(),
+  nostrEventId: z.string().nullable(),
 });
 
 export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;

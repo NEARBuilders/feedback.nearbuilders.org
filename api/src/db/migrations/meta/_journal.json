@@ -57,6 +57,13 @@
       "when": 1789757404630,
       "tag": "0007_hard_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789882649256,
+      "tag": "0008_woozy_vermin",
+      "breakpoints": true
     }
   ]
 }
