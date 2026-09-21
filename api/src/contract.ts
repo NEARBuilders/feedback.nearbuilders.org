@@ -122,6 +122,17 @@ export const LeaderboardSchema = z.object({
 
 export type Leaderboard = z.infer<typeof LeaderboardSchema>;
 
+export const BuilderActivityEventSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  sourceDisplayName: z.string(),
+  type: z.string(),
+  timestamp: z.string(),
+  payload: z.record(z.string(), z.unknown()),
+});
+
+export type BuilderActivityEvent = z.infer<typeof BuilderActivityEventSchema>;
+
 const PostFeedbackInputSchema = z
   .object({
     id: z.string(),
@@ -347,6 +358,16 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/builders/{accountId}/rounds" })
     .input(z.object({ accountId: z.string() }))
     .output(z.array(BuilderRoundSchema)),
+
+  getBuilderActivity: oc
+    .route({ method: "GET", path: "/builders/{accountId}/activity" })
+    .input(
+      z.object({
+        accountId: z.string(),
+        limit: z.number().int().positive().max(50).default(20),
+      }),
+    )
+    .output(z.array(BuilderActivityEventSchema)),
 
   getLeaderboard: oc
     .route({ method: "GET", path: "/activity/leaderboard" })
