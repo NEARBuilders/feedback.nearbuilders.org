@@ -205,3 +205,31 @@ describe("createActivityEmitter (enabled)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("createActivityEmitter (endorsement reads)", () => {
+  const config = { baseUrl: "https://activity.nearbuilders.org/api" };
+
+  it("fetches endorsement counts in one batched POST", async () => {
+    const body = { evt1: { eventId: "evt1", totalCount: 3, endorsedByCurrentUser: false } };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => body,
+    } as Response);
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    expect(await emitter.endorsements(["evt1"])).toEqual(body);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://activity.nearbuilders.org/api/v1/events/endorsements");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ eventIds: ["evt1"] });
+  });
+
+  it("skips the request when there are no event ids", async () => {
+    const fetchMock = vi.fn();
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    expect(await emitter.endorsements([])).toEqual({});
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
