@@ -36,6 +36,11 @@ export const tenants = pgTable(
   }),
 );
 
+export const projectRoundCounters = pgTable("project_round_counters", {
+  projectSlug: text("project_slug").primaryKey(),
+  lastNumber: integer("last_number").default(0).notNull(),
+});
+
 export const roundStatus = pgEnum("round_status", ["open", "closed"]);
 
 export const rounds = pgTable(
@@ -44,6 +49,7 @@ export const rounds = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     ownerAccountId: text("owner_account_id").notNull(),
     projectSlug: text("project_slug").notNull(),
+    projectRoundNumber: integer("project_round_number").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull(),
     formats: text("formats").array().notNull(),
@@ -57,6 +63,10 @@ export const rounds = pgTable(
   (table) => ({
     ownerAccountIdIdx: index("rounds_owner_account_id_idx").on(table.ownerAccountId),
     statusIdx: index("rounds_status_idx").on(table.status),
+    projectRoundNumberIdx: uniqueIndex("rounds_project_round_number_idx").on(
+      table.projectSlug,
+      table.projectRoundNumber,
+    ),
   }),
 );
 
