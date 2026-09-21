@@ -563,6 +563,36 @@ export default createPlugin.withPlugins<PluginsClient>()({
         services.rounds.listBuilderRounds(input.accountId),
       ),
 
+      getBuilderActivity: builder.getBuilderActivity.handler(async ({ input }) => {
+        const events = await services.activityEvents.listActorEvents({
+          actor: input.accountId,
+          limit: input.limit,
+        });
+        return (events ?? []).map((event) => ({
+          id: event.id,
+          source: event.source,
+          sourceDisplayName: event.provenance.sourceDisplayName,
+          type: event.type,
+          timestamp: event.timestamp,
+          payload:
+            event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+              ? event.payload
+              : {},
+        }));
+      }),
+
+      getRoundEndorsements: builder.getRoundEndorsements.handler(async ({ input }) => {
+        const eventIds = await services.rounds.listRoundActivityEventIds(input.roundIds);
+        const counts = await services.activityEvents.endorsements(Object.values(eventIds));
+        const result: Record<string, { eventId: string; totalCount: number }> = {};
+        if (!counts) return result;
+        for (const [roundId, eventId] of Object.entries(eventIds)) {
+          const endorsement = counts[eventId];
+          if (endorsement) result[roundId] = { eventId, totalCount: endorsement.totalCount };
+        }
+        return result;
+      }),
+
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
         const result = await services.activityEvents.leaderboard({
           period: input.period,

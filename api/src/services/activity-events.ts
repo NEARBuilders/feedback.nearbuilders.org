@@ -20,6 +20,8 @@
 import {
   ActivityApiError,
   ActivityClient,
+  type ActivityEndorsement,
+  type ActivityEvent,
   type ActivityLeaderboard,
   type JsonValue,
 } from "./activity-client";
@@ -88,6 +90,11 @@ export interface LeaderboardInput {
   limit?: number;
 }
 
+export interface ActorEventsInput {
+  actor: string;
+  limit?: number;
+}
+
 export interface ActivityEmitter {
   /** True when a gateway URL and API key are configured. */
   readonly enabled: boolean;
@@ -100,6 +107,10 @@ export interface ActivityEmitter {
   retract(eventId: string, reason: string): Promise<void>;
   /** Read-only; works even when submission is disabled (no API key required). */
   leaderboard(input: LeaderboardInput): Promise<ActivityLeaderboard | null>;
+  /** Read-only cross-app feed for one account; null if the gateway is unreachable. */
+  listActorEvents(input: ActorEventsInput): Promise<ActivityEvent[] | null>;
+  /** Read-only endorsement counts keyed by event id; null if the gateway is unreachable. */
+  endorsements(eventIds: string[]): Promise<Record<string, ActivityEndorsement> | null>;
 }
 
 interface ActivityEventSubmission {
@@ -140,6 +151,21 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
         `[activity] ${event.eventType} (${event.idempotencyKey}) failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
+      );
+      return null;
+    }
+  }
+
+  async function read<T>(label: string, run: () => Promise<T>): Promise<T | null> {
+    try {
+      return await run();
+    } catch (error) {
+      if (error instanceof ActivityApiError) {
+        logger.warn(`[activity] ${label} rejected: HTTP ${error.status}`);
+        return null;
+      }
+      logger.warn(
+        `[activity] ${label} failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       return null;
     }
@@ -219,24 +245,26 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
       }
     },
 
-    leaderboard: async (input) => {
-      try {
-        return await client.leaderboard({
+    leaderboard: (input) =>
+      read("leaderboard", () =>
+        client.leaderboard({
           period: input.period,
           type: input.type,
           limit: input.limit,
           source: sourceId || undefined,
-        });
-      } catch (error) {
-        if (error instanceof ActivityApiError) {
-          logger.warn(`[activity] leaderboard rejected: HTTP ${error.status}`);
-          return null;
-        }
-        logger.warn(
-          `[activity] leaderboard failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        return null;
-      }
+        }),
+      ),
+
+    listActorEvents: async (input) => {
+      const feed = await read("listActorEvents", () =>
+        client.listEvents({ actor: input.actor, limit: input.limit }),
+      );
+      return feed?.data ?? null;
+    },
+
+    endorsements: async (eventIds) => {
+      if (eventIds.length === 0) return {};
+      return read("endorsements", () => client.endorsements(eventIds));
     },
   };
 }

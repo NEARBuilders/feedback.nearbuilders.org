@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -113,6 +113,8 @@ export interface DeletedFeedbackResult {
 }
 
 export interface RoundsService {
+  /** Maps round id -> emitted activity event id, for rounds that have one. */
+  listRoundActivityEventIds(roundIds: string[]): Promise<Record<string, string>>;
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
@@ -530,6 +532,23 @@ export const RoundsLive = Layer.effect(
               creditedAt,
             };
           });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listRoundActivityEventIds: async (roundIds) => {
+        if (roundIds.length === 0) return {};
+        try {
+          const rows = await db
+            .select({ id: roundsTable.id, activityEventId: roundsTable.activityEventId })
+            .from(roundsTable)
+            .where(and(inArray(roundsTable.id, roundIds), isNotNull(roundsTable.activityEventId)));
+          const result: Record<string, string> = {};
+          for (const row of rows) {
+            if (row.activityEventId) result[row.id] = row.activityEventId;
+          }
+          return result;
         } catch (error) {
           throw toOrpcError(error);
         }
