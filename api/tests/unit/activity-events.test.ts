@@ -205,3 +205,39 @@ describe("createActivityEmitter (enabled)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("createActivityEmitter (cross-app reads)", () => {
+  const config = { baseUrl: "https://activity.nearbuilders.org/api" };
+
+  it("lists an actor's events without an API key or source scoping", async () => {
+    const event = { id: "e1", type: "github.pr.merged", actor: "builder.near" };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [event], meta: {} }),
+    } as Response);
+    const emitter = createActivityEmitter({
+      ...config,
+      sourceId: "feedback.nearbuilders.org",
+      fetch: fetchMock,
+      logger: { warn },
+    });
+
+    const result = await emitter.listActorEvents({ actor: "builder.near", limit: 5 });
+
+    expect(result).toEqual([event]);
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain("/v1/events?");
+    expect(url).toContain("actor=builder.near");
+    expect(url).toContain("limit=5");
+    expect(url).not.toContain("source=");
+  });
+
+  it("returns null and logs when the actor feed is unreachable", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    expect(await emitter.listActorEvents({ actor: "builder.near" })).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
