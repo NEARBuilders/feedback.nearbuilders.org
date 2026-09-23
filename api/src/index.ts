@@ -496,6 +496,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "feedback invalidated");
           }
+          if (feedback.nostrEventId) {
+            // The nostr plugin's contract has no delete/retract method (Nostr has
+            // no server-enforced deletion), so unlike the activity event above,
+            // this comment stays live on relays after the feedback is removed here.
+            console.warn(
+              `[nostr] feedback ${feedback.id} deleted, but its comment ${feedback.nostrEventId} can't be retracted and remains on relays`,
+            );
+          }
           return feedback;
         }),
 

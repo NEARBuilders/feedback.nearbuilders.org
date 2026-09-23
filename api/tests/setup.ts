@@ -4,12 +4,27 @@ import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
 import { RPCHandler } from "@orpc/server/node";
 import { createPluginRuntime } from "every-plugin";
+import { generateSecretKey } from "nostr-tools/pure";
+import { bytesToHex } from "nostr-tools/utils";
+import { vi } from "vitest";
 import type { contract } from "@/contract";
 import Plugin from "@/index";
 import pluginDevConfig from "../plugin.dev";
 
 const TEST_PLUGIN_ID = pluginDevConfig.pluginId;
-const TEST_CONFIG = pluginDevConfig.config;
+
+// A real (test-only) service Nostr identity, so integration tests exercise the
+// same "feedback nostr comments enabled" path production runs under, instead
+// of always taking the disabled/no-op branch (see services/feedback-nostr.ts).
+export const TEST_NOSTR_SECRET_KEY_HEX = bytesToHex(generateSecretKey());
+
+const TEST_CONFIG = {
+  ...pluginDevConfig.config,
+  secrets: {
+    ...pluginDevConfig.config.secrets,
+    NOSTR_SECRET_KEY_HEX: TEST_NOSTR_SECRET_KEY_HEX,
+  },
+};
 
 const TEST_REGISTRY = {
   [TEST_PLUGIN_ID]: {
@@ -17,6 +32,18 @@ const TEST_REGISTRY = {
     description: "API integration test runtime",
   },
 } as const;
+
+// Stand-in for the nostr plugin dependency (`plugins.nostr` in src/index.ts).
+// In dev/prod this is resolved from bos.config.json's "nostr" plugin entry
+// (bos://nearbuilding.near/nostr.nearbuilders.org); the local test runtime
+// has no such registration, so without this the plugin would only ever see
+// feedbackNostr disabled and never actually call `nostr(context).createComment`.
+export const nostrCreateComment = vi.fn().mockResolvedValue({
+  eventId: "test-nostr-event",
+  statuses: [{ relay: "wss://relay.test", success: true }],
+});
+
+const mockNostrClient = { createComment: nostrCreateComment };
 
 export const runtime = createPluginRuntime({
   registry: TEST_REGISTRY,
@@ -29,7 +56,9 @@ let port = 0;
 
 export async function getPluginClient(context?: Record<string, unknown>) {
   if (!server) {
-    const { router } = await runtime.usePlugin(TEST_PLUGIN_ID, TEST_CONFIG);
+    const { router } = await runtime.usePlugin(TEST_PLUGIN_ID, TEST_CONFIG, {
+      nostr: () => mockNostrClient,
+    });
     const rpcHandler = new RPCHandler(router);
 
     // Find an available port
