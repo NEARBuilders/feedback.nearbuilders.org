@@ -9,6 +9,7 @@ import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
+import { createProjectsLookup } from "./services/projects";
 import { RoundsLive, RoundsTag } from "./services/rounds";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
@@ -71,6 +72,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
     // publish feedback submissions as Nostr comments (#32). Best-effort:
     // publishing is a no-op when unset. See services/feedback-nostr.ts.
     NOSTR_SECRET_KEY_HEX: z.string().default(""),
+    // nearbuilders.org API base URL, used to resolve the "request a round" form's
+    // project picker against real projects (#23). Read-only, no key required;
+    // the picker falls back to free-text entry when unset. See services/projects.ts.
+    PROJECTS_API_BASE_URL: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -97,8 +102,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         secretKeyHex: config.secrets.NOSTR_SECRET_KEY_HEX,
       });
 
+      const projectsLookup = createProjectsLookup({
+        baseUrl: config.secrets.PROJECTS_API_BASE_URL,
+      });
+
       console.log(
-        `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"})`,
+        `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"}, projects lookup ${projectsLookup.enabled ? "enabled" : "disabled"})`,
       );
 
       return {
@@ -106,6 +115,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         rounds: roundsService,
         activityEvents,
         feedbackNostr,
+        projectsLookup,
       };
     }),
 
@@ -283,6 +293,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const round = await services.rounds.createRound({
           ownerAccountId,
           projectSlug: input.projectSlug,
+          projectId: input.projectId ?? null,
           title: input.title,
           description: input.description,
           formats: input.formats,
@@ -591,6 +602,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
               ? event.payload
               : {},
         }));
+      }),
+
+      searchProjects: builder.searchProjects.handler(async ({ input }) => {
+        const results = await services.projectsLookup.search(input.query);
+        return results ?? [];
+      }),
+
+      resolveProjectBySlug: builder.resolveProjectBySlug.handler(async ({ input }) => {
+        return await services.projectsLookup.resolveBySlug(input.slug);
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {

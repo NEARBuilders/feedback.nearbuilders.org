@@ -35,6 +35,8 @@ export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
   projectSlug: z.string(),
+  /** nearbuilders.org project id this round resolved against, if any (#23). */
+  projectId: z.string().nullable(),
   projectRoundNumber: z.number().int().positive(),
   title: z.string(),
   description: z.string(),
@@ -140,6 +142,18 @@ export const BuilderActivityEventSchema = z.object({
 
 export type BuilderActivityEvent = z.infer<typeof BuilderActivityEventSchema>;
 
+export const NearBuildersProjectSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  kind: z.enum(["project", "idea", "scope", "result"]),
+  status: z.enum(["active", "paused", "archived"]),
+  visibility: z.enum(["private", "unlisted", "public"]),
+});
+
+export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
+
 const PostFeedbackInputSchema = z
   .object({
     id: z.string(),
@@ -159,6 +173,8 @@ const PostFeedbackInputSchema = z
 const CreateRoundInputSchema = z
   .object({
     projectSlug: z.string().min(1, "Project is required").max(100),
+    /** nearbuilders.org project id from the picker, when the slug resolved to a real project (#23). */
+    projectId: z.string().min(1).optional(),
     title: z.string().min(1, "Title is required").max(200),
     description: z.string().min(1, "Description is required").max(5000),
     formats: z.array(RoundFormatSchema).min(1, "Select at least one feedback format"),
@@ -380,6 +396,16 @@ export const contract = oc.router({
       }),
     )
     .output(z.array(BuilderActivityEventSchema)),
+
+  searchProjects: oc
+    .route({ method: "GET", path: "/projects/search" })
+    .input(z.object({ query: z.string().trim().min(1).max(200) }))
+    .output(z.array(NearBuildersProjectSchema)),
+
+  resolveProjectBySlug: oc
+    .route({ method: "GET", path: "/projects/by-slug/{slug}" })
+    .input(z.object({ slug: z.string().min(1).max(100) }))
+    .output(NearBuildersProjectSchema.nullable()),
 
   getLeaderboard: oc
     .route({ method: "GET", path: "/activity/leaderboard" })

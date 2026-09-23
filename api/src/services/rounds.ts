@@ -19,6 +19,7 @@ export interface RoundRecord {
   id: string;
   ownerAccountId: string;
   projectSlug: string;
+  projectId: string | null;
   projectRoundNumber: number;
   title: string;
   description: string;
@@ -34,6 +35,7 @@ export interface RoundRecord {
 export interface CreateRoundInput {
   ownerAccountId: string;
   projectSlug: string;
+  projectId?: string | null;
   title: string;
   description: string;
   formats: RoundFormat[];
@@ -149,6 +151,7 @@ function toRoundRecord(row: RoundRow): RoundRecord {
     id: row.id,
     ownerAccountId: row.ownerAccountId,
     projectSlug: row.projectSlug,
+    projectId: row.projectId,
     projectRoundNumber: row.projectRoundNumber,
     title: row.title,
     description: row.description,
@@ -226,6 +229,7 @@ export const RoundsLive = Layer.effect(
               .values({
                 ownerAccountId: input.ownerAccountId,
                 projectSlug: input.projectSlug,
+                projectId: input.projectId ?? null,
                 projectRoundNumber: counter!.lastNumber,
                 title: input.title,
                 description: input.description,
