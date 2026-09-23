@@ -21,6 +21,7 @@ import {
   ActivityApiError,
   ActivityClient,
   type ActivityEndorsement,
+  type ActivityEvent,
   type ActivityLeaderboard,
   type JsonValue,
 } from "./activity-client";
@@ -89,6 +90,11 @@ export interface LeaderboardInput {
   limit?: number;
 }
 
+export interface ActorEventsInput {
+  actor: string;
+  limit?: number;
+}
+
 export interface ActivityEmitter {
   /** True when a gateway URL and API key are configured. */
   readonly enabled: boolean;
@@ -103,6 +109,8 @@ export interface ActivityEmitter {
   leaderboard(input: LeaderboardInput): Promise<ActivityLeaderboard | null>;
   /** Read-only endorsement counts keyed by event id; null if the gateway is unreachable. */
   endorsements(eventIds: string[]): Promise<Record<string, ActivityEndorsement> | null>;
+  /** Read-only cross-app feed for one account; null if the gateway is unreachable. */
+  listActorEvents(input: ActorEventsInput): Promise<ActivityEvent[] | null>;
 }
 
 interface ActivityEventSubmission {
@@ -250,6 +258,13 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
     endorsements: async (eventIds) => {
       if (eventIds.length === 0) return {};
       return read("endorsements", () => client.endorsements(eventIds));
+    },
+
+    listActorEvents: async (input) => {
+      const feed = await read("listActorEvents", () =>
+        client.listEvents({ actor: input.actor, limit: input.limit }),
+      );
+      return feed?.data ?? null;
     },
   };
 }

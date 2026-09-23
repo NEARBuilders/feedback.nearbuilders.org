@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ExternalLink, MessageSquare } from "lucide-react";
+import { Activity, ExternalLink, MessageSquare } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Badge, Card, EmptyState } from "@/components";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toActivityEventViews } from "@/lib/activity-events";
 import { toBuilderRoundViews } from "@/lib/builder-rounds";
 
 export const Route = createFileRoute("/_layout/_public/$accountId/")({
@@ -12,7 +13,69 @@ export const Route = createFileRoute("/_layout/_public/$accountId/")({
 
 function AccountOverviewPage() {
   const { accountId } = Route.useParams();
-  return <BuilderFeedbackRounds accountId={accountId} />;
+  return (
+    <div className="space-y-8">
+      <BuilderFeedbackRounds accountId={accountId} />
+      <BuilderActivityFeed accountId={accountId} />
+    </div>
+  );
+}
+
+/**
+ * Cross-app "Recent activity" section, read from activity.nearbuilders.org's
+ * `GET /v1/events?actor=<account>` via `GET /builders/{accountId}/activity`.
+ * Shows everything the account has done across apps, not only feedback rounds.
+ */
+export function BuilderActivityFeed({ accountId }: { accountId: string }) {
+  const apiClient = useApiClient();
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["builders", accountId, "activity"],
+    queryFn: () => apiClient.getBuilderActivity({ accountId }),
+    staleTime: 30_000,
+  });
+
+  const events = toActivityEventViews(data ?? []);
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-semibold text-foreground">Recent activity</h2>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : isError ? (
+        <Card className="p-6">
+          <p className="text-sm text-muted-foreground">Couldn't load activity right now.</p>
+        </Card>
+      ) : events.length === 0 ? (
+        <EmptyState
+          icon={Activity}
+          title="No activity yet"
+          description={`No activity from ${accountId} on activity.nearbuilders.org.`}
+          className="min-h-[20vh]"
+        />
+      ) : (
+        <ul className="space-y-2">
+          {events.map((event) => (
+            <li key={event.id}>
+              <Card className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="truncate text-sm font-medium text-foreground">
+                    {event.summary}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">{event.sourceLabel}</div>
+                </div>
+                {event.on && <span className="text-xs text-muted-foreground">{event.on}</span>}
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 /**
