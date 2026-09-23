@@ -60,6 +60,12 @@ export type ActivityLeaderboard = {
   }>;
 };
 
+export type ActivityEndorsement = {
+  eventId: string;
+  totalCount: number;
+  endorsedByCurrentUser: boolean;
+};
+
 export type ActivityRetractResult = {
   hiddenEvent: { eventId: string; reason: string; [key: string]: JsonValue | string };
   projection: {
@@ -196,6 +202,15 @@ export class ActivityClient {
     cursor?: string;
   }): Promise<ActivityFeed> {
     return this.#json(`/v1/events${queryString(input)}`);
+  }
+
+  /** Counts for up to 100 events in one request, keyed by event id. */
+  endorsements(eventIds: string[]): Promise<Record<string, ActivityEndorsement>> {
+    return this.#json("/v1/events/endorsements", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ eventIds }),
+    });
   }
 
   leaderboard(input: {

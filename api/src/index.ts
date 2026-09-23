@@ -563,6 +563,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         services.rounds.listBuilderRounds(input.accountId),
       ),
 
+      getRoundEndorsements: builder.getRoundEndorsements.handler(async ({ input }) => {
+        const eventIds = await services.rounds.listRoundActivityEventIds(input.roundIds);
+        const counts = await services.activityEvents.endorsements(Object.values(eventIds));
+        const result: Record<string, { eventId: string; totalCount: number }> = {};
+        if (!counts) return result;
+        for (const [roundId, eventId] of Object.entries(eventIds)) {
+          const endorsement = counts[eventId];
+          if (endorsement) result[roundId] = { eventId, totalCount: endorsement.totalCount };
+        }
+        return result;
+      }),
+
       getBuilderActivity: builder.getBuilderActivity.handler(async ({ input }) => {
         const events = await services.activityEvents.listActorEvents({
           actor: input.accountId,

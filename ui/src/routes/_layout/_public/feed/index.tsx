@@ -4,6 +4,7 @@ import { MessageSquare, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApiClient } from "@/app";
 import { Badge, Card, Input } from "@/components";
+import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
 import { TopTesters } from "@/components/top-testers";
 
@@ -34,6 +35,14 @@ function FeedPage() {
     queryKey: ["rounds", status],
     queryFn: () => apiClient.listRounds({ status }),
     staleTime: 30_000,
+  });
+
+  const roundIds = useMemo(() => rounds.map((round) => round.id).slice(0, 100), [rounds]);
+  const { data: endorsements } = useQuery({
+    queryKey: ["activity", "endorsements", roundIds],
+    queryFn: () => apiClient.getRoundEndorsements({ roundIds }),
+    enabled: roundIds.length > 0,
+    staleTime: 60_000,
   });
 
   const filtered = useMemo(() => {
@@ -128,6 +137,7 @@ function FeedPage() {
                       </Badge>
                     ))}
                   </div>
+                  <EndorsementCount count={endorsements?.[round.id]?.totalCount} />
                 </Card>
               </Link>
             ))}

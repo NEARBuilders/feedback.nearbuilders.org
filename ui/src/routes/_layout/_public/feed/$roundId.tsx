@@ -5,8 +5,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient, useAuthClient } from "@/app";
 import { Badge, Button, Card, Field, FieldLabel, Input, Textarea } from "@/components";
+import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
 import { Skeleton } from "@/components/ui/skeleton";
+import { roundActivityUrl } from "@/lib/activity-events";
 
 type FeedbackFormat = "written" | "recorded";
 
@@ -45,6 +47,13 @@ function RoundDetailPage() {
     queryFn: () => apiClient.getMyParticipation({ id: roundId }),
     enabled: !!nearAccountId,
   });
+
+  const endorsementsQuery = useQuery({
+    queryKey: ["activity", "endorsements", [roundId]],
+    queryFn: () => apiClient.getRoundEndorsements({ roundIds: [roundId] }),
+    staleTime: 60_000,
+  });
+  const endorsement = endorsementsQuery.data?.[roundId];
 
   const round = roundQuery.data;
   const joined = participationQuery.data?.joined ?? false;
@@ -115,6 +124,21 @@ function RoundDetailPage() {
         </div>
 
         <p className="text-sm text-foreground whitespace-pre-wrap">{round.description}</p>
+
+        {endorsement && (
+          <div className="flex flex-wrap items-center gap-3">
+            <EndorsementCount count={endorsement.totalCount} />
+            <a
+              href={roundActivityUrl(round.ownerAccountId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-foreground underline"
+            >
+              Endorse on activity
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-1.5">
           {round.formats.map((format) => (

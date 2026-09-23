@@ -20,6 +20,7 @@
 import {
   ActivityApiError,
   ActivityClient,
+  type ActivityEndorsement,
   type ActivityEvent,
   type ActivityLeaderboard,
   type JsonValue,
@@ -106,6 +107,8 @@ export interface ActivityEmitter {
   retract(eventId: string, reason: string): Promise<void>;
   /** Read-only; works even when submission is disabled (no API key required). */
   leaderboard(input: LeaderboardInput): Promise<ActivityLeaderboard | null>;
+  /** Read-only endorsement counts keyed by event id; null if the gateway is unreachable. */
+  endorsements(eventIds: string[]): Promise<Record<string, ActivityEndorsement> | null>;
   /** Read-only cross-app feed for one account; null if the gateway is unreachable. */
   listActorEvents(input: ActorEventsInput): Promise<ActivityEvent[] | null>;
 }
@@ -251,6 +254,11 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           source: sourceId || undefined,
         }),
       ),
+
+    endorsements: async (eventIds) => {
+      if (eventIds.length === 0) return {};
+      return read("endorsements", () => client.endorsements(eventIds));
+    },
 
     listActorEvents: async (input) => {
       const feed = await read("listActorEvents", () =>
