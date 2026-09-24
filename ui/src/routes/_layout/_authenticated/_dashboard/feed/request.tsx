@@ -1,12 +1,21 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient, useAuthClient } from "@/app";
 import { Button, Card, CardContent, Field, FieldLabel, Input, Textarea } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { Checkbox } from "@/components/ui/checkbox";
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/feed/request")({
   head: () => ({
@@ -38,11 +47,26 @@ function RequestRoundPage() {
   const navigate = useNavigate();
   const nearAccountId = auth.near.getAccountId();
 
-  const [projectSlug, setProjectSlug] = useState("");
+  const [projectQuery, setProjectQuery] = useState("");
+  const [selectedProject, setSelectedProject] = useState<{
+    id: string;
+    slug: string;
+    title: string;
+  } | null>(null);
+  const [showProjectResults, setShowProjectResults] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [formats, setFormats] = useState<Array<"issues" | "written" | "recorded">>([]);
   const [repoUrl, setRepoUrl] = useState("");
+
+  const debouncedProjectQuery = useDebouncedValue(projectQuery.trim(), 300);
+  const projectSearch = useQuery({
+    queryKey: ["searchProjects", debouncedProjectQuery],
+    queryFn: () => apiClient.searchProjects({ query: debouncedProjectQuery }),
+    enabled: debouncedProjectQuery.length > 1 && !selectedProject,
+    staleTime: 30 * 1000,
+  });
+  const projectResults = selectedProject ? [] : (projectSearch.data ?? []);
 
   const toggleFormat = (value: "issues" | "written" | "recorded") => {
     setFormats((prev) =>
@@ -55,7 +79,8 @@ function RequestRoundPage() {
   const createMutation = useMutation({
     mutationFn: () =>
       apiClient.createRound({
-        projectSlug: projectSlug.trim(),
+        projectSlug: selectedProject?.slug ?? projectQuery.trim(),
+        projectId: selectedProject?.id,
         title: title.trim(),
         description: description.trim(),
         formats,
@@ -70,7 +95,7 @@ function RequestRoundPage() {
 
   const canSubmit =
     !!nearAccountId &&
-    !!projectSlug.trim() &&
+    !!projectQuery.trim() &&
     !!title.trim() &&
     !!description.trim() &&
     formats.length > 0 &&
@@ -113,14 +138,55 @@ function RequestRoundPage() {
             <CardContent className="p-6 space-y-4">
               <Field>
                 <FieldLabel htmlFor="round-project">project</FieldLabel>
-                <Input
-                  id="round-project"
-                  value={projectSlug}
-                  onChange={(e) => setProjectSlug(e.target.value)}
-                  placeholder="your-project-slug"
-                  required
-                  disabled={createMutation.isPending}
-                />
+                <div className="relative">
+                  <Input
+                    id="round-project"
+                    value={projectQuery}
+                    onChange={(e) => {
+                      setProjectQuery(e.target.value);
+                      setSelectedProject(null);
+                      setShowProjectResults(true);
+                    }}
+                    onFocus={() => setShowProjectResults(true)}
+                    onBlur={() => setTimeout(() => setShowProjectResults(false), 150)}
+                    placeholder="Search nearbuilders.org projects, or type a new slug"
+                    autoComplete="off"
+                    required
+                    disabled={createMutation.isPending}
+                  />
+                  {showProjectResults && projectResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border border-border bg-popover shadow-md">
+                      {projectResults.map((project) => (
+                        <button
+                          key={project.id}
+                          type="button"
+                          className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-accent"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSelectedProject(project);
+                            setProjectQuery(project.title);
+                            setShowProjectResults(false);
+                          }}
+                        >
+                          <span className="font-medium text-foreground">{project.title}</span>
+                          <span className="text-xs text-muted-foreground">{project.slug}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedProject ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Linked to nearbuilders.org project "{selectedProject.slug}".
+                  </p>
+                ) : (
+                  projectQuery.trim().length > 1 &&
+                  !projectSearch.isFetching && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No match on nearbuilders.org — this will be stored as a free-text slug.
+                    </p>
+                  )
+                )}
               </Field>
 
               <Field>

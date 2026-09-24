@@ -49,6 +49,9 @@ export const rounds = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     ownerAccountId: text("owner_account_id").notNull(),
     projectSlug: text("project_slug").notNull(),
+    // nearbuilders.org project id this round resolved against, if the owner
+    // picked a real project rather than typing a free-text slug (#23).
+    projectId: text("project_id"),
     projectRoundNumber: integer("project_round_number").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull(),

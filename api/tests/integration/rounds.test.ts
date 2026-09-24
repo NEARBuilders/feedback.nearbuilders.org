@@ -43,6 +43,24 @@ describe("createRound", () => {
     await expect(client.createRound({ ...baseInput, formats: [] })).rejects.toThrow();
   });
 
+  it("stores a resolved projectId alongside the slug when the picker supplied one", async () => {
+    const client = await getPluginClient(nearAuthedContext("picker-owner.near"));
+    const round = await client.createRound({
+      ...baseInput,
+      projectSlug: "onboarding-flow",
+      projectId: "proj_1",
+    });
+
+    expect(round.projectId).toBe("proj_1");
+  });
+
+  it("defaults projectId to null for a free-text slug with no resolved project", async () => {
+    const client = await getPluginClient(nearAuthedContext("freetext-owner.near"));
+    const round = await client.createRound(baseInput);
+
+    expect(round.projectId).toBeNull();
+  });
+
   it("rejects the issues format without a repo URL", async () => {
     const client = await getPluginClient(nearAuthedContext());
     await expect(client.createRound({ ...baseInput, formats: ["issues"] })).rejects.toThrow();
@@ -430,5 +448,17 @@ describe("deleteFeedback", () => {
         feedbackId: "00000000-0000-0000-0000-000000000000",
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("project picker (PROJECTS_API_BASE_URL unset in tests)", () => {
+  it("searchProjects degrades to an empty list rather than erroring", async () => {
+    const client = await getPluginClient();
+    await expect(client.searchProjects({ query: "onboarding" })).resolves.toEqual([]);
+  });
+
+  it("resolveProjectBySlug degrades to null rather than erroring", async () => {
+    const client = await getPluginClient();
+    await expect(client.resolveProjectBySlug({ slug: "onboarding-flow" })).resolves.toBeNull();
   });
 });
