@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Settings, Users } from "lucide-react";
+import { ClipboardCheck, Settings, Users } from "lucide-react";
 import { getAccount } from "@/app";
 import { Button, Card, SectionHeader } from "@/components";
 import { useNearAccount } from "@/lib/use-near-account";
@@ -11,7 +11,6 @@ export const Route = createFileRoute("/_layout/_admin/_dashboard/admin/")({
   component: AdminDashboard,
 });
 
-// TODO(phase 6): surface feedback-round admin tools here.
 function AdminDashboard() {
   const { auth } = Route.useRouteContext();
   const platformAccount = getAccount();
@@ -30,6 +29,19 @@ function AdminDashboard() {
       <section className="space-y-3">
         <SectionHeader title="Manage" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="p-6 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
+              <ClipboardCheck className="h-4 w-4" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">Round approvals</h3>
+            <p className="text-sm text-muted-foreground">
+              Review requested feedback rounds and approve or reject them.
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/rounds">open round approvals</Link>
+            </Button>
+          </Card>
+
           <Card className="p-6 space-y-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
               <Users className="h-4 w-4" />
