@@ -9,6 +9,7 @@ import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
+import { createGithubIssuesLookup } from "./services/github-issues";
 import { createProjectsLookup } from "./services/projects";
 import { RoundsLive, RoundsTag } from "./services/rounds";
 import { TenantsLive, TenantsTag } from "./services/tenants";
@@ -76,6 +77,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
     // project picker against real projects (#23). Read-only, no key required;
     // the picker falls back to free-text entry when unset. See services/projects.ts.
     PROJECTS_API_BASE_URL: z.string().default(""),
+    // Optional GitHub PAT used to read issues filed on a round's repo for
+    // GitHub-issue credit (#49). Public repos work unauthenticated too, just
+    // rate-limited to 60/hr instead of 5000/hr. See services/github-issues.ts.
+    GITHUB_API_TOKEN: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -106,8 +111,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         baseUrl: config.secrets.PROJECTS_API_BASE_URL,
       });
 
+      const githubIssuesLookup = createGithubIssuesLookup({
+        token: config.secrets.GITHUB_API_TOKEN,
+      });
+
       console.log(
-        `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"}, projects lookup ${projectsLookup.enabled ? "enabled" : "disabled"})`,
+        `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"}, projects lookup ${projectsLookup.enabled ? "enabled" : "disabled"}, github issues token ${config.secrets.GITHUB_API_TOKEN ? "configured" : "anonymous"})`,
       );
 
       return {
@@ -116,6 +125,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         activityEvents,
         feedbackNostr,
         projectsLookup,
+        githubIssuesLookup,
       };
     }),
 
@@ -517,6 +527,32 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           return feedback;
         }),
+
+      getRoundGithubIssues: builder.getRoundGithubIssues.handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        if (!round.formats.includes("issues") || !round.repoUrl) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "This round isn't collecting GitHub issues",
+          });
+        }
+        const contributors = await services.githubIssuesLookup.forRound({
+          repoUrl: round.repoUrl,
+          windowStart: round.createdAt,
+          windowEnd: round.closedAt,
+        });
+        return {
+          repoUrl: round.repoUrl,
+          windowStart: round.createdAt,
+          windowEnd: round.closedAt,
+          contributors: contributors ?? [],
+        };
+      }),
 
       getCreditCandidates: builder.getCreditCandidates
         .use(requireAuth)
