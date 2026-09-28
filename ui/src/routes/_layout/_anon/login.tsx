@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_layout/_anon/login")({
       initialSession ??
       queryClient.getQueryData(sessionQueryOptions(authClient, initialSession).queryKey);
 
-    if (session?.user) {
+    if (session?.user && !session.user.banned) {
       const redirectTo = search.redirect?.startsWith("/") ? search.redirect : "/feed";
       throw redirect({ to: redirectTo, search: {} });
     }
@@ -56,7 +56,10 @@ function LoginPage() {
   const handleSuccess = async (message: string) => {
     const redirectTo = redirect?.startsWith("/") ? redirect : "/feed";
     toast.success(message);
-    queryClient.invalidateQueries({ queryKey: ["session"] });
+    const { data: freshSession } = await auth.getSession({
+      query: { disableCookieCache: true },
+    });
+    queryClient.setQueryData(sessionQueryOptions(auth, undefined).queryKey, freshSession ?? null);
     navigate({ to: redirectTo, replace: true, search: {} });
   };
 
@@ -86,7 +89,7 @@ function LoginPage() {
     });
   };
 
-  if (session?.user) {
+  if (session?.user && !session.user.banned) {
     const redirectTo = redirect?.startsWith("/") ? redirect : "/feed";
     return <Navigate to={redirectTo} replace search={{}} />;
   }
