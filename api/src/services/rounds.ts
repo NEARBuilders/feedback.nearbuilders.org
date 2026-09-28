@@ -29,6 +29,8 @@ export interface RoundRecord {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
   activityEventId: string | null;
 }
 
@@ -121,6 +123,10 @@ export interface RoundsService {
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
   listRounds(status?: RoundStatus): Promise<RoundRecord[]>;
+  /** Moves a `pending` round to `open`. Throws BAD_REQUEST if it isn't pending. */
+  approveRound(roundId: string): Promise<RoundRecord>;
+  /** Moves a `pending` round to `rejected`. Throws BAD_REQUEST if it isn't pending. */
+  rejectRound(roundId: string, reason?: string | null): Promise<RoundRecord>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   hasParticipant(roundId: string, accountId: string): Promise<boolean>;
@@ -161,6 +167,8 @@ function toRoundRecord(row: RoundRow): RoundRecord {
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
     closedAt: row.closedAt instanceof Date ? row.closedAt.toISOString() : null,
+    rejectedAt: row.rejectedAt instanceof Date ? row.rejectedAt.toISOString() : null,
+    rejectionReason: row.rejectionReason,
     activityEventId: row.activityEventId,
   };
 }
@@ -255,6 +263,61 @@ export const RoundsLive = Layer.effect(
         try {
           const [row] = await db.select().from(roundsTable).where(eq(roundsTable.id, id)).limit(1);
           return row ? toRoundRecord(row) : null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      approveRound: async (roundId) => {
+        try {
+          const [row] = await db
+            .select()
+            .from(roundsTable)
+            .where(eq(roundsTable.id, roundId))
+            .limit(1);
+          if (!row) {
+            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+          }
+          if (row.status !== "pending") {
+            throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be approved" });
+          }
+          const now = new Date();
+          const [updated] = await db
+            .update(roundsTable)
+            .set({ status: "open", updatedAt: now })
+            .where(eq(roundsTable.id, roundId))
+            .returning();
+          return toRoundRecord(updated!);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      rejectRound: async (roundId, reason) => {
+        try {
+          const [row] = await db
+            .select()
+            .from(roundsTable)
+            .where(eq(roundsTable.id, roundId))
+            .limit(1);
+          if (!row) {
+            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+          }
+          if (row.status !== "pending") {
+            throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be rejected" });
+          }
+          const now = new Date();
+          const [updated] = await db
+            .update(roundsTable)
+            .set({
+              status: "rejected",
+              rejectedAt: now,
+              rejectionReason: reason ?? null,
+              updatedAt: now,
+            })
+            .where(eq(roundsTable.id, roundId))
+            .returning();
+          return toRoundRecord(updated!);
         } catch (error) {
           throw toOrpcError(error);
         }

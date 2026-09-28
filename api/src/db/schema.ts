@@ -41,7 +41,7 @@ export const projectRoundCounters = pgTable("project_round_counters", {
   lastNumber: integer("last_number").default(0).notNull(),
 });
 
-export const roundStatus = pgEnum("round_status", ["open", "closed"]);
+export const roundStatus = pgEnum("round_status", ["pending", "open", "closed", "rejected"]);
 
 export const rounds = pgTable(
   "rounds",
@@ -57,10 +57,14 @@ export const rounds = pgTable(
     description: text("description").notNull(),
     formats: text("formats").array().notNull(),
     repoUrl: text("repo_url"),
-    status: roundStatus("status").default("open").notNull(),
+    status: roundStatus("status").default("pending").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     closedAt: timestamp("closed_at", { mode: "date", withTimezone: true }),
+    // Set by an admin's reject decision (#48). No corresponding "approvedAt" — an
+    // approval just moves status to "open" and reuses createdAt/updatedAt for that.
+    rejectedAt: timestamp("rejected_at", { mode: "date", withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
     activityEventId: text("activity_event_id"),
   },
   (table) => ({

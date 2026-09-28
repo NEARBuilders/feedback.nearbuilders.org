@@ -71,6 +71,27 @@
       "when": 1790151570788,
       "tag": "0009_add_round_project_id",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790613903613,
+      "tag": "0010_nosy_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790613903614,
+      "tag": "0011_round_pending_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790614182922,
+      "tag": "0012_flimsy_joshua_kane",
+      "breakpoints": true
     }
   ]
 }
