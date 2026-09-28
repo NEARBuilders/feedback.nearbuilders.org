@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authedContext, getPluginClient, nearAuthedContext } from "../setup";
+import { adminContext, authedContext, getPluginClient, nearAuthedContext } from "../setup";
 
 const baseInput = {
   projectSlug: "my-project",
@@ -7,6 +7,22 @@ const baseInput = {
   description: "Walk through signup and tell us where you got stuck.",
   formats: ["written" as const],
 };
+
+interface RoundOverrides {
+  title: string;
+  projectSlug?: string;
+  description?: string;
+  formats?: Array<"written" | "recorded" | "issues">;
+  repoUrl?: string;
+}
+
+/** Creates a round and immediately approves it as an admin, returning the now-open round. */
+async function createOpenRound(owner: string, input: RoundOverrides) {
+  const ownerClient = await getPluginClient(nearAuthedContext(owner));
+  const round = await ownerClient.createRound({ ...baseInput, ...input });
+  const admin = await getPluginClient(adminContext());
+  return admin.approveRound({ id: round.id });
+}
 
 describe("createRound", () => {
   it("rejects unauthenticated requests", async () => {
@@ -21,7 +37,7 @@ describe("createRound", () => {
     );
   });
 
-  it("creates a round as open immediately, no approval step", async () => {
+  it("creates a round pending by default, awaiting admin approval", async () => {
     const client = await getPluginClient(nearAuthedContext("owner.near"));
     const round = await client.createRound(baseInput);
 
@@ -32,10 +48,11 @@ describe("createRound", () => {
       description: baseInput.description,
       formats: ["written"],
       repoUrl: null,
-      status: "open",
+      status: "pending",
     });
     expect(round.id).toEqual(expect.any(String));
     expect(round.closedAt).toBeNull();
+    expect(round.rejectedAt).toBeNull();
   });
 
   it("rejects a round with no formats selected", async () => {
@@ -92,32 +109,106 @@ describe("createRound", () => {
   });
 });
 
+describe("approveRound / rejectRound / listPendingRounds", () => {
+  it("rejects a non-admin approving a round", async () => {
+    const owner = await getPluginClient(nearAuthedContext("appr-owner1.near"));
+    const round = await owner.createRound({ ...baseInput, title: "Needs admin" });
+
+    await expect(owner.approveRound({ id: round.id })).rejects.toThrow();
+
+    const anon = await getPluginClient();
+    await expect(anon.approveRound({ id: round.id })).rejects.toThrow("Authentication required");
+  });
+
+  it("approves a pending round, making it open and publicly listed", async () => {
+    const owner = await getPluginClient(nearAuthedContext("appr-owner2.near"));
+    const round = await owner.createRound({ ...baseInput, title: "Approve me" });
+
+    const admin = await getPluginClient(adminContext());
+    const approved = await admin.approveRound({ id: round.id });
+    expect(approved.status).toBe("open");
+
+    const anon = await getPluginClient();
+    const openRounds = await anon.listRounds({ status: "open" });
+    expect(openRounds.some((r) => r.id === round.id)).toBe(true);
+  });
+
+  it("rejects approving a round that isn't pending", async () => {
+    const owner = await getPluginClient(nearAuthedContext("appr-owner3.near"));
+    const round = await owner.createRound({ ...baseInput, title: "Double approve" });
+    const admin = await getPluginClient(adminContext());
+    await admin.approveRound({ id: round.id });
+    await expect(admin.approveRound({ id: round.id })).rejects.toThrow(
+      "Only pending rounds can be approved",
+    );
+  });
+
+  it("rejects a pending round with a reason, keeping it out of public listings", async () => {
+    const owner = await getPluginClient(nearAuthedContext("rej-owner1.near"));
+    const round = await owner.createRound({ ...baseInput, title: "Reject me" });
+
+    const admin = await getPluginClient(adminContext());
+    const rejected = await admin.rejectRound({ id: round.id, reason: "Repo is private" });
+    expect(rejected.status).toBe("rejected");
+    expect(rejected.rejectionReason).toBe("Repo is private");
+
+    const anon = await getPluginClient();
+    const openRounds = await anon.listRounds({});
+    expect(openRounds.some((r) => r.id === round.id)).toBe(false);
+    await expect(anon.getRound({ id: round.id })).rejects.toThrow();
+  });
+
+  it("lists only pending rounds for an admin, and rejects non-admins", async () => {
+    const owner = await getPluginClient(nearAuthedContext("pend-owner1.near"));
+    const round = await owner.createRound({ ...baseInput, title: "In the queue" });
+
+    await expect(owner.listPendingRounds()).rejects.toThrow();
+
+    const admin = await getPluginClient(adminContext());
+    const pending = await admin.listPendingRounds();
+    expect(pending.some((r) => r.id === round.id)).toBe(true);
+  });
+});
+
 describe("listRounds", () => {
   it("is public and needs no authentication", async () => {
-    const owner = await getPluginClient(nearAuthedContext("lister-owner.near"));
-    await owner.createRound({ ...baseInput, title: "Public round" });
+    const round = await createOpenRound("lister-owner.near", { title: "Public round" });
 
     const anon = await getPluginClient();
     const rounds = await anon.listRounds({});
-    expect(rounds.some((r) => r.title === "Public round")).toBe(true);
+    expect(rounds.some((r) => r.id === round.id)).toBe(true);
+  });
+
+  it("excludes pending and rejected rounds from the unfiltered public listing", async () => {
+    const owner = await getPluginClient(nearAuthedContext("hidden-owner.near"));
+    const pending = await owner.createRound({ ...baseInput, title: "Still pending" });
+
+    const anon = await getPluginClient();
+    const rounds = await anon.listRounds({});
+    expect(rounds.some((r) => r.id === pending.id)).toBe(false);
   });
 
   it("filters by status", async () => {
-    const owner = await getPluginClient(nearAuthedContext("filter-owner.near"));
-    const created = await owner.createRound({ ...baseInput, title: "Filter round" });
+    const created = await createOpenRound("filter-owner.near", { title: "Filter round" });
 
+    const owner = await getPluginClient(nearAuthedContext("filter-owner.near"));
     const open = await owner.listRounds({ status: "open" });
     expect(open.some((r) => r.id === created.id)).toBe(true);
 
     const closed = await owner.listRounds({ status: "closed" });
     expect(closed.some((r) => r.id === created.id)).toBe(false);
   });
+
+  it("rejects a non-admin filtering by pending or rejected", async () => {
+    const owner = await getPluginClient(nearAuthedContext("filter-owner2.near"));
+    await expect(owner.listRounds({ status: "pending" })).rejects.toThrow();
+    await expect(owner.listRounds({ status: "rejected" })).rejects.toThrow();
+  });
 });
 
 describe("getRound", () => {
-  it("returns a round that exists, with a participant count", async () => {
-    const owner = await getPluginClient(nearAuthedContext("reader-owner.near"));
-    const created = await owner.createRound(baseInput);
+  it("returns an open round that exists, with a participant count", async () => {
+    const created = await createOpenRound("reader-owner.near", { title: "Readable round" });
 
     const anon = await getPluginClient();
     const fetched = await anon.getRound({ id: created.id });
@@ -129,12 +220,26 @@ describe("getRound", () => {
     const client = await getPluginClient();
     await expect(client.getRound({ id: "00000000-0000-0000-0000-000000000000" })).rejects.toThrow();
   });
+
+  it("hides a pending round from strangers but shows it to its owner and admins", async () => {
+    const owner = await getPluginClient(nearAuthedContext("reader-owner2.near"));
+    const round = await owner.createRound({ ...baseInput, title: "Awaiting review" });
+
+    const anon = await getPluginClient();
+    await expect(anon.getRound({ id: round.id })).rejects.toThrow();
+
+    const fetchedByOwner = await owner.getRound({ id: round.id });
+    expect(fetchedByOwner.id).toBe(round.id);
+
+    const admin = await getPluginClient(adminContext());
+    const fetchedByAdmin = await admin.getRound({ id: round.id });
+    expect(fetchedByAdmin.id).toBe(round.id);
+  });
 });
 
 describe("joinRound / leaveRound", () => {
   async function freshRound(owner = "join-owner.near") {
-    const client = await getPluginClient(nearAuthedContext(owner));
-    return client.createRound({ ...baseInput, title: `Round for ${owner}` });
+    return createOpenRound(owner, { title: `Round for ${owner}` });
   }
 
   it("rejects unauthenticated joins", async () => {
@@ -192,8 +297,7 @@ describe("joinRound / leaveRound", () => {
 
 describe("postFeedback / listFeedback", () => {
   async function roundWithFormats(formats: Array<"written" | "recorded">, owner = "fb-owner.near") {
-    const client = await getPluginClient(nearAuthedContext(owner));
-    return client.createRound({ ...baseInput, formats, title: `FB round ${formats.join("+")}` });
+    return createOpenRound(owner, { formats, title: `FB round ${formats.join("+")}` });
   }
 
   it("rejects a non-participant", async () => {
@@ -251,12 +355,11 @@ describe("postFeedback / listFeedback", () => {
 
 describe("closeRound / credits", () => {
   async function roundWithFeedback(owner: string, builder: string) {
-    const ownerClient = await getPluginClient(nearAuthedContext(owner));
-    const round = await ownerClient.createRound({
-      ...baseInput,
+    const round = await createOpenRound(owner, {
       formats: ["written", "recorded"],
       title: `Close round ${owner}`,
     });
+    const ownerClient = await getPluginClient(nearAuthedContext(owner));
     const builderClient = await getPluginClient(nearAuthedContext(builder));
     await builderClient.joinRound({ id: round.id });
     await builderClient.postFeedback({ id: round.id, format: "written", body: "Solid" });
@@ -325,13 +428,12 @@ describe("closeRound / credits", () => {
 
 describe("getBuilderRounds", () => {
   it("is public and returns the closed rounds a builder was credited on", async () => {
-    const owner = await getPluginClient(nearAuthedContext("bp-owner.near"));
-    const round = await owner.createRound({
-      ...baseInput,
+    const round = await createOpenRound("bp-owner.near", {
       title: "Profile round",
       formats: ["written", "issues"],
       repoUrl: "https://github.com/near/feedback",
     });
+    const owner = await getPluginClient(nearAuthedContext("bp-owner.near"));
     const builder = await getPluginClient(nearAuthedContext("bp-builder.near"));
     await builder.joinRound({ id: round.id });
     await builder.postFeedback({ id: round.id, format: "written", body: "Found a bug" });
@@ -380,9 +482,18 @@ describe("deleteRound", () => {
     await expect(stranger.deleteRound({ id: round.id })).rejects.toThrow("owner");
   });
 
-  it("deletes an open round so it no longer resolves", async () => {
+  it("deletes a pending round so it no longer resolves", async () => {
     const round = await freshRound("del2.near");
     const owner = await getPluginClient(nearAuthedContext("del2.near"));
+    const deleted = await owner.deleteRound({ id: round.id });
+    expect(deleted.id).toBe(round.id);
+
+    await expect(owner.getRound({ id: round.id })).rejects.toThrow();
+  });
+
+  it("deletes an open round so it no longer resolves", async () => {
+    const round = await createOpenRound("del2b.near", { title: "Round for del2b.near" });
+    const owner = await getPluginClient(nearAuthedContext("del2b.near"));
     const deleted = await owner.deleteRound({ id: round.id });
     expect(deleted.id).toBe(round.id);
 
@@ -391,7 +502,7 @@ describe("deleteRound", () => {
   });
 
   it("rejects deleting an already-closed round", async () => {
-    const round = await freshRound("del3.near");
+    const round = await createOpenRound("del3.near", { title: "Round for del3.near" });
     const owner = await getPluginClient(nearAuthedContext("del3.near"));
     await owner.closeRound({ id: round.id });
     await expect(owner.deleteRound({ id: round.id })).rejects.toThrow("can't be deleted");
@@ -407,11 +518,8 @@ describe("deleteRound", () => {
 
 describe("deleteFeedback", () => {
   async function roundWithFeedback(owner: string, builder: string) {
+    const round = await createOpenRound(owner, { title: `Moderated round ${owner}` });
     const ownerClient = await getPluginClient(nearAuthedContext(owner));
-    const round = await ownerClient.createRound({
-      ...baseInput,
-      title: `Moderated round ${owner}`,
-    });
     const builderClient = await getPluginClient(nearAuthedContext(builder));
     await builderClient.joinRound({ id: round.id });
     const feedback = await builderClient.postFeedback({
