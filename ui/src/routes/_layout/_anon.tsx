@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_layout/_anon")({
     const session =
       initialSession ??
       queryClient.getQueryData(sessionQueryOptions(authClient, initialSession).queryKey);
-    if (session?.user) {
+    if (session?.user && !session.user.banned) {
       throw redirect({ to: "/dashboard", search: {} });
     }
   },

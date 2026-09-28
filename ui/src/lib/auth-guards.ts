@@ -19,7 +19,7 @@ interface GuardArgs {
 
 async function ensureSession(context: RouterContext): Promise<SessionData | null> {
   const { queryClient, authClient } = context;
-  return queryClient.ensureQueryData(sessionQueryOptions(authClient, context.session));
+  return queryClient.fetchQuery(sessionQueryOptions(authClient, context.session));
 }
 
 function buildAuthContext(session: SessionData | null | undefined): AuthContext {
@@ -59,7 +59,7 @@ export async function rejectAuthed({ context }: GuardArgs) {
   const session =
     initialSession ??
     queryClient.getQueryData(sessionQueryOptions(authClient, initialSession).queryKey);
-  if (session?.user) {
+  if (session?.user && !session.user.banned) {
     throw redirect({ to: "/dashboard", search: {} });
   }
 }
