@@ -86,6 +86,29 @@ export const RoundCreditSchema = z.object({
 
 export type RoundCredit = z.infer<typeof RoundCreditSchema>;
 
+export const GithubIssueSchema = z.object({
+  number: z.number().int().positive(),
+  title: z.string(),
+  url: z.string(),
+  createdAt: z.string(),
+});
+
+export const GithubIssueContributorSchema = z.object({
+  login: z.string(),
+  issues: z.array(GithubIssueSchema),
+});
+
+export type GithubIssueContributor = z.infer<typeof GithubIssueContributorSchema>;
+
+export const RoundGithubIssuesSchema = z.object({
+  repoUrl: z.string(),
+  windowStart: z.string(),
+  windowEnd: z.string().nullable(),
+  contributors: z.array(GithubIssueContributorSchema),
+});
+
+export type RoundGithubIssues = z.infer<typeof RoundGithubIssuesSchema>;
+
 export const BuilderRoundSchema = z.object({
   roundId: z.string(),
   roundTitle: z.string(),
@@ -345,6 +368,12 @@ export const contract = oc.router({
     .input(z.object({ id: z.string(), feedbackId: z.string() }))
     .output(RoundFeedbackSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  getRoundGithubIssues: oc
+    .route({ method: "GET", path: "/rounds/{id}/github-issues" })
+    .input(z.object({ id: z.string() }))
+    .output(RoundGithubIssuesSchema)
+    .errors({ NOT_FOUND, BAD_REQUEST }),
 
   getCreditCandidates: oc
     .route({ method: "GET", path: "/rounds/{id}/credit-candidates" })
