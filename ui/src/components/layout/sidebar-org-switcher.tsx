@@ -27,7 +27,7 @@ export function SidebarOrgSwitcher({
               data-testid="org-switcher"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg border-2 border-outset border-border-strong bg-card text-foreground shrink-0">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg border border-border bg-card text-foreground shrink-0">
                 <Building2 className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">

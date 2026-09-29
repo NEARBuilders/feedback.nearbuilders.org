@@ -32,7 +32,7 @@ function EmailMethod({ user }: { user: { email?: string; isAnonymous?: boolean |
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-[10px] border-2 border-outset border-border-strong bg-muted flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 rounded-md border border-border bg-muted flex items-center justify-center shrink-0">
           <Mail className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
@@ -76,7 +76,7 @@ function NearMethod({ nearAccountId }: { nearAccountId: string | null }) {
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-[10px] border-2 border-outset border-border-strong bg-muted flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 rounded-md border border-border bg-muted flex items-center justify-center shrink-0">
           <Wallet className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
@@ -157,7 +157,7 @@ function PasskeysMethod() {
     <>
       <Card className="p-6 space-y-4">
         <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-[10px] border-2 border-outset border-border-strong bg-muted flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-md border border-border bg-muted flex items-center justify-center shrink-0">
             <KeyRound className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1 space-y-3">

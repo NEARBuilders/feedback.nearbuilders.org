@@ -63,10 +63,7 @@ function LandingPage() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-3">
             {STEPS.map(({ icon: Icon, title, body }) => (
-              <div
-                key={title}
-                className="border-2 border-outset border-border-strong bg-card p-5 rounded-[12px] shadow-sm space-y-3"
-              >
+              <div key={title} className="border border-border bg-card p-5 rounded-md space-y-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
                   <Icon className="h-4 w-4" />
                 </div>

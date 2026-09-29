@@ -35,7 +35,7 @@ export function TopTesters() {
           <Trophy className="h-4 w-4" />
           Top testers
         </div>
-        <div className="inline-flex rounded-[10px] border-2 border-outset border-border-strong bg-card p-0.5 shadow-sm">
+        <div className="inline-flex rounded-md border border-border bg-card p-0.5">
           {PERIODS.map(({ value, label }) => (
             <button
               key={value}

@@ -531,7 +531,7 @@ function OrganizationDetail() {
                   <select
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value as "admin" | "member")}
-                    className="w-full px-3 py-2 text-sm bg-card text-foreground border-2 border-inset border-border-strong rounded-[8px] outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full px-3 py-2 text-sm bg-card text-foreground border border-border rounded-sm outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="member">Member</option>
                     <option value="admin">Admin</option>
@@ -681,7 +681,7 @@ function MemberCard({
               <img
                 src={user.image}
                 alt=""
-                className="w-9 h-9 rounded-full object-cover border-2 border-outset border-border-strong"
+                className="w-9 h-9 rounded-full object-cover border border-border"
               />
             ) : (
               <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
