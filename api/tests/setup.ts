@@ -120,6 +120,18 @@ export function authedContext(userId = "user-1"): Record<string, unknown> {
   };
 }
 
+export function adminContext(userId = "admin-1"): Record<string, unknown> {
+  return {
+    userId,
+    user: {
+      id: userId,
+      email: `${userId}@example.com`,
+      name: "Test Admin",
+      role: "admin",
+    },
+  };
+}
+
 export function nearAuthedContext(
   accountId = "builder.near",
   userId = "user-1",

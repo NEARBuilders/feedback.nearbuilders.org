@@ -132,7 +132,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
   shutdown: () => Effect.log("[API] Shutdown"),
 
   createRouter: (services, builder) => {
-    const { requireAuth, requireOrganization, requireOrgRole } = createAuthMiddleware(builder);
+    const { requireAuth, requireAdmin, requireOrganization, requireOrgRole } =
+      createAuthMiddleware(builder);
 
     const authorizedTenant = async (
       input: { tenantId: string },
@@ -309,14 +310,59 @@ export default createPlugin.withPlugins<PluginsClient>()({
           formats: input.formats,
           repoUrl: input.repoUrl,
         });
-        const eventId = await services.activityEvents.emitRoundOpened(round);
-        if (eventId) await services.rounds.setRoundActivityEventId(round.id, eventId);
+        // Rounds enter the admin review queue as "pending" (#48); the
+        // round.opened activity event fires on approval, once it's actually live.
         return round;
       }),
 
-      listRounds: builder.listRounds.handler(async ({ input }) =>
-        services.rounds.listRounds(input.status),
-      ),
+      listRounds: builder.listRounds.handler(async ({ input, context }) => {
+        const isAdmin = context.user?.role === "admin";
+        if ((input.status === "pending" || input.status === "rejected") && !isAdmin) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "Only admins can list pending or rejected rounds",
+          });
+        }
+        const rounds = await services.rounds.listRounds(input.status);
+        if (input.status) return rounds;
+        // No filter: this is the public browse listing, so pending/rejected
+        // rounds — visible only to their owner or an admin — never appear in it.
+        return rounds.filter((r) => r.status === "open" || r.status === "closed");
+      }),
+
+      listPendingRounds: builder.listPendingRounds
+        .use(requireAdmin)
+        .handler(async () => services.rounds.listRounds("pending")),
+
+      approveRound: builder.approveRound.use(requireAdmin).handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        if (round.status !== "pending") {
+          throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be approved" });
+        }
+        const approved = await services.rounds.approveRound(round.id);
+        const eventId = await services.activityEvents.emitRoundOpened(approved);
+        if (eventId) await services.rounds.setRoundActivityEventId(approved.id, eventId);
+        return approved;
+      }),
+
+      rejectRound: builder.rejectRound.use(requireAdmin).handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        if (round.status !== "pending") {
+          throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be rejected" });
+        }
+        return await services.rounds.rejectRound(round.id, input.reason ?? null);
+      }),
 
       deleteRound: builder.deleteRound
         .use(requireAuth)
@@ -337,7 +383,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (round.ownerAccountId !== accountId) {
             throw new ORPCError("FORBIDDEN", { message: "Only the round owner can delete it" });
           }
-          if (round.status !== "open") {
+          if (round.status === "closed") {
             throw new ORPCError("BAD_REQUEST", { message: "Closed rounds can't be deleted" });
           }
           const result = await services.rounds.deleteRound(round.id);
@@ -347,13 +393,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return round;
         }),
 
-      getRound: builder.getRound.handler(async ({ input, errors }) => {
+      getRound: builder.getRound.handler(async ({ input, context, errors }) => {
         const round = await services.rounds.getRoundDetail(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
             message: "Round not found",
             data: { resource: "round", resourceId: input.id },
           });
+        }
+        if (round.status === "pending" || round.status === "rejected") {
+          const isOwner = round.ownerAccountId === context.near?.primaryAccountId;
+          const isAdmin = context.user?.role === "admin";
+          if (!isOwner && !isAdmin) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
         }
         return round;
       }),

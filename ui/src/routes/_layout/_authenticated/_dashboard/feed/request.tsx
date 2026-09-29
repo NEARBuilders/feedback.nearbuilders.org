@@ -87,7 +87,7 @@ function RequestRoundPage() {
         repoUrl: repoUrl.trim() || undefined,
       }),
     onSuccess: (round) => {
-      toast.success("Round is live");
+      toast.success("Round submitted for admin review");
       void navigate({ to: "/feed/$roundId", params: { roundId: round.id } });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -111,7 +111,7 @@ function RequestRoundPage() {
           </div>
           <h1 className="text-xl font-semibold text-foreground">Request a feedback round</h1>
           <p className="text-sm text-muted-foreground">
-            It goes live for builders to join as soon as you submit — no approval step.
+            An admin reviews requests before they go live for builders to join.
           </p>
         </header>
 

@@ -47,7 +47,7 @@ const baseInput = {
 };
 
 describe("RoundsService", () => {
-  it("creates a round open by default and resolves it by id", async () => {
+  it("creates a round pending by default and resolves it by id", async () => {
     const layer = freshLayer();
     const created = await runService(layer, (svc) => svc.createRound(baseInput));
 
@@ -56,13 +56,43 @@ describe("RoundsService", () => {
       projectSlug: "my-project",
       formats: ["written"],
       repoUrl: null,
-      status: "open",
+      status: "pending",
     });
     expect(created.id).toEqual(expect.any(String));
     expect(created.closedAt).toBeNull();
+    expect(created.rejectedAt).toBeNull();
+    expect(created.rejectionReason).toBeNull();
 
     const resolved = await runService(layer, (svc) => svc.resolveRoundById(created.id));
     expect(resolved?.id).toBe(created.id);
+  });
+
+  it("approves a pending round to open", async () => {
+    const layer = freshLayer();
+    const created = await runService(layer, (svc) => svc.createRound(baseInput));
+
+    const approved = await runService(layer, (svc) => svc.approveRound(created.id));
+    expect(approved.status).toBe("open");
+
+    await expect(runService(layer, (svc) => svc.approveRound(created.id))).rejects.toThrow(
+      "Only pending rounds can be approved",
+    );
+  });
+
+  it("rejects a pending round with an optional reason", async () => {
+    const layer = freshLayer();
+    const created = await runService(layer, (svc) => svc.createRound(baseInput));
+
+    const rejected = await runService(layer, (svc) =>
+      svc.rejectRound(created.id, "Needs a clearer repo link"),
+    );
+    expect(rejected.status).toBe("rejected");
+    expect(rejected.rejectedAt).toEqual(expect.any(String));
+    expect(rejected.rejectionReason).toBe("Needs a clearer repo link");
+
+    await expect(runService(layer, (svc) => svc.rejectRound(created.id))).rejects.toThrow(
+      "Only pending rounds can be rejected",
+    );
   });
 
   it("stores multiple formats and an optional repo URL", async () => {
@@ -145,6 +175,7 @@ describe("RoundsService", () => {
     const round = await runService(layer, (svc) =>
       svc.createRound({ ...baseInput, formats: ["written", "recorded"] }),
     );
+    await runService(layer, (svc) => svc.approveRound(round.id));
     await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
     await runService(layer, (svc) =>
       svc.addFeedback({
@@ -199,6 +230,7 @@ describe("RoundsService", () => {
         repoUrl: "https://github.com/near/feedback/",
       }),
     );
+    await runService(layer, (svc) => svc.approveRound(withIssues.id));
     await runService(layer, (svc) => svc.addParticipant(withIssues.id, "tester.near"));
     await runService(layer, (svc) =>
       svc.addFeedback({
@@ -218,6 +250,7 @@ describe("RoundsService", () => {
     const writtenOnly = await runService(layer, (svc) =>
       svc.createRound({ ...baseInput, title: "Written-only round", formats: ["written"] }),
     );
+    await runService(layer, (svc) => svc.approveRound(writtenOnly.id));
     await runService(layer, (svc) => svc.addParticipant(writtenOnly.id, "tester.near"));
     await runService(layer, (svc) =>
       svc.addFeedback({
@@ -257,6 +290,7 @@ describe("RoundsService", () => {
     const round = await runService(layer, (svc) =>
       svc.createRound({ ...baseInput, formats: ["written"] }),
     );
+    await runService(layer, (svc) => svc.approveRound(round.id));
     await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
     await runService(layer, (svc) =>
       svc.addFeedback({
@@ -281,6 +315,7 @@ describe("RoundsService", () => {
   it("rejects closing with a credit for a non-contributor", async () => {
     const layer = freshLayer();
     const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await runService(layer, (svc) => svc.approveRound(round.id));
     await expect(
       runService(layer, (svc) =>
         svc.closeRound(round.id, [
@@ -298,15 +333,23 @@ describe("RoundsService", () => {
     const second = await runService(layer, (svc) =>
       svc.createRound({ ...baseInput, title: "Second" }),
     );
+    await runService(layer, (svc) => svc.approveRound(first.id));
+    await runService(layer, (svc) => svc.rejectRound(second.id));
 
     const all = await runService(layer, (svc) => svc.listRounds());
     expect(all.map((r) => r.id)).toEqual(expect.arrayContaining([first.id, second.id]));
     expect(all).toHaveLength(2);
 
+    const pending = await runService(layer, (svc) => svc.listRounds("pending"));
+    expect(pending).toEqual([]);
+
     const open = await runService(layer, (svc) => svc.listRounds("open"));
-    expect(open).toHaveLength(2);
+    expect(open.map((r) => r.id)).toEqual([first.id]);
 
     const closed = await runService(layer, (svc) => svc.listRounds("closed"));
     expect(closed).toEqual([]);
+
+    const rejected = await runService(layer, (svc) => svc.listRounds("rejected"));
+    expect(rejected.map((r) => r.id)).toEqual([second.id]);
   });
 });

@@ -3,12 +3,19 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ExternalLink, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useApiClient, useAuthClient } from "@/app";
+import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Badge, Button, Card, Field, FieldLabel, Input, Textarea } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
 import { Skeleton } from "@/components/ui/skeleton";
 import { roundActivityUrl } from "@/lib/activity-events";
+
+const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  pending: "default",
+  open: "secondary",
+  closed: "outline",
+  rejected: "destructive",
+};
 
 type FeedbackFormat = "written" | "recorded";
 
@@ -36,6 +43,8 @@ function RoundDetailPage() {
   const queryClient = useQueryClient();
   const canGoBack = router.history.canGoBack?.() ?? false;
   const nearAccountId = auth.near.getAccountId();
+  const sessionQuery = useQuery(sessionQueryOptions(auth));
+  const isAdmin = sessionQuery.data?.user?.role === "admin";
 
   const roundQuery = useQuery({
     queryKey: ["round", roundId],
@@ -115,7 +124,7 @@ function RoundDetailPage() {
               feed
             </Link>
           )}
-          <Badge variant={round.status === "open" ? "secondary" : "outline"}>{round.status}</Badge>
+          <Badge variant={STATUS_BADGE_VARIANT[round.status] ?? "outline"}>{round.status}</Badge>
         </div>
 
         <div className="space-y-2">
@@ -181,6 +190,26 @@ function RoundDetailPage() {
             </Link>
           )}
         </div>
+
+        {isAdmin && round.status === "pending" && <AdminReviewPanel roundId={roundId} />}
+
+        {!isAdmin && isOwner && round.status === "pending" && (
+          <Card className="p-4 space-y-1 border-t border-border">
+            <span className="text-sm font-medium text-foreground">Awaiting admin review</span>
+            <p className="text-xs text-muted-foreground">
+              An admin will approve or reject this request before it's visible to builders.
+            </p>
+          </Card>
+        )}
+
+        {(isOwner || isAdmin) && round.status === "rejected" && (
+          <Card className="p-4 space-y-1 border-t border-border">
+            <span className="text-sm font-medium text-foreground">This request was rejected</span>
+            {round.rejectionReason && (
+              <p className="text-sm text-foreground">{round.rejectionReason}</p>
+            )}
+          </Card>
+        )}
 
         {isOwner && round.status === "open" && <OwnerClosePanel roundId={roundId} />}
 
@@ -365,6 +394,62 @@ function CreditsSection({ roundId }: { roundId: string }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+function AdminReviewPanel({ roundId }: { roundId: string }) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const [reason, setReason] = useState("");
+
+  const approveMutation = useMutation({
+    mutationFn: () => apiClient.approveRound({ id: roundId }),
+    onSuccess: (round) => {
+      queryClient.setQueryData(["round", roundId], (prev: typeof round | undefined) =>
+        prev ? { ...prev, ...round } : prev,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
+      toast.success("Round approved");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: () => apiClient.rejectRound({ id: roundId, reason: reason.trim() || undefined }),
+    onSuccess: (round) => {
+      queryClient.setQueryData(["round", roundId], (prev: typeof round | undefined) =>
+        prev ? { ...prev, ...round } : prev,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
+      toast.success("Round rejected");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const pending = approveMutation.isPending || rejectMutation.isPending;
+
+  return (
+    <Card className="p-4 space-y-3 border-t border-border">
+      <span className="text-sm font-medium text-foreground">Admin review</span>
+      <Field>
+        <FieldLabel htmlFor="reject-reason">rejection reason (optional)</FieldLabel>
+        <Input
+          id="reject-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Why isn't this ready?"
+          disabled={pending}
+        />
+      </Field>
+      <div className="flex gap-2">
+        <Button onClick={() => approveMutation.mutate()} disabled={pending}>
+          {approveMutation.isPending ? "Approving..." : "Approve"}
+        </Button>
+        <Button variant="outline" onClick={() => rejectMutation.mutate()} disabled={pending}>
+          {rejectMutation.isPending ? "Rejecting..." : "Reject"}
+        </Button>
+      </div>
+    </Card>
   );
 }
 

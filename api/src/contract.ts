@@ -27,7 +27,11 @@ export const TenantSchema = z.object({
 
 export type Tenant = z.infer<typeof TenantSchema>;
 
-export const RoundStatusSchema = z.enum(["open", "closed"]);
+// "in_progress" (auto-locked once tester slots fill) is part of the README's
+// full planned lifecycle but depends on a signup/slot-selection system that
+// doesn't exist yet — out of scope here (#48 only covers the pending admin
+// gate). Rounds today go straight from "open" to "closed".
+export const RoundStatusSchema = z.enum(["pending", "open", "closed", "rejected"]);
 
 export const RoundFormatSchema = z.enum(["issues", "written", "recorded"]);
 
@@ -46,6 +50,8 @@ export const RoundSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   closedAt: z.string().nullable(),
+  rejectedAt: z.string().nullable(),
+  rejectionReason: z.string().nullable(),
 });
 
 export type Round = z.infer<typeof RoundSchema>;
@@ -319,7 +325,25 @@ export const contract = oc.router({
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })
     .input(z.object({ status: RoundStatusSchema.optional() }))
-    .output(z.array(RoundSchema)),
+    .output(z.array(RoundSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  listPendingRounds: oc
+    .route({ method: "GET", path: "/rounds/pending" })
+    .output(z.array(RoundSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  approveRound: oc
+    .route({ method: "POST", path: "/rounds/{id}/approve" })
+    .input(z.object({ id: z.string() }))
+    .output(RoundSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  rejectRound: oc
+    .route({ method: "POST", path: "/rounds/{id}/reject" })
+    .input(z.object({ id: z.string(), reason: z.string().max(2000).optional() }))
+    .output(RoundSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   deleteRound: oc
     .route({ method: "DELETE", path: "/rounds/{id}" })

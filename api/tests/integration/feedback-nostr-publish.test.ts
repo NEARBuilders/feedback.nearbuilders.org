@@ -1,6 +1,6 @@
 import { verifyEvent } from "nostr-tools/pure";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getPluginClient, nearAuthedContext, nostrCreateComment } from "../setup";
+import { adminContext, getPluginClient, nearAuthedContext, nostrCreateComment } from "../setup";
 
 const baseInput = {
   projectSlug: "nostr-project",
@@ -13,10 +13,16 @@ beforeEach(() => {
   nostrCreateComment.mockClear();
 });
 
+async function approve(roundId: string) {
+  const admin = await getPluginClient(adminContext());
+  await admin.approveRound({ id: roundId });
+}
+
 describe("postFeedback (nostr plugin composition)", () => {
   it("publishes through the runtime-composed nostr client, not just the emitter unit", async () => {
     const owner = await getPluginClient(nearAuthedContext("nostr-owner.near"));
     const round = await owner.createRound(baseInput);
+    await approve(round.id);
 
     const builder = await getPluginClient(nearAuthedContext("nostr-builder.near"));
     await builder.joinRound({ id: round.id });
@@ -48,6 +54,7 @@ describe("postFeedback (nostr plugin composition)", () => {
 
     const owner = await getPluginClient(nearAuthedContext("nostr-owner-2.near"));
     const round = await owner.createRound({ ...baseInput, projectSlug: "nostr-project-2" });
+    await approve(round.id);
 
     const builder = await getPluginClient(nearAuthedContext("nostr-builder-2.near"));
     await builder.joinRound({ id: round.id });
@@ -71,6 +78,7 @@ describe("deleteFeedback (nostr comments can't be retracted)", () => {
     try {
       const owner = await getPluginClient(nearAuthedContext("nostr-del-owner.near"));
       const round = await owner.createRound({ ...baseInput, projectSlug: "nostr-del-project" });
+      await approve(round.id);
 
       const builder = await getPluginClient(nearAuthedContext("nostr-del-builder.near"));
       await builder.joinRound({ id: round.id });
@@ -98,6 +106,7 @@ describe("deleteFeedback (nostr comments can't be retracted)", () => {
     try {
       const owner = await getPluginClient(nearAuthedContext("nostr-del-owner-2.near"));
       const round = await owner.createRound({ ...baseInput, projectSlug: "nostr-del-project-2" });
+      await approve(round.id);
 
       const builder = await getPluginClient(nearAuthedContext("nostr-del-builder-2.near"));
       await builder.joinRound({ id: round.id });
