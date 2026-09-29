@@ -16,7 +16,7 @@ export function StepIcon({ state }: { state: StepState }) {
     case "running":
       return <Spinner className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-px" />;
     case "success":
-      return <Check className="h-3.5 w-3.5 text-green-500 shrink-0 mt-px" />;
+      return <Check className="h-3.5 w-3.5 text-brand-cyan shrink-0 mt-px" />;
     case "failed":
       return <XCircle className="h-3.5 w-3.5 text-destructive shrink-0 mt-px" />;
     default:

@@ -42,7 +42,7 @@ function TooltipContent({
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground" />
+        <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-xs bg-foreground fill-foreground" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );
@@ -60,7 +60,7 @@ function ClassicTooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-50 w-fit rounded-none border-2 border-inset border-border bg-tooltip-classic px-2 py-1 text-xs text-foreground shadow-none",
+          "z-50 w-fit rounded border border-border bg-popover px-2 py-1 text-xs text-foreground shadow-sm",
           className,
         )}
         {...props}
