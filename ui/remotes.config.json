@@ -1,0 +1,11 @@
+{
+  "$comment": "Module Federation remotes this app consumes at runtime (see #55). Not part of bos.config.json: the bos config resolver only passes through a fixed set of known top-level keys (app, plugins, ci, ...) and silently drops anything else, so a custom 'remotes' key there never survives into .bos/bos.resolved-config.json. Read directly by rsbuild.config.ts instead, the same way it already reads bos.config.json off disk.",
+  "components": {
+    "$comment": "nearbuilders.org's UI Module Federation remote (name: 'ui'), exposing './components' — the design-system barrel this app will federate in (see #56/#57). 'development' assumes nearbuilders.org's own UI dev server is running locally; see the COMPONENTS_REMOTE_DEV_URL port-collision note in rsbuild.config.ts. 'production' and 'integrity' are nearbuilders.org's live custom domain and the SRI hash of its current remoteEntry.js (recompute with `computeSriHashForUrl` from everything-dev/integrity on every redeploy over there until #260 gives this a recorded, publish-time value like app.ui.integrity gets for this app's own UI).",
+    "development": "http://localhost:3010",
+    "production": "https://nearbuilders.org",
+    "integrity": "sha384-MR93b8e18lCFIe+8+dkhwYaFRe7VtYGZefqgsx7gbVO2lVk4lzKcj/Tm2ikL/5/L",
+    "ssr": null,
+    "ssrIntegrity": null
+  }
+}
