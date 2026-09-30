@@ -1,5 +1,4 @@
 import type * as React from "react";
-
 import { cn } from "@/lib/utils";
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
@@ -8,7 +7,8 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       type={type}
       data-slot="input"
       className={cn(
-        "flex h-10 w-full border-2 border-inset border-border-strong bg-card px-3 py-2 text-sm shadow-inner placeholder:text-muted-foreground transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 rounded-[8px]",
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- shadcn/ui's standard 3px focus ring and border/shadow transition; Tailwind's built-in ring scale (0/1/2/4/8) and named transition utilities don't cover this combination
+        "flex h-10 w-full border border-border bg-input px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground rounded-md transition-[border-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:bg-secondary disabled:border-border disabled:opacity-70 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive/20",
         className,
       )}
       {...props}

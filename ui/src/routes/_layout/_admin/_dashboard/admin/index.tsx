@@ -83,7 +83,7 @@ function StatCard({
   mono?: boolean;
 }) {
   return (
-    <div className="border-2 border-outset border-border-strong bg-card p-4 rounded-[12px] shadow-sm space-y-1">
+    <div className="border border-border bg-card p-4 rounded-md space-y-1">
       <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>

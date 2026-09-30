@@ -66,7 +66,7 @@ function FeedPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Feed</h1>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex rounded-[10px] border-2 border-outset border-border-strong bg-card p-0.5 shadow-sm">
+            <div className="inline-flex rounded-md border border-border bg-card p-0.5">
               {(["open", "closed"] as const).map((value) => (
                 <button
                   key={value}

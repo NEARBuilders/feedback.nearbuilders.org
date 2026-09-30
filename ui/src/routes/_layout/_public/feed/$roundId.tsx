@@ -111,7 +111,7 @@ function RoundDetailPage() {
             <button
               type="button"
               onClick={() => router.history.back()}
-              className="flex items-center justify-center w-8 h-8 border-2 border-outset border-border-strong bg-card shadow-sm rounded-[10px] hover:bg-muted"
+              className="flex items-center justify-center w-8 h-8 border border-border bg-card rounded-md hover:bg-muted"
             >
               <ArrowLeft size={14} />
             </button>
@@ -283,10 +283,10 @@ function FeedbackThread({
                   key={f}
                   type="button"
                   onClick={() => setFormat(f)}
-                  className={`rounded-[8px] border-2 px-3 py-1 text-xs font-medium ${
+                  className={`rounded-sm border px-3 py-1 text-xs font-medium ${
                     format === f
-                      ? "border-inset border-foreground bg-foreground text-background"
-                      : "border-outset border-border-strong bg-card text-foreground"
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card text-foreground"
                   }`}
                 >
                   {f === "written" ? "Written" : "Recorded"}
