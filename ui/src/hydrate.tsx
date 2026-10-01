@@ -7,7 +7,12 @@
  */
 
 import { createApiClient, createAuthClient, getCspNonce, getRuntimeConfig } from "./app";
+import { loadFederatedComponents } from "./lib/load-federated-components";
 import "./styles.css";
+
+const COMPONENTS_REMOTE_URL = import.meta.env.DEV
+  ? import.meta.env.COMPONENTS_REMOTE_DEV_URL
+  : import.meta.env.COMPONENTS_REMOTE_PRODUCTION_URL;
 
 declare global {
   interface Window {
@@ -30,6 +35,10 @@ export async function hydrate() {
 
   const hydratePromise = (async () => {
     console.log("[Hydrate] Starting...");
+
+    // Resolved before the first render (#56), so federated() proxies in the components barrel
+    // read a settled registry — no Suspense, no flash from local to remote after paint.
+    await loadFederatedComponents(COMPONENTS_REMOTE_URL, 15000);
 
     const runtimeConfig = getRuntimeConfig();
     const cspNonce = getCspNonce();

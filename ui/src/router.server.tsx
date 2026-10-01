@@ -22,9 +22,18 @@ import type {
   RouterContext,
 } from "./app";
 import { createApiClient, createAuthClient } from "./app";
+import { loadFederatedComponents } from "./lib/load-federated-components";
 import { routeTree } from "./routeTree.gen";
 
 export type { CreateRouterOptions, HeadData, RenderOptions, RenderResult, RouterContext };
+
+// Module-scope, not per-request (#56): the SSR bundle is a long-lived Node process, so this
+// resolves once — a no-op today since COMPONENTS_REMOTE_SSR_URL is null — and every request
+// after the first awaits the same already-settled promise instead of repeating the attempt.
+const federatedComponentsReady = loadFederatedComponents(
+  import.meta.env.COMPONENTS_REMOTE_SSR_URL,
+  1500,
+);
 
 function defaultErrorComponent({ error }: { error: Error }) {
   return (
@@ -136,6 +145,8 @@ const getRouteHead = async (pathname: string, context?: Partial<RouterContext>) 
 };
 
 const renderToStream = async (request: Request, renderOptions: RenderOptions) => {
+  await federatedComponentsReady;
+
   const url = new URL(request.url);
   const history = createMemoryHistory({ initialEntries: [url.pathname + url.search] });
   let queryClientRef: QueryClient | null = null;
