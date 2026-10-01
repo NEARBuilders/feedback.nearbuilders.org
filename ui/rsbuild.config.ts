@@ -286,6 +286,12 @@ function createServerConfig() {
       entry: {
         index: "./src/router.server.tsx",
       },
+      define: {
+        // Null today: nearbuilders.org#260 (SSR expose of components from its node build)
+        // hasn't shipped, so there's no real SSR remote to point at yet (#55, #56).
+        // loadFederatedComponents() no-ops on a null/undefined entry URL.
+        "import.meta.env.COMPONENTS_REMOTE_SSR_URL": JSON.stringify(componentsRemote.ssr),
+      },
     },
     resolve: {
       alias: {
