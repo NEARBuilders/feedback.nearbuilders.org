@@ -33,21 +33,76 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   });
 }
 
+function resolveRemoteEntryUrl(entryUrl: string): string {
+  if (entryUrl.endsWith("/remoteEntry.js")) return entryUrl;
+  if (entryUrl.endsWith("/mf-manifest.json")) {
+    return `${entryUrl.replace(/\/mf-manifest\.json$/, "")}/remoteEntry.js`;
+  }
+  return `${entryUrl.replace(/\/$/, "")}/remoteEntry.js`;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function verifyIntegrity(entryUrl: string, expectedIntegrity: string): Promise<boolean> {
+  try {
+    const response = await fetch(resolveRemoteEntryUrl(entryUrl));
+    if (!response.ok) {
+      console.warn(`[Federation] Integrity check fetch failed: ${response.status} ${entryUrl}`);
+      return false;
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const digest = await crypto.subtle.digest("SHA-384", bytes);
+    const computed = `sha384-${toBase64(new Uint8Array(digest))}`;
+    if (computed !== expectedIntegrity) {
+      console.warn(
+        `[Federation] Components remote integrity mismatch, refusing to load\n` +
+          `  Expected: ${expectedIntegrity}\n` +
+          `  Computed: ${computed}`,
+      );
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn(
+      "[Federation] Components remote integrity check failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return false;
+  }
+}
+
 /**
  * Registers and loads nearbuilders.org's components remote (#55's remotes.config.json), best
  * effort: a missing entry URL (SSR today — nearbuilders.org#260 isn't done), an unreachable
- * remote, or a timeout all resolve to a no-op, leaving every federated() wrapper on its local
- * fallback. Isomorphic — the client bundle's embedded MF runtime and the SSR bundle's
- * @module-federation/node runtime plugin both expose the same registerRemotes/loadRemote API,
- * so this one function drives both hydrate.tsx (client) and router.server.tsx (SSR).
+ * remote, an integrity mismatch, or a timeout all resolve to a no-op, leaving every federated()
+ * wrapper on its local fallback. When expectedIntegrity is provided, the remote's entry script
+ * is fetched and hashed (Web Crypto — everything-dev/integrity's verifySriForUrl is Node-only)
+ * before registerRemotes(); the MF runtime has no integrity option of its own. Isomorphic —
+ * the client bundle's embedded MF runtime and the SSR bundle's @module-federation/node runtime
+ * plugin both expose the same registerRemotes/loadRemote API, so this one function drives both
+ * hydrate.tsx (client) and router.server.tsx (SSR).
  */
 export async function loadFederatedComponents(
   entryUrl: string | null | undefined,
   timeoutMs: number,
+  expectedIntegrity?: string | null,
 ): Promise<void> {
   if (!entryUrl) return;
 
   try {
+    if (
+      expectedIntegrity &&
+      !(await withTimeout(verifyIntegrity(entryUrl, expectedIntegrity), timeoutMs))
+    ) {
+      return;
+    }
+
     const instance = ensureFederationInstance();
     instance.registerRemotes([{ name: REMOTE_NAME, entry: `${entryUrl}/mf-manifest.json` }]);
 

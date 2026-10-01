@@ -172,10 +172,11 @@ function createClientConfig() {
           componentsRemote.production,
         ),
         // SRI hash of nearbuilders.org's current production remoteEntry.js (see
-        // remotes.config.json for how it was computed). The dev URL has no integrity check —
-        // it's a local, developer-controlled server, not a value worth pinning — so #56's
-        // loadRemote shim should only pass this into registerRemotes()'s integrity check when
-        // it resolves the production URL, never the dev one.
+        // remotes.config.json for how it was computed). Passed by hydrate.tsx into
+        // loadFederatedComponents(), which fetches and hashes the entry itself before
+        // registerRemotes() — the MF runtime's registerRemotes() has no integrity option. Only
+        // the production URL is pinned; the dev URL is a local, developer-controlled server and
+        // stays unpinned.
         "import.meta.env.COMPONENTS_REMOTE_INTEGRITY": JSON.stringify(componentsRemote.integrity),
       },
     },
@@ -262,6 +263,7 @@ function createServerConfig() {
   if (shouldDeploy) {
     plugins.push(
       withZephyr({
+        snapshotType: "csr",
         hooks: {
           onDeployComplete: async (info) => {
             console.log("🚀 UI SSR Deployed:", info.url);
