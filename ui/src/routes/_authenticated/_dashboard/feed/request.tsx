@@ -4,9 +4,17 @@ import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient, useAuthClient } from "@/app";
-import { Button, Card, CardContent, Field, FieldLabel, Input, Textarea } from "@/components";
+import {
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  Field,
+  FieldLabel,
+  Input,
+  Textarea,
+} from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
-import { Checkbox } from "@/components/ui/checkbox";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);

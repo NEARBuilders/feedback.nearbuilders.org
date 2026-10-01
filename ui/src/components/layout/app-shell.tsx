@@ -1,7 +1,7 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import type { ClientRuntimeConfig, SessionData } from "@/app";
 import { getAppName } from "@/app";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components";
 import { AppHeader } from "./app-header";
 import { AppSidebar } from "./app-sidebar";
 import { filterSidebarByRole, getUserRole, NAV_ITEMS, type SidebarItem } from "./nav-items";

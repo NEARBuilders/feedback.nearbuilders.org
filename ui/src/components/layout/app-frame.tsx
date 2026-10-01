@@ -1,6 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components";
 
 export function AppFrame({ children }: { children: ReactNode }) {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });

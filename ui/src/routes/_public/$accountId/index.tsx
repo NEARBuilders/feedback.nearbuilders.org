@@ -2,8 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Activity, ExternalLink, MessageSquare } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Badge, Card, EmptyState } from "@/components";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge, Card, EmptyState, Skeleton } from "@/components";
 import { toActivityEventViews } from "@/lib/activity-events";
 import { toBuilderRoundViews } from "@/lib/builder-rounds";
 

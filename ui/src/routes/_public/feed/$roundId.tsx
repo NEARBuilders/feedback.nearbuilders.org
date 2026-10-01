@@ -4,10 +4,9 @@ import { ArrowLeft, ExternalLink, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { Badge, Button, Card, Field, FieldLabel, Input, Textarea } from "@/components";
+import { Badge, Button, Card, Field, FieldLabel, Input, Skeleton, Textarea } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
-import { Skeleton } from "@/components/ui/skeleton";
 import { roundActivityUrl } from "@/lib/activity-events";
 
 const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {

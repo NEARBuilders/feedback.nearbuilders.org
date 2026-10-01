@@ -1,7 +1,6 @@
 import { Building2 } from "lucide-react";
 import type { Organization } from "@/app";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button, DropdownMenu, DropdownMenuTrigger } from "@/components";
 import { OrgSwitcherMenuContent } from "./org-switcher-menu";
 
 interface OrgSwitcherProps {

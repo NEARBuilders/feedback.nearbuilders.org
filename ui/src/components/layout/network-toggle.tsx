@@ -1,6 +1,6 @@
 import { Globe } from "lucide-react";
 import { useAuthClient } from "@/app";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components";
 
 export function NetworkToggle() {
   const auth = useAuthClient();

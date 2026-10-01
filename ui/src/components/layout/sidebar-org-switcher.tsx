@@ -1,7 +1,12 @@
 import { Building2, ChevronsUpDown } from "lucide-react";
 import type { Organization } from "@/app";
-import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components";
 import { OrgSwitcherMenuContent } from "./org-switcher-menu";
 
 interface SidebarOrgSwitcherProps {

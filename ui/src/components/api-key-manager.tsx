@@ -1,10 +1,7 @@
 import { Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+import { Button, Card, CardContent, Input, Label } from "@/components";
 
 export interface ApiKeyFormValues {
   name: string;
