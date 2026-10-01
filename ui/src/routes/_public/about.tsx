@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, ExternalLink, FileText, GitFork, Sparkles } from "lucide-react";
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
-import { PageContainer } from "@/components";
-import { Markdown } from "@/components/ui/markdown";
+import { Markdown, PageContainer } from "@/components";
 
 function sanitizeMarkdownContent(content: string): string {
   return content

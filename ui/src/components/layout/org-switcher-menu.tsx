@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+} from "@/components";
 import { useSwitchOrganization } from "./use-switch-organization";
 
 interface OrgSwitcherMenuContentProps {

@@ -7,7 +7,7 @@ vi.mock("@/app", () => ({
   useAuthClient: () => ({}),
 }));
 
-vi.mock("@/components/ui/button", () => ({ Button: () => null }));
+vi.mock("@/components", () => ({ Button: () => null }));
 vi.mock("@/components/under-construction", () => ({ UnderConstruction: () => null }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 

@@ -1,12 +1,15 @@
 import { ChevronsUpDown, User } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  DropdownMenu,
+  DropdownMenuTrigger,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar";
+} from "@/components";
 import { useIdentity } from "./use-identity";
 import { UserNavMenuContent } from "./user-nav-menu";
 

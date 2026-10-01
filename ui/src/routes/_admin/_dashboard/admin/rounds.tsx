@@ -3,8 +3,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Badge, Button, Card, Field, FieldLabel, Input, SectionHeader } from "@/components";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  FieldLabel,
+  Input,
+  SectionHeader,
+  Skeleton,
+} from "@/components";
 
 export const Route = createFileRoute("/_admin/_dashboard/admin/rounds")({
   head: () => ({

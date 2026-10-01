@@ -3,12 +3,7 @@ import { motion } from "framer-motion";
 import { ExternalLink } from "lucide-react";
 import { getRepository } from "@/app";
 import underConstructionImage from "@/assets/under-construction.gif";
-import {
-  ClassicTooltipContent,
-  Tooltip,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { ClassicTooltipContent, Tooltip, TooltipProvider, TooltipTrigger } from "@/components";
 
 interface UnderConstructionProps {
   label?: string;

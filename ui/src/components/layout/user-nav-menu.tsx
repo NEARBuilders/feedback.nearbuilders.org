@@ -1,13 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import { Building2, Home, LogOut, Settings, User } from "lucide-react";
 import type { Organization } from "@/app";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+} from "@/components";
 
 interface SignOutMutationLike {
   mutate: () => void;

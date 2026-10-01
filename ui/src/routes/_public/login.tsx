@@ -3,7 +3,7 @@ import { createFileRoute, Navigate, redirect, useNavigate } from "@tanstack/reac
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useAuthClient } from "@/app";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components";
 import { UnderConstruction } from "@/components/under-construction";
 
 type SearchParams = {

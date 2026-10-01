@@ -9,8 +9,7 @@ import {
   sessionQueryOptions,
   useAuthClient,
 } from "@/app";
-import { Button, Card, Chip, PageHeader } from "@/components";
-import { InfoRow } from "@/components/ui/info-row";
+import { Button, Card, Chip, InfoRow, PageHeader } from "@/components";
 import { useNearAccount } from "@/lib/use-near-account";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard/")({

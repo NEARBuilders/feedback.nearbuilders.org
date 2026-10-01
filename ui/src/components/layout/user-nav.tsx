@@ -1,8 +1,13 @@
 import { ClientOnly, Link } from "@tanstack/react-router";
 import { User } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Button,
+  DropdownMenu,
+  DropdownMenuTrigger,
+} from "@/components";
 import { NetworkToggle } from "./network-toggle";
 import { OrgSwitcher } from "./org-switcher";
 import { ThemeToggle } from "./theme-toggle";

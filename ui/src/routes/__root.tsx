@@ -21,7 +21,7 @@ import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { ThemeProvider } from "next-themes";
 import type { RouterContext } from "@/app";
 import { getBaseStyles } from "@/app";
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@/components";
 import { useMediaQuery } from "@/hooks";
 import { sessionQueryKey } from "@/lib/auth";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
