@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Activity, ExternalLink, MessageSquare } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Badge, Card, EmptyState, Skeleton } from "@/components";
+import { SectionHeader } from "@/components/layout/section-header";
 import { toActivityEventViews } from "@/lib/activity-events";
 import { toBuilderRoundViews } from "@/lib/builder-rounds";
 
@@ -38,7 +39,7 @@ export function BuilderActivityFeed({ accountId }: { accountId: string }) {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-foreground">Recent activity</h2>
+      <SectionHeader title="Recent activity" />
 
       {isLoading ? (
         <div className="space-y-2">
@@ -95,7 +96,7 @@ export function BuilderFeedbackRounds({ accountId }: { accountId: string }) {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-foreground">Feedback rounds</h2>
+      <SectionHeader title="Feedback rounds" />
 
       {isLoading ? (
         <div className="space-y-3">

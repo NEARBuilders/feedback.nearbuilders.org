@@ -15,6 +15,8 @@ import {
   Textarea,
 } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
+import { PageHeader } from "@/components/layout/page-header";
+import { pageHead } from "@/lib/page-title";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -26,12 +28,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 }
 
 export const Route = createFileRoute("/_authenticated/_dashboard/feed/request")({
-  head: () => ({
-    meta: [
-      { title: "Request a round | Feedback Rounds" },
-      { name: "description", content: "Ask builders to test your project and share feedback." },
-    ],
-  }),
+  head: () => pageHead("Request a round", "Ask builders to test your project and share feedback."),
   component: RequestRoundPage,
 });
 
@@ -112,16 +109,12 @@ function RequestRoundPage() {
   return (
     <PageContainer variant="narrow">
       <div className="space-y-6">
-        <header className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            <Sparkles size={14} />
-            <span>Request</span>
-          </div>
-          <h1 className="text-xl font-semibold text-foreground">Request a feedback round</h1>
-          <p className="text-sm text-muted-foreground">
-            An admin reviews requests before they go live for builders to join.
-          </p>
-        </header>
+        <PageHeader
+          icon={Sparkles}
+          label="Request"
+          title="Request a feedback round"
+          description="An admin reviews requests before they go live for builders to join."
+        />
 
         {!nearAccountId && (
           <Card className="p-4">

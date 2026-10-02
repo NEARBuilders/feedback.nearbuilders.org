@@ -2,18 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ClipboardCheck, MessageSquare, UserCheck } from "lucide-react";
 import { Button } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_public/")({
-  head: () => ({
-    meta: [
-      { title: "Feedback Rounds" },
-      {
-        name: "description",
-        content:
-          "Project owners request testing rounds, builders sign up to test and share feedback, and contributors get credit on their NEAR Builders profile.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead(
+      undefined,
+      "Project owners request testing rounds, builders sign up to test and share feedback, and contributors get credit on their NEAR Builders profile.",
+    ),
   component: LandingPage,
 });
 

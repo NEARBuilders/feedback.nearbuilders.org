@@ -37,6 +37,7 @@ import {
   TabsTrigger,
 } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
+import { pageHead } from "@/lib/page-title";
 
 type AuthClientType = import("@/app").AuthClient;
 
@@ -63,10 +64,7 @@ const orgInvitationsQueryKey = (orgId: string) => ["org-invitations", orgId] as 
 const orgApiKeysQueryKey = (orgId: string) => ["org-api-keys", orgId] as const;
 
 export const Route = createFileRoute("/_authenticated/_dashboard/orgs/$slug")({
-  head: () => ({
-    title: "Organization | auth.everything.dev",
-    meta: [{ name: "description", content: "Manage organization details and members." }],
-  }),
+  head: () => pageHead("Organization", "Manage organization details and members."),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),

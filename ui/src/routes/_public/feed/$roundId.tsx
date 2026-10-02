@@ -4,10 +4,23 @@ import { ArrowLeft, ExternalLink, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { Badge, Button, Card, Field, FieldLabel, Input, Skeleton, Textarea } from "@/components";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  FieldLabel,
+  Input,
+  Skeleton,
+  Textarea,
+} from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
+import { PageHeader } from "@/components/layout/page-header";
+import { SectionHeader } from "@/components/layout/section-header";
 import { roundActivityUrl } from "@/lib/activity-events";
+import { pageHead } from "@/lib/page-title";
 
 const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "default",
@@ -19,12 +32,7 @@ const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" |
 type FeedbackFormat = "written" | "recorded";
 
 export const Route = createFileRoute("/_public/feed/$roundId")({
-  head: ({ params }) => ({
-    meta: [
-      { title: "Round | Feedback Rounds" },
-      { name: "description", content: `Feedback round ${params.roundId}.` },
-    ],
-  }),
+  head: ({ params }) => pageHead("Round", `Feedback round ${params.roundId}.`),
   component: RoundDetailPage,
 });
 
@@ -90,12 +98,16 @@ function RoundDetailPage() {
 
   if (!round) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-24 text-center">
-        <p className="text-base font-semibold text-foreground">Round not found.</p>
-        <Link to="/feed" className="text-sm text-muted-foreground underline">
-          back to the feed
-        </Link>
-      </div>
+      <PageContainer variant="narrow">
+        <EmptyState
+          title="Round not found."
+          action={
+            <Link to="/feed" className="text-sm text-muted-foreground underline">
+              back to the feed
+            </Link>
+          }
+        />
+      </PageContainer>
     );
   }
 
@@ -126,10 +138,7 @@ function RoundDetailPage() {
           <Badge variant={STATUS_BADGE_VARIANT[round.status] ?? "outline"}>{round.status}</Badge>
         </div>
 
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{round.title}</h1>
-          <p className="text-xs font-mono text-muted-foreground">{round.projectSlug}</p>
-        </div>
+        <PageHeader title={round.title} subtitle={round.projectSlug} />
 
         <p className="text-sm text-foreground whitespace-pre-wrap">{round.description}</p>
 
@@ -271,7 +280,7 @@ function FeedbackThread({
 
   return (
     <div className="space-y-4 border-t border-border pt-6">
-      <h2 className="text-lg font-semibold text-foreground">Feedback</h2>
+      <SectionHeader title="Feedback" />
 
       {canPost && formats.length > 0 && (
         <Card className="p-4 space-y-3">
@@ -373,7 +382,7 @@ function CreditsSection({ roundId }: { roundId: string }) {
 
   return (
     <div className="space-y-3 border-t border-border pt-6">
-      <h2 className="text-lg font-semibold text-foreground">Credited contributors</h2>
+      <SectionHeader title="Credited contributors" />
       <ul className="space-y-2">
         {credits.map((credit) => (
           <li key={credit.id} className="rounded-[10px] border border-border bg-card p-4 space-y-1">

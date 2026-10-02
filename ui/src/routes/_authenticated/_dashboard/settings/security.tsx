@@ -4,8 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, Card, Field, FieldLabel, Input } from "@/components";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings/security")({
+  head: () => pageHead("Security settings", "Manage passkeys and sessions."),
   component: SecuritySettings,
 });
 

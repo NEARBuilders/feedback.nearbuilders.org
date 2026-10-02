@@ -14,17 +14,10 @@ import {
   EmptyState,
   PageHeader,
 } from "@/components";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings/api-keys")({
-  head: () => ({
-    meta: [
-      { title: "API Keys | settings" },
-      {
-        name: "description",
-        content: "Create and manage API keys for programmatic access.",
-      },
-    ],
-  }),
+  head: () => pageHead("API keys", "Create and manage API keys for programmatic access."),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),

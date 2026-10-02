@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpen, ExternalLink, FileText, GitFork, Sparkles } from "lucide-react";
+import { BookOpen, ExternalLink, FileText, Sparkles } from "lucide-react";
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
-import { Markdown, PageContainer } from "@/components";
+import { EmptyState, Markdown, PageContainer, PageHeader } from "@/components";
+import { pageHead } from "@/lib/page-title";
 
 function sanitizeMarkdownContent(content: string): string {
   return content
@@ -51,12 +52,7 @@ export const Route = createFileRoute("/_public/about")({
     }
     return { repository, readme, description, runtimeConfig: context.runtimeConfig };
   },
-  head: () => ({
-    meta: [
-      { title: "About | app" },
-      { name: "description", content: "About this runtime-composed app on NEAR." },
-    ],
-  }),
+  head: () => pageHead("About", "About this runtime-composed app on NEAR."),
   component: About,
 });
 
@@ -90,30 +86,13 @@ function About() {
   return (
     <PageContainer variant="default">
       <div className="space-y-4">
-        <div className="rounded-[12px] border border-border bg-card p-6 space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-[10px] bg-foreground flex items-center justify-center shrink-0">
-                <BookOpen size={18} className="text-background" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground font-mono">{accountId}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <span className="text-base font-semibold text-foreground">{appName}</span>
-                </div>
-                {githubRepo && (
-                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground font-mono">
-                    <GitFork size={11} />
-                    <span>
-                      {githubRepo.owner}/{githubRepo.repo}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <PageHeader
+          icon={BookOpen}
+          label={accountId}
+          title={appName}
+          subtitle={githubRepo ? `${githubRepo.owner}/${githubRepo.repo}` : undefined}
+          actions={
+            <>
               <Link
                 to="/skill"
                 preload="intent"
@@ -142,9 +121,11 @@ function About() {
                   {isGithubUrl(repository) ? "GitHub" : "Repository"}
                 </a>
               )}
-            </div>
-          </div>
+            </>
+          }
+        />
 
+        <div className="rounded-[12px] border border-border bg-card p-6 space-y-4">
           {description && (
             <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
           )}
@@ -203,10 +184,7 @@ function About() {
             <Markdown content={readme} />
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-3 px-8 py-16 rounded-[12px] border border-border bg-card text-muted-foreground">
-            <FileText size={32} className="text-border" />
-            <p className="text-sm text-muted-foreground">No README available.</p>
-          </div>
+          <EmptyState icon={FileText} title="No README available." className="min-h-[20vh]" />
         )}
       </div>
     </PageContainer>

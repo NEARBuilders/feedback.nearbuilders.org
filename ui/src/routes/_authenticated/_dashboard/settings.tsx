@@ -2,14 +2,10 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { Settings } from "lucide-react";
 import { sessionQueryOptions } from "@/app";
 import { PageContainer, PageHeader, Tabs, TabsList, TabsTrigger } from "@/components";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings")({
-  head: () => ({
-    meta: [
-      { title: "Settings | auth.everything.dev" },
-      { name: "description", content: "Manage your account identity and security." },
-    ],
-  }),
+  head: () => pageHead("Settings", "Manage your account identity and security."),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),

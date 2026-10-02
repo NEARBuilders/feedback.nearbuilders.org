@@ -11,6 +11,7 @@ import {
 } from "@/app";
 import { Button, Card, Chip, PageContainer, PageHeader } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
+import { pageHead } from "@/lib/page-title";
 import { tenantOrganizationIdsQueryOptions } from "@/lib/queries/tenants";
 
 type AuthClientType = import("@/app").AuthClient;
@@ -20,10 +21,7 @@ type UserInvitationsResponse = Awaited<
 type UserInvitationItem = NonNullable<UserInvitationsResponse["data"]>[number];
 
 export const Route = createFileRoute("/_authenticated/_dashboard/orgs/")({
-  head: () => ({
-    title: "Organizations | auth.everything.dev",
-    meta: [{ name: "description", content: "Manage your organizations and teams." }],
-  }),
+  head: () => pageHead("Organizations", "Manage your organizations and teams."),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),

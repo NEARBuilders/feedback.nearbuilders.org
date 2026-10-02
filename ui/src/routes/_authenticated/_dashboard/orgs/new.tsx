@@ -17,13 +17,12 @@ import {
   PageContainer,
   PageHeader,
 } from "@/components";
+import { SectionHeader } from "@/components/layout/section-header";
+import { pageHead } from "@/lib/page-title";
 import { deriveSlug } from "@/lib/slug";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/orgs/new")({
-  head: () => ({
-    title: "New Organization | auth.everything.dev",
-    meta: [{ name: "description", content: "Create a new organization." }],
-  }),
+  head: () => pageHead("New organization", "Create a new organization."),
   component: NewOrganization,
 });
 
@@ -197,9 +196,7 @@ function NewOrganization() {
         </form>
 
         <section className="space-y-4">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            What Happens Next
-          </h2>
+          <SectionHeader title="What happens next" />
           <Card>
             <CardContent className="p-4">
               <ul className="space-y-2 text-xs text-muted-foreground">
