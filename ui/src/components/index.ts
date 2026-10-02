@@ -71,10 +71,13 @@ export { BetaBanner } from "./layout/beta-banner";
 export { Chip } from "./layout/chip";
 export {
   filterSidebarByRole,
+  getActiveItem,
   getUserRole,
+  groupSidebarItems,
   NAV_ITEMS,
   type SidebarItem,
   type SidebarRole,
+  type SidebarSection,
 } from "./layout/nav-items";
 export { NearBranding } from "./layout/near-branding";
 export { NetworkToggle } from "./layout/network-toggle";
