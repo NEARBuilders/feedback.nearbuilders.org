@@ -35,12 +35,46 @@ export const RoundStatusSchema = z.enum(["pending", "open", "closed", "rejected"
 
 export const RoundFormatSchema = z.enum(["issues", "written", "recorded"]);
 
+export const ProjectStatusSchema = z.enum(["pending", "approved", "rejected"]);
+
+export const ProjectSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  /** Null only for projects backfilled from rounds that predate org ownership. */
+  ownerOrgId: z.string().nullable(),
+  nearbuildersProjectId: z.string().nullable(),
+  status: ProjectStatusSchema,
+  approvedAt: z.string().nullable(),
+  rejectedAt: z.string().nullable(),
+  rejectionReason: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type Project = z.infer<typeof ProjectSchema>;
+
+export const ProjectWithRoundsSchema = ProjectSchema.extend({
+  rounds: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      status: z.enum(["pending", "open", "closed", "rejected"]),
+      projectRoundNumber: z.number().int().positive(),
+    }),
+  ),
+});
+
+export type ProjectWithRounds = z.infer<typeof ProjectWithRoundsSchema>;
+
 export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
   projectSlug: z.string(),
   /** nearbuilders.org project id this round resolved against, if any (#23). */
   projectId: z.string().nullable(),
+  /** The project anchor this round hangs off (#69). */
+  projectRecordId: z.string(),
   projectRoundNumber: z.number().int().positive(),
   title: z.string(),
   description: z.string(),
@@ -204,6 +238,8 @@ const CreateRoundInputSchema = z
     projectSlug: z.string().min(1, "Project is required").max(100),
     /** nearbuilders.org project id from the picker, when the slug resolved to a real project (#23). */
     projectId: z.string().min(1).optional(),
+    /** Display name for the project if this request creates it (e.g. the picker's title). */
+    projectName: z.string().trim().min(1).max(200).optional(),
     title: z.string().min(1, "Title is required").max(200),
     description: z.string().min(1, "Description is required").max(5000),
     formats: z.array(RoundFormatSchema).min(1, "Select at least one feedback format"),
@@ -332,6 +368,34 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/rounds/pending" })
     .output(z.array(RoundSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  listProjects: oc
+    .route({ method: "GET", path: "/projects" })
+    .input(z.object({ status: ProjectStatusSchema.optional() }))
+    .output(z.array(ProjectWithRoundsSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  listMyProjects: oc
+    .route({ method: "GET", path: "/projects/mine" })
+    .output(z.array(ProjectWithRoundsSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  approveProject: oc
+    .route({ method: "POST", path: "/projects/{id}/approve" })
+    .input(z.object({ id: z.string() }))
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  rejectProject: oc
+    .route({ method: "POST", path: "/projects/{id}/reject" })
+    .input(
+      z.object({
+        id: z.string(),
+        reason: z.string().trim().min(1, "A reason is required").max(2000),
+      }),
+    )
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   approveRound: oc
     .route({ method: "POST", path: "/rounds/{id}/approve" })

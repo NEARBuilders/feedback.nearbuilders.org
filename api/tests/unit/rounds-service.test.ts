@@ -5,6 +5,11 @@ import { PluginIdTag } from "every-plugin";
 import { Effect, Layer } from "every-plugin/effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { DatabaseLive } from "@/db/layer";
+import {
+  ProjectRecordsLive,
+  type ProjectRecordsService,
+  ProjectRecordsTag,
+} from "@/services/project-records";
 import { RoundsLive, type RoundsService, RoundsTag } from "@/services/rounds";
 
 let activeDir: string | null = null;
@@ -19,7 +24,7 @@ afterEach(() => {
 function freshLayer() {
   const dir = mkdtempSync(join(tmpdir(), "api-rounds-"));
   activeDir = dir;
-  return RoundsLive.pipe(
+  return Layer.mergeAll(RoundsLive, ProjectRecordsLive).pipe(
     Layer.provide(DatabaseLive(`pglite:${dir}`)),
     Layer.provide(Layer.succeed(PluginIdTag, "api")),
   );
@@ -27,19 +32,31 @@ function freshLayer() {
 
 const MISSING_ID = "00000000-0000-0000-0000-000000000000";
 
+type Services = RoundsService | ProjectRecordsService;
+
 async function runService<A>(
-  layer: Layer.Layer<RoundsService, unknown, never>,
-  fn: (svc: RoundsService) => Promise<A>,
+  layer: Layer.Layer<Services, unknown, never>,
+  fn: (svc: RoundsService, projects: ProjectRecordsService) => Promise<A>,
 ): Promise<A> {
   const effect = Effect.gen(function* () {
     const svc = yield* RoundsTag;
-    return yield* Effect.tryPromise({ try: () => fn(svc), catch: (error) => error });
+    const projects = yield* ProjectRecordsTag;
+    return yield* Effect.tryPromise({ try: () => fn(svc, projects), catch: (error) => error });
   });
   return Effect.runPromise(Effect.provide(effect, layer));
 }
 
+/** Admin-approves the (pending) project a freshly created round hangs off. */
+function approveProjectOf(
+  layer: Layer.Layer<Services, unknown, never>,
+  round: { projectRecordId: string },
+) {
+  return runService(layer, (_svc, projects) => projects.approveProject(round.projectRecordId));
+}
+
 const baseInput = {
   ownerAccountId: "owner.near",
+  ownerOrgId: "org-1",
   projectSlug: "my-project",
   title: "Try the new onboarding flow",
   description: "Walk through signup and tell us where you got stuck.",
@@ -93,6 +110,71 @@ describe("RoundsService", () => {
     await expect(runService(layer, (svc) => svc.rejectRound(created.id))).rejects.toThrow(
       "Only pending rounds can be rejected",
     );
+  });
+
+  it("creates the project pending, owned by the requesting org, and links the round to it", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, projectName: "My Project" }),
+    );
+
+    const project = await runService(layer, (_svc, projects) =>
+      projects.resolveProjectById(round.projectRecordId),
+    );
+    expect(project).toMatchObject({
+      slug: "my-project",
+      name: "My Project",
+      ownerOrgId: "org-1",
+      status: "pending",
+      approvedAt: null,
+      rejectedAt: null,
+      rejectionReason: null,
+    });
+    const bySlug = await runService(layer, (_svc, projects) =>
+      projects.resolveProjectBySlug("my-project"),
+    );
+    expect(bySlug?.id).toBe(project?.id);
+  });
+
+  it("approves a pending project, opening its pending round, and can't approve twice", async () => {
+    const layer = freshLayer();
+    const created = await runService(layer, (svc) => svc.createRound(baseInput));
+
+    const result = await approveProjectOf(layer, created);
+    expect(result.project.status).toBe("approved");
+    expect(result.project.approvedAt).toEqual(expect.any(String));
+    expect(result.decidedRoundIds).toEqual([created.id]);
+
+    const reloaded = await runService(layer, (svc) => svc.resolveRoundById(created.id));
+    expect(reloaded?.status).toBe("open");
+
+    await expect(approveProjectOf(layer, created)).rejects.toThrow(
+      "Only pending projects can be approved",
+    );
+  });
+
+  it("rejects a pending project with a reason, rejecting its pending round with it", async () => {
+    const layer = freshLayer();
+    const created = await runService(layer, (svc) => svc.createRound(baseInput));
+
+    const result = await runService(layer, (_svc, projects) =>
+      projects.rejectProject(created.projectRecordId, "Needs a clearer repo link"),
+    );
+    expect(result.project.status).toBe("rejected");
+    expect(result.project.rejectedAt).toEqual(expect.any(String));
+    expect(result.project.rejectionReason).toBe("Needs a clearer repo link");
+
+    const reloaded = await runService(layer, (svc) => svc.resolveRoundById(created.id));
+    expect(reloaded).toMatchObject({
+      status: "rejected",
+      rejectionReason: "Needs a clearer repo link",
+    });
+
+    await expect(
+      runService(layer, (_svc, projects) =>
+        projects.rejectProject(created.projectRecordId, "again"),
+      ),
+    ).rejects.toThrow("Only pending projects can be rejected");
   });
 
   it("stores multiple formats and an optional repo URL", async () => {

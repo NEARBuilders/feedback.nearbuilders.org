@@ -10,6 +10,7 @@ import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
+import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
 import { RoundsLive, RoundsTag } from "./services/rounds";
 import { TenantsLive, TenantsTag } from "./services/tenants";
@@ -92,9 +93,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const database = DatabaseLive(config.secrets.API_DATABASE_URL);
       const tenantsLayer = TenantsLive.pipe(Layer.provide(database));
       const roundsLayer = RoundsLive.pipe(Layer.provide(database));
+      const projectRecordsLayer = ProjectRecordsLive.pipe(Layer.provide(database));
 
       const tenantsService = yield* tools.buildService(TenantsTag, tenantsLayer);
       const roundsService = yield* tools.buildService(RoundsTag, roundsLayer);
+      const projectRecordsService = yield* tools.buildService(
+        ProjectRecordsTag,
+        projectRecordsLayer,
+      );
 
       const activityEvents = createActivityEmitter({
         baseUrl: config.secrets.ACTIVITY_API_BASE_URL,
@@ -122,6 +128,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       return {
         tenants: tenantsService,
         rounds: roundsService,
+        projectRecords: projectRecordsService,
         activityEvents,
         feedbackNostr,
         projectsLookup,
@@ -304,6 +311,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const round = await services.rounds.createRound({
           ownerAccountId,
           projectSlug: input.projectSlug,
+          ownerOrgId: context.organization?.activeOrganizationId ?? null,
+          projectName: input.projectName,
           projectId: input.projectId ?? null,
           title: input.title,
           description: input.description,
@@ -332,6 +341,60 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listPendingRounds: builder.listPendingRounds
         .use(requireAdmin)
         .handler(async () => services.rounds.listRounds("pending")),
+
+      listProjects: builder.listProjects
+        .use(requireAdmin)
+        .handler(async ({ input }) => services.projectRecords.listProjects(input.status)),
+
+      listMyProjects: builder.listMyProjects
+        .use(requireAuth)
+        .use(requireOrganization)
+        .handler(async ({ context }) =>
+          services.projectRecords.listProjectsByOrg(context.organization.activeOrganizationId),
+        ),
+
+      approveProject: builder.approveProject
+        .use(requireAdmin)
+        .handler(async ({ input, errors }) => {
+          const existing = await services.projectRecords.resolveProjectById(input.id);
+          if (!existing) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.id },
+            });
+          }
+          const { decidedRoundIds } = await services.projectRecords.approveProject(existing.id);
+          for (const roundId of decidedRoundIds) {
+            const round = await services.rounds.resolveRoundById(roundId);
+            if (!round) continue;
+            const eventId = await services.activityEvents.emitRoundOpened(round);
+            if (eventId) await services.rounds.setRoundActivityEventId(round.id, eventId);
+          }
+          const project = await services.projectRecords.getProjectWithRounds(existing.id);
+          if (!project) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resourceId: input.id },
+            });
+          }
+          return project;
+        }),
+
+      rejectProject: builder.rejectProject.use(requireAdmin).handler(async ({ input, errors }) => {
+        const existing = await services.projectRecords.resolveProjectById(input.id);
+        if (!existing) {
+          throw errors.NOT_FOUND({
+            message: "Project not found",
+            data: { resource: "project", resourceId: input.id },
+          });
+        }
+        await services.projectRecords.rejectProject(existing.id, input.reason);
+        const project = await services.projectRecords.getProjectWithRounds(existing.id);
+        if (!project) {
+          throw errors.NOT_FOUND({ message: "Project not found", data: { resourceId: input.id } });
+        }
+        return project;
+      }),
 
       approveRound: builder.approveRound.use(requireAdmin).handler(async ({ input, errors }) => {
         const round = await services.rounds.resolveRoundById(input.id);

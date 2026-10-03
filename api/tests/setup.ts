@@ -132,12 +132,18 @@ export function adminContext(userId = "admin-1"): Record<string, unknown> {
   };
 }
 
+/**
+ * A signed-in user with a linked NEAR account, acting in an active organization.
+ * Each account gets its own org by default (`org-of-<accountId>`), so two
+ * different accounts are never members of the same org unless a test says so.
+ */
 export function nearAuthedContext(
   accountId = "builder.near",
   userId = "user-1",
+  activeOrganizationId = `org-of-${accountId}`,
 ): Record<string, unknown> {
   return {
-    ...authedContext(userId),
+    ...orgContext(userId, activeOrganizationId),
     near: {
       primaryAccountId: accountId,
       hasNearAccount: true,

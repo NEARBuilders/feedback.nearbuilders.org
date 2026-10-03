@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient, useAuthClient } from "@/app";
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -12,6 +13,7 @@ import {
   Field,
   FieldLabel,
   Input,
+  SectionHeader,
   Textarea,
 } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
@@ -86,6 +88,7 @@ function RequestRoundPage() {
       apiClient.createRound({
         projectSlug: selectedProject?.slug ?? projectQuery.trim(),
         projectId: selectedProject?.id,
+        projectName: selectedProject?.title,
         title: title.trim(),
         description: description.trim(),
         formats,
@@ -260,7 +263,69 @@ function RequestRoundPage() {
             {createMutation.isPending ? "Requesting..." : "Request round"}
           </Button>
         </form>
+
+        <MyProjects />
       </div>
     </PageContainer>
+  );
+}
+
+const PROJECT_STATUS_LABEL = {
+  pending: "Awaiting approval",
+  approved: "Approved",
+  rejected: "Rejected",
+} as const;
+
+/** The active org's projects with their approval status and any rejection reason. */
+function MyProjects() {
+  const apiClient = useApiClient();
+  const projectsQuery = useQuery({
+    queryKey: ["projects", "mine"],
+    queryFn: () => apiClient.listMyProjects(),
+    retry: false,
+  });
+  const projects = projectsQuery.data ?? [];
+  if (projects.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <SectionHeader title="Your projects" />
+      <ul className="space-y-2">
+        {projects.map((project) => (
+          <li key={project.id}>
+            <Card className="p-4 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{project.name}</p>
+                  <p className="text-xs font-mono text-muted-foreground">{project.slug}</p>
+                </div>
+                <Badge variant={project.status === "rejected" ? "destructive" : "outline"}>
+                  {PROJECT_STATUS_LABEL[project.status]}
+                </Badge>
+              </div>
+              {project.status === "rejected" && project.rejectionReason && (
+                <p className="text-sm text-foreground">{project.rejectionReason}</p>
+              )}
+              {project.rounds.length > 0 && (
+                <ul className="space-y-1">
+                  {project.rounds.map((round) => (
+                    <li key={round.id} className="text-sm">
+                      <Link
+                        to="/feed/$roundId"
+                        params={{ roundId: round.id }}
+                        className="text-foreground underline"
+                      >
+                        #{round.projectRoundNumber} {round.title}
+                      </Link>{" "}
+                      <span className="text-xs text-muted-foreground">({round.status})</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
