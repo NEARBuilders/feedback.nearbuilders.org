@@ -10,6 +10,7 @@ import {
   useAuthClient,
 } from "@/app";
 import { Button, Card, Chip, InfoRow, PageHeader } from "@/components";
+import { pageHead } from "@/lib/page-title";
 import { useNearAccount } from "@/lib/use-near-account";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard/")({
@@ -24,9 +25,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/dashboard/")({
     }
     return { tenant };
   },
-  head: () => ({
-    meta: [{ title: "Workspace | app" }, { name: "description", content: "Your workspace." }],
-  }),
+  head: () => pageHead("Dashboard", "Your workspace."),
   component: Home,
 });
 

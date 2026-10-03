@@ -2,12 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ClipboardCheck, Settings, Users } from "lucide-react";
 import { getAccount } from "@/app";
 import { Button, Card, SectionHeader } from "@/components";
+import { pageHead } from "@/lib/page-title";
 import { useNearAccount } from "@/lib/use-near-account";
 
 export const Route = createFileRoute("/_admin/_dashboard/admin/")({
-  head: () => ({
-    meta: [{ title: "Admin Dashboard" }],
-  }),
+  head: () => pageHead("Admin dashboard"),
   component: AdminDashboard,
 });
 

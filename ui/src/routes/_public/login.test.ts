@@ -7,8 +7,9 @@ vi.mock("@/app", () => ({
   useAuthClient: () => ({}),
 }));
 
-vi.mock("@/components", () => ({ Button: () => null }));
+vi.mock("@/components", () => ({ Button: () => null, PageContainer: () => null }));
 vi.mock("@/components/under-construction", () => ({ UnderConstruction: () => null }));
+vi.mock("@/lib/page-title", () => ({ pageHead: () => ({ meta: [] }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const { Route } = await import("./login");

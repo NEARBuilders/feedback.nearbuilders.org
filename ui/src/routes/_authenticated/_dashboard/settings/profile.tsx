@@ -4,8 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, Card, InfoRow, Input } from "@/components";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings/profile")({
+  head: () => pageHead("Profile settings", "Manage your profile."),
   component: ProfileSettings,
 });
 

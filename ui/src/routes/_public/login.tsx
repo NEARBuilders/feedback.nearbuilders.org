@@ -3,8 +3,9 @@ import { createFileRoute, Navigate, redirect, useNavigate } from "@tanstack/reac
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useAuthClient } from "@/app";
-import { Button } from "@/components";
+import { Button, PageContainer } from "@/components";
 import { UnderConstruction } from "@/components/under-construction";
+import { pageHead } from "@/lib/page-title";
 
 type SearchParams = {
   redirect?: string;
@@ -12,6 +13,7 @@ type SearchParams = {
 
 export const Route = createFileRoute("/_public/login")({
   ssr: false,
+  head: () => pageHead("Sign in"),
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     redirect: typeof search.redirect === "string" ? search.redirect : undefined,
   }),
@@ -95,7 +97,7 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center px-6 py-12">
+    <PageContainer variant="narrow" className="flex-1 flex items-center justify-center">
       <div className="w-full max-w-sm flex flex-col items-center gap-5">
         <div className="w-full rounded-[12px] border border-border bg-card p-6 sm:p-8 space-y-5">
           <div className="space-y-1 text-center">
@@ -164,6 +166,6 @@ function LoginPage() {
           runtimeConfig={runtimeConfig}
         />
       </div>
-    </div>
+    </PageContainer>
   );
 }

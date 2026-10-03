@@ -1,17 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
+import { PageHeader } from "@/components/layout/page-header";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_public/how-to-integrate")({
-  head: () => ({
-    meta: [
-      { title: "How it works | Feedback Rounds" },
-      {
-        name: "description",
-        content: "How to request and run a feedback round for your project.",
-      },
-    ],
-  }),
+  head: () => pageHead("How it works", "How to request and run a feedback round for your project."),
   component: HowToIntegratePage,
 });
 
@@ -55,16 +49,10 @@ function HowToIntegratePage() {
   return (
     <PageContainer variant="default">
       <div className="space-y-10">
-        <header className="space-y-3">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            How it works
-          </h1>
-          <p className="max-w-2xl text-base text-muted-foreground leading-relaxed">
-            Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs tested,
-            builders join and try it, testers report back, and the round produces a durable record
-            of who contributed.
-          </p>
-        </header>
+        <PageHeader
+          title="How it works"
+          description="Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs tested, builders join and try it, testers report back, and the round produces a durable record of who contributed."
+        />
 
         <ol className="space-y-6">
           {STEPS.map(({ n, title, body }) => (

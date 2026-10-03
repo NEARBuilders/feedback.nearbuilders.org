@@ -2,11 +2,10 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Shield } from "lucide-react";
 import { getAccount } from "@/app";
 import { PageContainer, PageHeader } from "@/components";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_admin/_dashboard/admin")({
-  head: () => ({
-    meta: [{ title: "Admin" }],
-  }),
+  head: () => pageHead("Admin"),
   beforeLoad: async ({ context }) => {
     const { apiClient, runtimeConfig } = context;
     const accountId = getAccount(runtimeConfig);

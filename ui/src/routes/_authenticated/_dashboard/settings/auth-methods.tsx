@@ -5,9 +5,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, Card, Chip, ConfirmDialog, Input } from "@/components";
+import { pageHead } from "@/lib/page-title";
 import { useNearAccount } from "@/lib/use-near-account";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings/auth-methods")({
+  head: () => pageHead("Sign-in methods", "Manage how you sign in."),
   component: AuthMethodsSettings,
 });
 

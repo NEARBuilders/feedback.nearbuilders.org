@@ -3,20 +3,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApiClient } from "@/app";
-import { Badge, Card, Input } from "@/components";
+import { Badge, Card, EmptyState, Input } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
+import { PageHeader } from "@/components/layout/page-header";
 import { TopTesters } from "@/components/top-testers";
+import { pageHead } from "@/lib/page-title";
 
 type RoundStatusFilter = "open" | "closed";
 
 export const Route = createFileRoute("/_public/feed/")({
-  head: () => ({
-    meta: [
-      { title: "Feed | Feedback Rounds" },
-      { name: "description", content: "Browse feedback rounds and join one." },
-    ],
-  }),
+  head: () => pageHead("Feed", "Browse feedback rounds and join one."),
   component: FeedPage,
 });
 
@@ -58,12 +55,8 @@ function FeedPage() {
   return (
     <PageContainer variant="wide">
       <div className="space-y-8">
-        <header className="space-y-3">
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            <MessageSquare className="h-3 w-3" />
-            Feedback Rounds
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Feed</h1>
+        <div className="space-y-4">
+          <PageHeader icon={MessageSquare} label="Feedback Rounds" title="Feed" />
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="inline-flex rounded-md border border-border bg-card p-0.5">
@@ -92,7 +85,7 @@ function FeedPage() {
               />
             </div>
           </div>
-        </header>
+        </div>
 
         <TopTesters />
 
@@ -107,12 +100,13 @@ function FeedPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <Card className="p-10 text-center space-y-4 items-center">
-            <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground" />
-            <p className="text-base font-semibold text-foreground">
-              {rounds.length === 0 ? `No ${status} rounds yet.` : "No rounds match your search."}
-            </p>
-          </Card>
+          <EmptyState
+            icon={MessageSquare}
+            title={
+              rounds.length === 0 ? `No ${status} rounds yet.` : "No rounds match your search."
+            }
+            className="min-h-[30vh]"
+          />
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((round) => (

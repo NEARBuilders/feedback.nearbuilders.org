@@ -3,8 +3,9 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { Globe, User } from "lucide-react";
 import { useAuthClient } from "@/app";
-import { Avatar, AvatarFallback, AvatarImage, PageContainer } from "@/components";
+import { Avatar, AvatarFallback, AvatarImage, PageContainer, PageHeader } from "@/components";
 import { getNearInitials, resolveNearImageUrl } from "@/lib/near-profile";
+import { pageTitle } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_public/$accountId")({
   loader: async ({ params, context }) => {
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/_public/$accountId")({
     const accountId = params.accountId;
     const hostUrl = (loaderData?.hostUrl ?? "").replace(/\/$/, "");
     const siteUrl = hostUrl ? `${hostUrl}/${accountId}` : "";
-    const title = `${accountId} | Feedback Rounds`;
+    const title = pageTitle(accountId);
     const description = `${accountId}'s public profile on Feedback Rounds.`;
 
     return {
@@ -90,9 +91,8 @@ function AccountProfileLayout() {
               </AvatarFallback>
             </Avatar>
 
-            <div className="mt-3 space-y-1">
-              <h1 className="text-xl font-bold text-foreground">{displayName}</h1>
-              <p className="font-mono text-sm text-muted-foreground">{accountId}</p>
+            <div className="mt-3">
+              <PageHeader title={displayName} subtitle={accountId} />
             </div>
 
             {profile?.description && (

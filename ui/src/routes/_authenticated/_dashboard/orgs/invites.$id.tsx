@@ -2,13 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { getAppName, useAuthClient } from "@/app";
+import { useAuthClient } from "@/app";
 import { Badge, Button, Card, CardContent, PageContainer, PageHeader } from "@/components";
+import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/orgs/invites/$id")({
-  head: () => ({
-    meta: [{ title: `Accept Invitation | ${getAppName()}` }],
-  }),
+  head: () => pageHead("Accept invitation"),
   loader: async ({ context, params }) => {
     await context.queryClient.ensureQueryData({
       queryKey: ["invitation", params.id],
