@@ -26,6 +26,8 @@ export interface RoundRecord {
   projectRoundNumber: number;
   title: string;
   description: string;
+  /** Markdown for testers: what to test and how (#71). Empty when the owner hasn't written one. */
+  readme: string;
   formats: RoundFormat[];
   repoUrl: string | null;
   status: RoundStatus;
@@ -47,6 +49,7 @@ export interface CreateRoundInput {
   projectId?: string | null;
   title: string;
   description: string;
+  readme?: string;
   formats: RoundFormat[];
   repoUrl?: string | null;
 }
@@ -132,6 +135,7 @@ export interface RoundsService {
    * already approved, and otherwise waits as `pending` for the project decision.
    */
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
+  updateRoundReadme(roundId: string, readme: string): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
   listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
@@ -170,6 +174,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     projectRoundNumber: row.projectRoundNumber,
     title: row.title,
     description: row.description,
+    readme: row.readme,
     formats: row.formats as RoundFormat[],
     repoUrl: row.repoUrl,
     status: row.status,
@@ -274,6 +279,7 @@ export const RoundsLive = Layer.effect(
                 projectRoundNumber: counter!.lastNumber,
                 title: input.title,
                 description: input.description,
+                readme: input.readme ?? "",
                 formats: input.formats,
                 repoUrl: input.repoUrl ?? null,
                 status: project.status === "approved" ? "open" : "pending",
@@ -288,6 +294,22 @@ export const RoundsLive = Layer.effect(
           }
 
           return toRoundRecord(row);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      updateRoundReadme: async (roundId, readme) => {
+        try {
+          const [updated] = await db
+            .update(roundsTable)
+            .set({ readme, updatedAt: new Date() })
+            .where(eq(roundsTable.id, roundId))
+            .returning();
+          if (!updated) {
+            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+          }
+          return toRoundRecord(updated);
         } catch (error) {
           throw toOrpcError(error);
         }

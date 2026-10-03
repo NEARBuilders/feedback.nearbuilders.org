@@ -65,6 +65,7 @@ function RequestRoundPage() {
   const [showProjectResults, setShowProjectResults] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [readme, setReadme] = useState("");
   const [formats, setFormats] = useState<Array<"issues" | "written" | "recorded">>([]);
   const [repoUrl, setRepoUrl] = useState("");
 
@@ -93,6 +94,7 @@ function RequestRoundPage() {
         projectName: selectedProject?.title,
         title: title.trim(),
         description: description.trim(),
+        readme: readme.trim() || undefined,
         formats,
         repoUrl: repoUrl.trim() || undefined,
       }),
@@ -234,6 +236,21 @@ function RequestRoundPage() {
                   rows={5}
                   placeholder="What should testers focus on?"
                   required
+                  disabled={createMutation.isPending}
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="round-readme">
+                  readme for testers (optional, markdown)
+                </FieldLabel>
+                <Textarea
+                  id="round-readme"
+                  value={readme}
+                  onChange={(e) => setReadme(e.target.value)}
+                  rows={8}
+                  maxLength={20000}
+                  placeholder={"## What to test\n\n1. Sign up...\n\n## Focus on\n\n- ..."}
                   disabled={createMutation.isPending}
                 />
               </Field>

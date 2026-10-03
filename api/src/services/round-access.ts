@@ -14,7 +14,7 @@ export interface RoundActor {
 }
 
 /**
- * Who may manage a round (close it, remove feedback, delete it):
+ * Who may manage a round (close it, edit its readme, remove feedback, delete it):
  * the project's owning organization (#70). Rounds on a project backfilled before
  * org ownership existed have no owning org yet, so they fall back to the
  * round's creator.

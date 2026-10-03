@@ -194,6 +194,21 @@ describe("RoundsService", () => {
     expect(project).toBeNull();
   });
 
+  it("stores a readme at creation and lets it be replaced", async () => {
+    const layer = freshLayer();
+    const created = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, readme: "# Steps" }),
+    );
+    expect(created.readme).toBe("# Steps");
+
+    const updated = await runService(layer, (svc) => svc.updateRoundReadme(created.id, "# New"));
+    expect(updated.readme).toBe("# New");
+
+    await expect(
+      runService(layer, (svc) => svc.updateRoundReadme(MISSING_ID, "x")),
+    ).rejects.toThrow("Round not found");
+  });
+
   it("stores multiple formats and an optional repo URL", async () => {
     const layer = freshLayer();
     const created = await runService(layer, (svc) =>
