@@ -22,6 +22,9 @@ import { ThemeProvider } from "next-themes";
 import type { RouterContext } from "@/app";
 import { getBaseStyles } from "@/app";
 import { Toaster } from "@/components";
+import { AppFrame } from "@/components/layout/app-frame";
+import { AppShell } from "@/components/layout/app-shell";
+import { useAppShellState } from "@/components/layout/use-app-shell";
 import { useMediaQuery } from "@/hooks";
 import { sessionQueryKey } from "@/lib/auth";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
@@ -158,7 +161,7 @@ function RootComponent() {
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem nonce={cspNonce}>
           <div id="root">
-            <Outlet />
+            <SessionShell />
           </div>
           <Toaster position={isDesktop ? "bottom-right" : "top-center"} closeButton />
         </ThemeProvider>
@@ -179,6 +182,26 @@ function RootComponent() {
         )}
       </body>
     </html>
+  );
+}
+
+// One shell instance for every signed-in page, so navigating (e.g. to /admin) never remounts it.
+function SessionShell() {
+  const { runtimeConfig } = Route.useRouteContext();
+  const { session, useAppShell } = useAppShellState();
+
+  return (
+    <AppFrame>
+      {useAppShell ? (
+        <AppShell
+          runtimeConfig={runtimeConfig}
+          session={session}
+          isAdmin={session?.user?.role === "admin"}
+        />
+      ) : (
+        <Outlet />
+      )}
+    </AppFrame>
   );
 }
 

@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import type { SessionData } from "@/app";
 import { sessionQueryOptions } from "@/app";
-import { AppFrame } from "@/components/layout/app-frame";
 
 interface AuthContext {
   isAuthenticated: boolean;
@@ -53,9 +52,5 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  return (
-    <AppFrame>
-      <Outlet />
-    </AppFrame>
-  );
+  return <Outlet />;
 }

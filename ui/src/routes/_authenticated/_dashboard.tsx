@@ -1,12 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AppShell } from "@/components/layout/app-shell";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/_dashboard")({
   component: DashboardLayout,
 });
 
+// The shell is rendered once by the root route.
 function DashboardLayout() {
-  const { runtimeConfig, session } = Route.useRouteContext();
-  const isAdmin = session?.user?.role === "admin";
-  return <AppShell runtimeConfig={runtimeConfig} session={session} isAdmin={isAdmin} />;
+  return <Outlet />;
 }
