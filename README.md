@@ -32,6 +32,10 @@ Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs
 | `GET` | `/api/v1/rounds/pending` | Admin: list rounds awaiting review. |
 | `POST` | `/api/v1/rounds/{id}/approve` | Admin: approve a round so it goes live for signups. |
 | `POST` | `/api/v1/rounds/{id}/reject` | Admin: reject a round, with an optional reason. |
+| `GET` | `/api/v1/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
+| `GET` | `/api/v1/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
+| `POST` | `/api/v1/projects/{id}/approve` | Admin: approve a project; its pending rounds go live for signups. |
+| `POST` | `/api/v1/projects/{id}/reject` | Admin: reject a project with a required reason; its pending rounds are rejected with it. |
 | `POST` | `/api/v1/rounds/{id}/signups` | Apply to test a round, with a short note. Once per builder per round. |
 | `DELETE` | `/api/v1/rounds/{id}/signups/me` | Withdraw your own application. |
 | `GET` | `/api/v1/rounds/{id}/signups` | Owner: list applicants for a round. |
@@ -50,6 +54,7 @@ pending ──approve──▶ open ──slots fill──▶ in_progress ──
    └──reject──▶ rejected
 ```
 
+- Rounds hang off a project (a thin anchor with a unique slug). Requesting a round for a new slug creates the project as `pending`, owned by the requester's active organization.
 - A request starts as `pending` and is only visible to its owner and admins.
 - On approval it becomes `open` and is listed publicly for signups.
 - When the last tester slot is filled the round auto-locks: no more applications are accepted, and any still-pending applications are politely closed out.

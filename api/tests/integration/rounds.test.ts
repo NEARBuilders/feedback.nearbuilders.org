@@ -8,6 +8,10 @@ const baseInput = {
   formats: ["written" as const],
 };
 
+let slugCounter = 0;
+/** Round input on a project slug no other test has used (slugs are unique across the project table). */
+const fresh = () => ({ ...baseInput, projectSlug: `anchor-project-${++slugCounter}` });
+
 interface RoundOverrides {
   title: string;
   projectSlug?: string;
@@ -167,6 +171,138 @@ describe("approveRound / rejectRound / listPendingRounds", () => {
     const admin = await getPluginClient(adminContext());
     const pending = await admin.listPendingRounds();
     expect(pending.some((r) => r.id === round.id)).toBe(true);
+  });
+});
+
+describe("project anchor (#69)", () => {
+  it("creates a pending project, owned by the requesting org, when a round is requested", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner1.near"));
+    const input = { ...fresh(), projectName: "Onboarding Flow" };
+    const round = await owner.createRound(input);
+
+    expect(round.status).toBe("pending");
+    const mine = await owner.listMyProjects();
+    const project = mine.find((p) => p.id === round.projectRecordId);
+    expect(project).toMatchObject({
+      slug: input.projectSlug,
+      name: "Onboarding Flow",
+      ownerOrgId: "org-of-proj-owner1.near",
+      status: "pending",
+      rejectionReason: null,
+    });
+    expect(project?.rounds.map((r) => r.id)).toEqual([round.id]);
+  });
+
+  it("defaults the project name to the slug", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner2.near"));
+    const input = fresh();
+    const round = await owner.createRound(input);
+    const project = (await owner.listMyProjects()).find((p) => p.id === round.projectRecordId);
+    expect(project?.name).toBe(input.projectSlug);
+  });
+
+  it("rejects a non-admin approving or rejecting a project", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner3.near"));
+    const round = await owner.createRound(fresh());
+
+    await expect(owner.approveProject({ id: round.projectRecordId })).rejects.toThrow();
+    await expect(
+      owner.rejectProject({ id: round.projectRecordId, reason: "nope" }),
+    ).rejects.toThrow();
+
+    const anon = await getPluginClient();
+    await expect(anon.approveProject({ id: round.projectRecordId })).rejects.toThrow(
+      "Authentication required",
+    );
+  });
+
+  it("approves a project in one action, opening its pending round and listing it publicly", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner4.near"));
+    const round = await owner.createRound(fresh());
+
+    const admin = await getPluginClient(adminContext());
+    const approved = await admin.approveProject({ id: round.projectRecordId });
+    expect(approved.status).toBe("approved");
+    expect(approved.approvedAt).toEqual(expect.any(String));
+    expect(approved.rounds).toEqual([expect.objectContaining({ id: round.id, status: "open" })]);
+
+    const anon = await getPluginClient();
+    const openRounds = await anon.listRounds({ status: "open" });
+    expect(openRounds.some((r) => r.id === round.id)).toBe(true);
+  });
+
+  it("rejects approving a project that isn't pending", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner5.near"));
+    const round = await owner.createRound(fresh());
+    const admin = await getPluginClient(adminContext());
+    await admin.approveProject({ id: round.projectRecordId });
+    await expect(admin.approveProject({ id: round.projectRecordId })).rejects.toThrow(
+      "Only pending projects can be approved",
+    );
+  });
+
+  it("rejects a project with a required reason, rejecting its pending round and hiding it", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner6.near"));
+    const round = await owner.createRound(fresh());
+    const admin = await getPluginClient(adminContext());
+
+    await expect(
+      admin.rejectProject({ id: round.projectRecordId, reason: "  " }),
+    ).rejects.toThrow();
+
+    const rejected = await admin.rejectProject({
+      id: round.projectRecordId,
+      reason: "Repo is private",
+    });
+    expect(rejected.status).toBe("rejected");
+    expect(rejected.rejectionReason).toBe("Repo is private");
+    expect(rejected.rounds).toEqual([
+      expect.objectContaining({ id: round.id, status: "rejected" }),
+    ]);
+
+    const ownerView = await owner.getRound({ id: round.id });
+    expect(ownerView.status).toBe("rejected");
+    expect(ownerView.rejectionReason).toBe("Repo is private");
+
+    const anon = await getPluginClient();
+    const listed = await anon.listRounds({});
+    expect(listed.some((r) => r.id === round.id)).toBe(false);
+    await expect(anon.getRound({ id: round.id })).rejects.toThrow();
+  });
+
+  it("lets the requesting org see rejection status and reason on its projects", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner7.near"));
+    const round = await owner.createRound(fresh());
+    const admin = await getPluginClient(adminContext());
+    await admin.rejectProject({ id: round.projectRecordId, reason: "Out of scope" });
+
+    const project = (await owner.listMyProjects()).find((p) => p.id === round.projectRecordId);
+    expect(project).toMatchObject({ status: "rejected", rejectionReason: "Out of scope" });
+
+    const otherOrg = await getPluginClient(nearAuthedContext("proj-someone-else.near"));
+    expect((await otherOrg.listMyProjects()).some((p) => p.id === round.projectRecordId)).toBe(
+      false,
+    );
+  });
+
+  it("lists projects for admins only, filterable by status", async () => {
+    const owner = await getPluginClient(nearAuthedContext("proj-owner8.near"));
+    const round = await owner.createRound(fresh());
+
+    await expect(owner.listProjects({})).rejects.toThrow();
+
+    const admin = await getPluginClient(adminContext());
+    const pending = await admin.listProjects({ status: "pending" });
+    expect(pending.some((p) => p.id === round.projectRecordId)).toBe(true);
+    const approved = await admin.listProjects({ status: "approved" });
+    expect(approved.some((p) => p.id === round.projectRecordId)).toBe(false);
+  });
+
+  it("fails with NOT_FOUND deciding an unknown project", async () => {
+    const admin = await getPluginClient(adminContext());
+    const missing = "00000000-0000-0000-0000-000000000000";
+    await expect(admin.approveProject({ id: missing })).rejects.toThrow();
+    await expect(admin.rejectProject({ id: missing, reason: "x" })).rejects.toThrow();
   });
 });
 

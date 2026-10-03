@@ -41,6 +41,37 @@ export const projectRoundCounters = pgTable("project_round_counters", {
   lastNumber: integer("last_number").default(0).notNull(),
 });
 
+export const projectStatus = pgEnum("project_status", ["pending", "approved", "rejected"]);
+
+/**
+ * Thin project anchor (#69): approvals and rounds hang off it. Created
+ * implicitly when an org requests a round for a slug nobody has used yet.
+ * `ownerOrgId` is null only for projects backfilled from pre-existing rounds,
+ * which predate org ownership; the first round-owner to create a round claims it.
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    ownerOrgId: text("owner_org_id"),
+    // nearbuilders.org project id, when the slug resolved to a real project (#23).
+    nearbuildersProjectId: text("nearbuilders_project_id"),
+    status: projectStatus("status").default("pending").notNull(),
+    approvedAt: timestamp("approved_at", { mode: "date", withTimezone: true }),
+    rejectedAt: timestamp("rejected_at", { mode: "date", withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex("projects_slug_idx").on(table.slug),
+    ownerOrgIdIdx: index("projects_owner_org_id_idx").on(table.ownerOrgId),
+    statusIdx: index("projects_status_idx").on(table.status),
+  }),
+);
+
 export const roundStatus = pgEnum("round_status", ["pending", "open", "closed", "rejected"]);
 
 export const rounds = pgTable(
@@ -52,6 +83,9 @@ export const rounds = pgTable(
     // nearbuilders.org project id this round resolved against, if the owner
     // picked a real project rather than typing a free-text slug (#23).
     projectId: text("project_id"),
+    projectRecordId: uuid("project_record_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "restrict" }),
     projectRoundNumber: integer("project_round_number").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull(),
@@ -69,6 +103,7 @@ export const rounds = pgTable(
   },
   (table) => ({
     ownerAccountIdIdx: index("rounds_owner_account_id_idx").on(table.ownerAccountId),
+    projectRecordIdIdx: index("rounds_project_record_id_idx").on(table.projectRecordId),
     statusIdx: index("rounds_status_idx").on(table.status),
     projectRoundNumberIdx: uniqueIndex("rounds_project_round_number_idx").on(
       table.projectSlug,

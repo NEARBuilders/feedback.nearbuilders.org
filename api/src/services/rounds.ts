@@ -10,6 +10,7 @@ import {
   type roundStatus,
   rounds as roundsTable,
 } from "../db/schema";
+import { ensureProject } from "./project-records";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
 export type RoundFormat = "issues" | "written" | "recorded";
@@ -20,6 +21,8 @@ export interface RoundRecord {
   ownerAccountId: string;
   projectSlug: string;
   projectId: string | null;
+  /** The projects-table row this round belongs to (#69). */
+  projectRecordId: string;
   projectRoundNumber: number;
   title: string;
   description: string;
@@ -36,7 +39,11 @@ export interface RoundRecord {
 
 export interface CreateRoundInput {
   ownerAccountId: string;
+  /** The requester's active organization, if any; owns the project if this request creates it. */
+  ownerOrgId?: string | null;
   projectSlug: string;
+  /** Display name for a newly created project; defaults to the slug. */
+  projectName?: string;
   projectId?: string | null;
   title: string;
   description: string;
@@ -119,6 +126,7 @@ export interface DeletedFeedbackResult {
 export interface RoundsService {
   /** Maps round id -> emitted activity event id, for rounds that have one. */
   listRoundActivityEventIds(roundIds: string[]): Promise<Record<string, string>>;
+  /** Creates a `pending` round under the project for `projectSlug`, creating that project as `pending` if it's new. */
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
@@ -158,6 +166,7 @@ function toRoundRecord(row: RoundRow): RoundRecord {
     ownerAccountId: row.ownerAccountId,
     projectSlug: row.projectSlug,
     projectId: row.projectId,
+    projectRecordId: row.projectRecordId,
     projectRoundNumber: row.projectRoundNumber,
     title: row.title,
     description: row.description,
@@ -223,9 +232,17 @@ export const RoundsLive = Layer.effect(
       createRound: async (input) => {
         try {
           const row = await db.transaction(async (tx) => {
+            const slug = input.projectSlug.trim();
+            const { project } = await ensureProject(tx, {
+              slug,
+              name: input.projectName?.trim() || slug,
+              ownerOrgId: input.ownerOrgId ?? null,
+              nearbuildersProjectId: input.projectId ?? null,
+            });
+
             const [counter] = await tx
               .insert(projectRoundCountersTable)
-              .values({ projectSlug: input.projectSlug, lastNumber: 1 })
+              .values({ projectSlug: project.slug, lastNumber: 1 })
               .onConflictDoUpdate({
                 target: projectRoundCountersTable.projectSlug,
                 set: { lastNumber: sql`${projectRoundCountersTable.lastNumber} + 1` },
@@ -236,8 +253,9 @@ export const RoundsLive = Layer.effect(
               .insert(roundsTable)
               .values({
                 ownerAccountId: input.ownerAccountId,
-                projectSlug: input.projectSlug,
-                projectId: input.projectId ?? null,
+                projectSlug: project.slug,
+                projectId: input.projectId ?? project.nearbuildersProjectId,
+                projectRecordId: project.id,
                 projectRoundNumber: counter!.lastNumber,
                 title: input.title,
                 description: input.description,
