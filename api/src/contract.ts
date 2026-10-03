@@ -325,7 +325,7 @@ export const contract = oc.router({
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })
     .input(z.object({ status: RoundStatusSchema.optional() }))
-    .output(z.array(RoundSchema))
+    .output(z.array(RoundDetailSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   listPendingRounds: oc

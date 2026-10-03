@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApiClient } from "@/app";
-import { Badge, Card, EmptyState, Input } from "@/components";
-import { EndorsementCount } from "@/components/endorsement-count";
+import { EmptyState, Input, Skeleton } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { RoundsTable } from "@/components/rounds-table";
 import { TopTesters } from "@/components/top-testers";
 import { pageHead } from "@/lib/page-title";
 
@@ -16,12 +16,6 @@ export const Route = createFileRoute("/_public/feed/")({
   head: () => pageHead("Feed", "Browse feedback rounds and join one."),
   component: FeedPage,
 });
-
-const FORMAT_LABELS: Record<string, string> = {
-  issues: "GitHub issues",
-  written: "Written feedback",
-  recorded: "Recorded session",
-};
 
 function FeedPage() {
   const apiClient = useApiClient();
@@ -90,13 +84,9 @@ function FeedPage() {
         <TopTesters />
 
         {isLoading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((n) => (
-              <Card key={n} className="p-6 space-y-4">
-                <div className="h-5 w-3/4 rounded-[4px] animate-pulse bg-muted" />
-                <div className="h-4 w-1/2 rounded-[4px] animate-pulse bg-muted" />
-                <div className="h-10 w-full rounded-[12px] animate-pulse bg-muted" />
-              </Card>
+          <div className="space-y-2" data-testid="rounds-loading">
+            {[1, 2, 3, 4].map((n) => (
+              <Skeleton key={n} className="h-12 w-full" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -108,34 +98,7 @@ function FeedPage() {
             className="min-h-[30vh]"
           />
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((round) => (
-              <Link
-                key={round.id}
-                to="/feed/$roundId"
-                params={{ roundId: round.id }}
-                className="no-underline"
-              >
-                <Card className="p-6 space-y-4 hover:shadow-md h-full">
-                  <div className="space-y-1">
-                    <div className="text-lg font-semibold text-foreground">{round.title}</div>
-                    <div className="text-[11px] font-mono text-muted-foreground">
-                      {round.projectSlug}
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-3">{round.description}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {round.formats.map((format) => (
-                      <Badge key={format} variant="outline" className="text-xs">
-                        {FORMAT_LABELS[format] ?? format}
-                      </Badge>
-                    ))}
-                  </div>
-                  <EndorsementCount count={endorsements?.[round.id]?.totalCount} />
-                </Card>
-              </Link>
-            ))}
-          </div>
+          <RoundsTable rounds={filtered} endorsements={endorsements} />
         )}
       </div>
     </PageContainer>

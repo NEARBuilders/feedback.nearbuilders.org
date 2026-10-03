@@ -4,6 +4,7 @@ import { Activity, ExternalLink, MessageSquare } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Badge, Card, EmptyState, Skeleton } from "@/components";
 import { SectionHeader } from "@/components/layout/section-header";
+import { ListRow } from "@/components/list-row";
 import { toActivityEventViews } from "@/lib/activity-events";
 import { toBuilderRoundViews } from "@/lib/builder-rounds";
 
@@ -61,15 +62,13 @@ export function BuilderActivityFeed({ accountId }: { accountId: string }) {
         <ul className="space-y-2">
           {events.map((event) => (
             <li key={event.id}>
-              <Card className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-                <div className="min-w-0 space-y-0.5">
-                  <div className="truncate text-sm font-medium text-foreground">
-                    {event.summary}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">{event.sourceLabel}</div>
-                </div>
-                {event.on && <span className="text-xs text-muted-foreground">{event.on}</span>}
-              </Card>
+              <ListRow
+                title={event.summary}
+                subtitle={event.sourceLabel}
+                trailing={
+                  event.on && <span className="text-xs text-muted-foreground">{event.on}</span>
+                }
+              />
             </li>
           ))}
         </ul>
@@ -118,23 +117,17 @@ export function BuilderFeedbackRounds({ accountId }: { accountId: string }) {
         <ul className="space-y-3">
           {rounds.map((round) => (
             <li key={round.roundId}>
-              <Card className="p-5 space-y-2">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <div className="text-base font-semibold text-foreground">
-                      {round.roundTitle}
-                    </div>
-                    <div className="text-[11px] font-mono text-muted-foreground">
-                      {round.projectSlug}
-                    </div>
-                  </div>
-                  {round.contributedMeaningfully && (
+              <ListRow
+                title={round.roundTitle}
+                subtitle={<span className="font-mono">{round.projectSlug}</span>}
+                trailing={
+                  round.contributedMeaningfully && (
                     <Badge variant="secondary" className="text-[10px]">
                       credited
                     </Badge>
-                  )}
-                </div>
-
+                  )
+                }
+              >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>Closed {round.closedOn}</span>
                   {round.submissionsLabel && <span>· {round.submissionsLabel}</span>}
@@ -152,7 +145,7 @@ export function BuilderFeedbackRounds({ accountId }: { accountId: string }) {
                 </div>
 
                 {round.summary && <p className="text-sm text-foreground">{round.summary}</p>}
-              </Card>
+              </ListRow>
             </li>
           ))}
         </ul>
