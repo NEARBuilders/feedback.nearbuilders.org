@@ -26,9 +26,10 @@ Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/v1/rounds` | Request a feedback round for a project your active organization owns. A new project is created `pending`; on an approved project the round opens immediately. |
+| `POST` | `/api/v1/rounds` | Request a feedback round for a project your active organization owns, with an optional markdown `readme` for testers. A new project is created `pending`; on an approved project the round opens immediately. |
 | `GET` | `/api/v1/rounds` | List rounds, filtered by status (open rounds are public and need no sign-in). |
 | `GET` | `/api/v1/rounds/{id}` | Read one round. Pending and rejected rounds are visible only to the owning organization and admins. |
+| `PATCH` | `/api/v1/rounds/{id}/readme` | Owning organization: edit the round's markdown readme for testers. |
 | `GET` | `/api/v1/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
 | `GET` | `/api/v1/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
 | `POST` | `/api/v1/projects/{id}/approve` | Admin: approve a project; its pending rounds go live for signups. |
@@ -53,7 +54,7 @@ pending ──project approved──▶ open ──slots fill──▶ in_progre
 
 - Rounds belong to a project, and a project belongs to the organization that first requested it. Admins approve a project once; there is no per-round approval.
 - The request that creates a project carries its first round, which starts `pending` and is only visible to the owning organization and admins. Further rounds need an approved project and open immediately.
-- Only the owning organization can create and manage a project's rounds (close, remove feedback, delete). Projects that predate organization ownership are claimed by the creator of one of their rounds.
+- Only the owning organization can create and manage a project's rounds (close, edit the readme, remove feedback, delete). Projects that predate organization ownership are claimed by the creator of one of their rounds.
 - On project approval its pending rounds become `open` and are listed publicly for signups.
 - When the last tester slot is filled the round auto-locks: no more applications are accepted, and any still-pending applications are politely closed out.
 - The owner closes the round from `open` or `in_progress`; closing writes the credit records.

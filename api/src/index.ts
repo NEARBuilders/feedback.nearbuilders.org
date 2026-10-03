@@ -340,6 +340,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             projectId: input.projectId ?? null,
             title: input.title,
             description: input.description,
+            readme: input.readme,
             formats: input.formats,
             repoUrl: input.repoUrl,
           });
@@ -351,6 +352,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
             if (eventId) await services.rounds.setRoundActivityEventId(round.id, eventId);
           }
           return round;
+        }),
+
+      updateRoundReadme: builder.updateRoundReadme
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          await assertCanManageRound(round, context, "Only the round owner can edit the readme");
+          return await services.rounds.updateRoundReadme(round.id, input.readme);
         }),
 
       listRounds: builder.listRounds.handler(async ({ input, context }) => {

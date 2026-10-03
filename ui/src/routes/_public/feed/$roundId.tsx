@@ -19,6 +19,7 @@ import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
+import { RoundReadme } from "@/components/round-readme";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { pageHead } from "@/lib/page-title";
 
@@ -141,6 +142,8 @@ function RoundDetailPage() {
         </div>
 
         <PageHeader title={round.title} subtitle={round.projectSlug} />
+
+        <RoundReadme roundId={roundId} readme={round.readme} canEdit={canManage} />
 
         <p className="text-sm text-foreground whitespace-pre-wrap">{round.description}</p>
 
