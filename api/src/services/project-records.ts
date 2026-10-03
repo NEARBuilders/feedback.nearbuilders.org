@@ -96,15 +96,17 @@ function toOrpcError(error: unknown): ORPCError<string, unknown> {
 export interface EnsureProjectInput {
   slug: string;
   name: string;
-  /** The requester's active organization, if any; owns the project if this request creates it. */
-  ownerOrgId: string | null;
+  ownerOrgId: string;
+  /** The requesting builder; lets them claim a legacy project they already own rounds in. */
+  requesterAccountId: string;
   nearbuildersProjectId?: string | null;
 }
 
 /**
- * Finds the project for `slug`, or creates it as `pending`. Runs inside the
- * transaction that creates the round, so a failed round never leaves an empty
- * project behind in the approval queue.
+ * Finds the project for `slug`, or creates it as `pending` owned by the
+ * requester's org. For an existing project, enforces that the requester's org
+ * owns it. Must run inside the transaction that creates the round, so a failed
+ * round never leaves an empty project behind in the approval queue.
  */
 export async function ensureProject(
   tx: Transaction,
@@ -129,6 +131,41 @@ export async function ensureProject(
     .limit(1);
   if (!existing) {
     throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to resolve project" });
+  }
+
+  if (existing.ownerOrgId === null) {
+    const [ownRound] = await tx
+      .select({ id: roundsTable.id })
+      .from(roundsTable)
+      .where(
+        and(
+          eq(roundsTable.projectRecordId, existing.id),
+          eq(roundsTable.ownerAccountId, input.requesterAccountId),
+        ),
+      )
+      .limit(1);
+    if (!ownRound) {
+      throw new ORPCError("FORBIDDEN", {
+        message: "This project belongs to another organization",
+      });
+    }
+    const [claimed] = await tx
+      .update(projectsTable)
+      .set({
+        ownerOrgId: input.ownerOrgId,
+        nearbuildersProjectId:
+          existing.nearbuildersProjectId ?? input.nearbuildersProjectId ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(projectsTable.id, existing.id))
+      .returning();
+    return { project: toProjectRecord(claimed ?? existing), created: false };
+  }
+
+  if (existing.ownerOrgId !== input.ownerOrgId) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "This project belongs to another organization",
+    });
   }
   return { project: toProjectRecord(existing), created: false };
 }

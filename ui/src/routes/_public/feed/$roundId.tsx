@@ -19,6 +19,7 @@ import { EndorsementCount } from "@/components/endorsement-count";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
+import { RoundReadme } from "@/components/round-readme";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { pageHead } from "@/lib/page-title";
 
@@ -111,8 +112,10 @@ function RoundDetailPage() {
     );
   }
 
+  // The project's owning org manages the round (#70). Its members don't join it as testers.
+  const canManage = round.canManage ?? false;
   const isOwner = !!nearAccountId && nearAccountId === round.ownerAccountId;
-  const canJoin = round.status === "open" && !isOwner;
+  const canJoin = round.status === "open" && !isOwner && !canManage;
 
   return (
     <PageContainer variant="narrow">
@@ -139,6 +142,8 @@ function RoundDetailPage() {
         </div>
 
         <PageHeader title={round.title} subtitle={round.projectSlug} />
+
+        <RoundReadme roundId={roundId} readme={round.readme} canEdit={canManage} />
 
         <p className="text-sm text-foreground whitespace-pre-wrap">{round.description}</p>
 
@@ -199,27 +204,32 @@ function RoundDetailPage() {
           )}
         </div>
 
-        {isAdmin && round.status === "pending" && <AdminReviewPanel roundId={roundId} />}
+        {isAdmin && round.status === "pending" && (
+          <AdminReviewPanel roundId={roundId} projectRecordId={round.projectRecordId} />
+        )}
 
-        {!isAdmin && isOwner && round.status === "pending" && (
+        {!isAdmin && canManage && round.status === "pending" && (
           <Card className="p-4 space-y-1 border-t border-border">
-            <span className="text-sm font-medium text-foreground">Awaiting admin review</span>
+            <span className="text-sm font-medium text-foreground">Awaiting project approval</span>
             <p className="text-xs text-muted-foreground">
-              An admin will approve or reject this request before it's visible to builders.
+              An admin will approve or reject this project before its rounds are visible to
+              builders.
             </p>
           </Card>
         )}
 
-        {(isOwner || isAdmin) && round.status === "rejected" && (
+        {(canManage || isAdmin) && round.status === "rejected" && (
           <Card className="p-4 space-y-1 border-t border-border">
-            <span className="text-sm font-medium text-foreground">This request was rejected</span>
+            <span className="text-sm font-medium text-foreground">
+              This project request was rejected
+            </span>
             {round.rejectionReason && (
               <p className="text-sm text-foreground">{round.rejectionReason}</p>
             )}
           </Card>
         )}
 
-        {isOwner && round.status === "open" && <OwnerClosePanel roundId={roundId} />}
+        {canManage && round.status === "open" && <OwnerClosePanel roundId={roundId} />}
 
         {round.status === "closed" && <CreditsSection roundId={roundId} />}
 
@@ -405,32 +415,32 @@ function CreditsSection({ roundId }: { roundId: string }) {
   );
 }
 
-function AdminReviewPanel({ roundId }: { roundId: string }) {
+function AdminReviewPanel({
+  roundId,
+  projectRecordId,
+}: {
+  roundId: string;
+  projectRecordId: string;
+}) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
 
+  const onDecided = (message: string) => {
+    void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
+    void queryClient.invalidateQueries({ queryKey: ["projects"] });
+    toast.success(message);
+  };
+
   const approveMutation = useMutation({
-    mutationFn: () => apiClient.approveRound({ id: roundId }),
-    onSuccess: (round) => {
-      queryClient.setQueryData(["round", roundId], (prev: typeof round | undefined) =>
-        prev ? { ...prev, ...round } : prev,
-      );
-      void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
-      toast.success("Round approved");
-    },
+    mutationFn: () => apiClient.approveProject({ id: projectRecordId }),
+    onSuccess: () => onDecided("Project approved"),
     onError: (err: Error) => toast.error(err.message),
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => apiClient.rejectRound({ id: roundId, reason: reason.trim() || undefined }),
-    onSuccess: (round) => {
-      queryClient.setQueryData(["round", roundId], (prev: typeof round | undefined) =>
-        prev ? { ...prev, ...round } : prev,
-      );
-      void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
-      toast.success("Round rejected");
-    },
+    mutationFn: () => apiClient.rejectProject({ id: projectRecordId, reason: reason.trim() }),
+    onSuccess: () => onDecided("Project rejected"),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -440,7 +450,7 @@ function AdminReviewPanel({ roundId }: { roundId: string }) {
     <Card className="p-4 space-y-3 border-t border-border">
       <span className="text-sm font-medium text-foreground">Admin review</span>
       <Field>
-        <FieldLabel htmlFor="reject-reason">rejection reason (optional)</FieldLabel>
+        <FieldLabel htmlFor="reject-reason">rejection reason (required to reject)</FieldLabel>
         <Input
           id="reject-reason"
           value={reason}
@@ -451,10 +461,14 @@ function AdminReviewPanel({ roundId }: { roundId: string }) {
       </Field>
       <div className="flex gap-2">
         <Button onClick={() => approveMutation.mutate()} disabled={pending}>
-          {approveMutation.isPending ? "Approving..." : "Approve"}
+          {approveMutation.isPending ? "Approving..." : "Approve project"}
         </Button>
-        <Button variant="outline" onClick={() => rejectMutation.mutate()} disabled={pending}>
-          {rejectMutation.isPending ? "Rejecting..." : "Reject"}
+        <Button
+          variant="outline"
+          onClick={() => rejectMutation.mutate()}
+          disabled={pending || !reason.trim()}
+        >
+          {rejectMutation.isPending ? "Rejecting..." : "Reject project"}
         </Button>
       </div>
     </Card>

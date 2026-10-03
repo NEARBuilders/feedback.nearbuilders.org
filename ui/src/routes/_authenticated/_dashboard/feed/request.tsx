@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useApiClient, useAuthClient } from "@/app";
+import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import {
   Badge,
   Button,
@@ -53,6 +53,8 @@ function RequestRoundPage() {
   const auth = useAuthClient();
   const navigate = useNavigate();
   const nearAccountId = auth.near.getAccountId();
+  const sessionQuery = useQuery(sessionQueryOptions(auth));
+  const activeOrgId = sessionQuery.data?.session?.activeOrganizationId ?? null;
 
   const [projectQuery, setProjectQuery] = useState("");
   const [selectedProject, setSelectedProject] = useState<{
@@ -63,6 +65,7 @@ function RequestRoundPage() {
   const [showProjectResults, setShowProjectResults] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [readme, setReadme] = useState("");
   const [formats, setFormats] = useState<Array<"issues" | "written" | "recorded">>([]);
   const [repoUrl, setRepoUrl] = useState("");
 
@@ -91,11 +94,16 @@ function RequestRoundPage() {
         projectName: selectedProject?.title,
         title: title.trim(),
         description: description.trim(),
+        readme: readme.trim() || undefined,
         formats,
         repoUrl: repoUrl.trim() || undefined,
       }),
     onSuccess: (round) => {
-      toast.success("Round submitted for admin review");
+      toast.success(
+        round.status === "open"
+          ? "Round opened"
+          : "Project submitted for admin approval; its round opens once approved",
+      );
       void navigate({ to: "/feed/$roundId", params: { roundId: round.id } });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -103,6 +111,7 @@ function RequestRoundPage() {
 
   const canSubmit =
     !!nearAccountId &&
+    !!activeOrgId &&
     !!projectQuery.trim() &&
     !!title.trim() &&
     !!description.trim() &&
@@ -116,7 +125,7 @@ function RequestRoundPage() {
           icon={Sparkles}
           label="Request"
           title="Request a feedback round"
-          description="An admin reviews requests before they go live for builders to join."
+          description="New projects are reviewed by an admin once. After approval, your organization's rounds open right away."
         />
 
         {!nearAccountId && (
@@ -125,6 +134,19 @@ function RequestRoundPage() {
               Link a NEAR account before requesting a round.{" "}
               <Link to="/settings/auth-methods" className="underline text-foreground">
                 Link one now
+              </Link>
+              .
+            </p>
+          </Card>
+        )}
+
+        {!activeOrgId && !sessionQuery.isLoading && (
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Rounds belong to an organization. Select or create an organization before requesting
+              one.{" "}
+              <Link to="/orgs" className="underline text-foreground">
+                Open organizations
               </Link>
               .
             </p>
@@ -214,6 +236,21 @@ function RequestRoundPage() {
                   rows={5}
                   placeholder="What should testers focus on?"
                   required
+                  disabled={createMutation.isPending}
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="round-readme">
+                  readme for testers (optional, markdown)
+                </FieldLabel>
+                <Textarea
+                  id="round-readme"
+                  value={readme}
+                  onChange={(e) => setReadme(e.target.value)}
+                  rows={8}
+                  maxLength={20000}
+                  placeholder={"## What to test\n\n1. Sign up...\n\n## Focus on\n\n- ..."}
                   disabled={createMutation.isPending}
                 />
               </Field>

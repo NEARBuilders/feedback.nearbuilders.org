@@ -12,6 +12,7 @@ import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
+import { canManageRound } from "./services/round-access";
 import { RoundsLive, RoundsTag } from "./services/rounds";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
@@ -162,6 +163,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
       return tenant;
     };
 
+    /**
+     * Rounds are managed by the org that owns their project (#70). Throws
+     * FORBIDDEN with `message` when the caller's active org doesn't.
+     */
+    const assertCanManageRound = async (
+      round: { ownerAccountId: string; projectRecordId: string },
+      context: {
+        near?: { primaryAccountId?: string | null } | null;
+        organization?: { activeOrganizationId?: string | null } | null;
+      },
+      message: string,
+    ) => {
+      const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+      const allowed = canManageRound(round, project, {
+        activeOrganizationId: context.organization?.activeOrganizationId,
+        accountId: context.near?.primaryAccountId,
+      });
+      if (!allowed) throw new ORPCError("FORBIDDEN", { message });
+    };
+
     return {
       ping: builder.ping.handler(async () => ({
         status: "ok",
@@ -300,29 +321,52 @@ export default createPlugin.withPlugins<PluginsClient>()({
         };
       }),
 
-      createRound: builder.createRound.use(requireAuth).handler(async ({ input, context }) => {
-        const ownerAccountId = context.near?.primaryAccountId;
-        if (!ownerAccountId) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Link a NEAR account before requesting a feedback round",
-            data: { hint: "Link a NEAR wallet in settings" },
+      createRound: builder.createRound
+        .use(requireAuth)
+        .use(requireOrganization)
+        .handler(async ({ input, context }) => {
+          const ownerAccountId = context.near?.primaryAccountId;
+          if (!ownerAccountId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Link a NEAR account before requesting a feedback round",
+              data: { hint: "Link a NEAR wallet in settings" },
+            });
+          }
+          const round = await services.rounds.createRound({
+            ownerAccountId,
+            ownerOrgId: context.organization.activeOrganizationId,
+            projectSlug: input.projectSlug,
+            projectName: input.projectName,
+            projectId: input.projectId ?? null,
+            title: input.title,
+            description: input.description,
+            readme: input.readme,
+            formats: input.formats,
+            repoUrl: input.repoUrl,
           });
-        }
-        const round = await services.rounds.createRound({
-          ownerAccountId,
-          projectSlug: input.projectSlug,
-          ownerOrgId: context.organization?.activeOrganizationId ?? null,
-          projectName: input.projectName,
-          projectId: input.projectId ?? null,
-          title: input.title,
-          description: input.description,
-          formats: input.formats,
-          repoUrl: input.repoUrl,
-        });
-        // Rounds enter the admin review queue as "pending" (#48); the
-        // round.opened activity event fires on approval, once it's actually live.
-        return round;
-      }),
+          // A round on a not-yet-approved project waits as "pending" until an admin
+          // decides the project (#69); round.opened fires then. On an already
+          // approved project it opens immediately (#70), so announce it now.
+          if (round.status === "open") {
+            const eventId = await services.activityEvents.emitRoundOpened(round);
+            if (eventId) await services.rounds.setRoundActivityEventId(round.id, eventId);
+          }
+          return round;
+        }),
+
+      updateRoundReadme: builder.updateRoundReadme
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          await assertCanManageRound(round, context, "Only the round owner can edit the readme");
+          return await services.rounds.updateRoundReadme(round.id, input.readme);
+        }),
 
       listRounds: builder.listRounds.handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
@@ -334,13 +378,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const rounds = await services.rounds.listRounds(input.status);
         if (input.status) return rounds;
         // No filter: this is the public browse listing, so pending/rejected
-        // rounds — visible only to their owner or an admin — never appear in it.
+        // rounds — visible only to their owning org or an admin — never appear in it.
         return rounds.filter((r) => r.status === "open" || r.status === "closed");
       }),
-
-      listPendingRounds: builder.listPendingRounds
-        .use(requireAdmin)
-        .handler(async () => services.rounds.listRounds("pending")),
 
       listProjects: builder.listProjects
         .use(requireAdmin)
@@ -396,37 +436,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return project;
       }),
 
-      approveRound: builder.approveRound.use(requireAdmin).handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
-          });
-        }
-        if (round.status !== "pending") {
-          throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be approved" });
-        }
-        const approved = await services.rounds.approveRound(round.id);
-        const eventId = await services.activityEvents.emitRoundOpened(approved);
-        if (eventId) await services.rounds.setRoundActivityEventId(approved.id, eventId);
-        return approved;
-      }),
-
-      rejectRound: builder.rejectRound.use(requireAdmin).handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
-          });
-        }
-        if (round.status !== "pending") {
-          throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be rejected" });
-        }
-        return await services.rounds.rejectRound(round.id, input.reason ?? null);
-      }),
-
       deleteRound: builder.deleteRound
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
@@ -443,9 +452,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          if (round.ownerAccountId !== accountId) {
-            throw new ORPCError("FORBIDDEN", { message: "Only the round owner can delete it" });
-          }
+          await assertCanManageRound(round, context, "Only the round owner can delete it");
           if (round.status === "closed") {
             throw new ORPCError("BAD_REQUEST", { message: "Closed rounds can't be deleted" });
           }
@@ -464,17 +471,21 @@ export default createPlugin.withPlugins<PluginsClient>()({
             data: { resource: "round", resourceId: input.id },
           });
         }
+        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+        const canManage = canManageRound(round, project, {
+          activeOrganizationId: context.organization?.activeOrganizationId,
+          accountId: context.near?.primaryAccountId,
+        });
         if (round.status === "pending" || round.status === "rejected") {
-          const isOwner = round.ownerAccountId === context.near?.primaryAccountId;
           const isAdmin = context.user?.role === "admin";
-          if (!isOwner && !isAdmin) {
+          if (!canManage && !isAdmin) {
             throw errors.NOT_FOUND({
               message: "Round not found",
               data: { resource: "round", resourceId: input.id },
             });
           }
         }
-        return round;
+        return { ...round, canManage };
       }),
 
       joinRound: builder.joinRound.use(requireAuth).handler(async ({ input, context, errors }) => {
@@ -619,11 +630,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          if (round.ownerAccountId !== accountId) {
-            throw new ORPCError("FORBIDDEN", {
-              message: "Only the round owner can remove feedback",
-            });
-          }
+          await assertCanManageRound(round, context, "Only the round owner can remove feedback");
           const feedbackList = await services.rounds.listFeedback(round.id);
           const feedback = feedbackList.find((f) => f.id === input.feedbackId);
           if (!feedback) {
@@ -683,9 +690,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          if (round.ownerAccountId !== context.near?.primaryAccountId) {
-            throw new ORPCError("FORBIDDEN", { message: "Only the round owner can see this" });
-          }
+          await assertCanManageRound(round, context, "Only the round owner can see this");
           return await services.rounds.getCreditCandidates(round.id);
         }),
 
@@ -706,9 +711,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          if (round.ownerAccountId !== accountId) {
-            throw new ORPCError("FORBIDDEN", { message: "Only the round owner can close it" });
-          }
+          await assertCanManageRound(round, context, "Only the round owner can close it");
           if (round.status !== "open") {
             throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
           }
