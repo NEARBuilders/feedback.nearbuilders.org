@@ -179,6 +179,14 @@ describe("listRounds", () => {
     expect(rounds.some((r) => r.id === round.id)).toBe(true);
   });
 
+  it("includes each round's participant count", async () => {
+    const round = await createOpenRound("count-owner.near", { title: "Counted round" });
+
+    const anon = await getPluginClient();
+    const listed = (await anon.listRounds({})).find((r) => r.id === round.id);
+    expect(listed?.participantCount).toBe(0);
+  });
+
   it("excludes pending and rejected rounds from the unfiltered public listing", async () => {
     const owner = await getPluginClient(nearAuthedContext("hidden-owner.near"));
     const pending = await owner.createRound({ ...baseInput, title: "Still pending" });

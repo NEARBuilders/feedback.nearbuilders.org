@@ -122,7 +122,7 @@ export interface RoundsService {
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
-  listRounds(status?: RoundStatus): Promise<RoundRecord[]>;
+  listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
   /** Moves a `pending` round to `open`. Throws BAD_REQUEST if it isn't pending. */
   approveRound(roundId: string): Promise<RoundRecord>;
   /** Moves a `pending` round to `rejected`. Throws BAD_REQUEST if it isn't pending. */
@@ -330,7 +330,22 @@ export const RoundsLive = Layer.effect(
             .from(roundsTable)
             .where(status ? eq(roundsTable.status, status) : undefined)
             .orderBy(desc(roundsTable.createdAt));
-          return rows.map(toRoundRecord);
+          if (rows.length === 0) return [];
+          const countRows = await db
+            .select({ roundId: roundParticipantsTable.roundId, value: count() })
+            .from(roundParticipantsTable)
+            .where(
+              inArray(
+                roundParticipantsTable.roundId,
+                rows.map((row) => row.id),
+              ),
+            )
+            .groupBy(roundParticipantsTable.roundId);
+          const counts = new Map(countRows.map((row) => [row.roundId, row.value]));
+          return rows.map((row) => ({
+            ...toRoundRecord(row),
+            participantCount: counts.get(row.id) ?? 0,
+          }));
         } catch (error) {
           throw toOrpcError(error);
         }
