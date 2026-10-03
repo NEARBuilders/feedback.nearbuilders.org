@@ -73,7 +73,7 @@ export const RoundSchema = z.object({
   projectSlug: z.string(),
   /** nearbuilders.org project id this round resolved against, if any (#23). */
   projectId: z.string().nullable(),
-  /** The project anchor this round hangs off (#69). */
+  /** The approved-project anchor this round hangs off (#69). */
   projectRecordId: z.string(),
   projectRoundNumber: z.number().int().positive(),
   title: z.string(),
@@ -92,6 +92,8 @@ export type Round = z.infer<typeof RoundSchema>;
 
 export const RoundDetailSchema = RoundSchema.extend({
   participantCount: z.number().int().nonnegative(),
+  /** Whether the caller's org owns this round's project (#70). Only set by getRound. */
+  canManage: z.boolean().optional(),
 });
 
 export type RoundDetail = z.infer<typeof RoundDetailSchema>;
@@ -356,17 +358,12 @@ export const contract = oc.router({
     .route({ method: "POST", path: "/rounds" })
     .input(CreateRoundInputSchema)
     .output(RoundSchema)
-    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })
     .input(z.object({ status: RoundStatusSchema.optional() }))
     .output(z.array(RoundDetailSchema))
-    .errors({ UNAUTHORIZED, FORBIDDEN }),
-
-  listPendingRounds: oc
-    .route({ method: "GET", path: "/rounds/pending" })
-    .output(z.array(RoundSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   listProjects: oc
@@ -395,18 +392,6 @@ export const contract = oc.router({
       }),
     )
     .output(ProjectWithRoundsSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
-
-  approveRound: oc
-    .route({ method: "POST", path: "/rounds/{id}/approve" })
-    .input(z.object({ id: z.string() }))
-    .output(RoundSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
-
-  rejectRound: oc
-    .route({ method: "POST", path: "/rounds/{id}/reject" })
-    .input(z.object({ id: z.string(), reason: z.string().max(2000).optional() }))
-    .output(RoundSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   deleteRound: oc

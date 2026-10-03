@@ -39,8 +39,8 @@ export interface RoundRecord {
 
 export interface CreateRoundInput {
   ownerAccountId: string;
-  /** The requester's active organization, if any; owns the project if this request creates it. */
-  ownerOrgId?: string | null;
+  /** The requester's active organization; owns the project if this request creates it. */
+  ownerOrgId: string;
   projectSlug: string;
   /** Display name for a newly created project; defaults to the slug. */
   projectName?: string;
@@ -126,15 +126,15 @@ export interface DeletedFeedbackResult {
 export interface RoundsService {
   /** Maps round id -> emitted activity event id, for rounds that have one. */
   listRoundActivityEventIds(roundIds: string[]): Promise<Record<string, string>>;
-  /** Creates a `pending` round under the project for `projectSlug`, creating that project as `pending` if it's new. */
+  /**
+   * Creates a round under the project for `projectSlug`, creating that project
+   * as `pending` if it's new. The round opens immediately when the project is
+   * already approved, and otherwise waits as `pending` for the project decision.
+   */
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
   listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
-  /** Moves a `pending` round to `open`. Throws BAD_REQUEST if it isn't pending. */
-  approveRound(roundId: string): Promise<RoundRecord>;
-  /** Moves a `pending` round to `rejected`. Throws BAD_REQUEST if it isn't pending. */
-  rejectRound(roundId: string, reason?: string | null): Promise<RoundRecord>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   hasParticipant(roundId: string, accountId: string): Promise<boolean>;
@@ -160,7 +160,7 @@ export class RoundsTag extends Context.Tag("api/Rounds")<RoundsService, RoundsSe
 
 type RoundRow = typeof roundsTable.$inferSelect;
 
-function toRoundRecord(row: RoundRow): RoundRecord {
+export function toRoundRecord(row: RoundRow): RoundRecord {
   return {
     id: row.id,
     ownerAccountId: row.ownerAccountId,
@@ -233,12 +233,27 @@ export const RoundsLive = Layer.effect(
         try {
           const row = await db.transaction(async (tx) => {
             const slug = input.projectSlug.trim();
-            const { project } = await ensureProject(tx, {
+            const { project, created } = await ensureProject(tx, {
               slug,
               name: input.projectName?.trim() || slug,
-              ownerOrgId: input.ownerOrgId ?? null,
+              ownerOrgId: input.ownerOrgId,
+              requesterAccountId: input.ownerAccountId,
               nearbuildersProjectId: input.projectId ?? null,
             });
+            // The request that creates a project carries its first round; after
+            // that, rounds need an approved project to hang off.
+            if (!created && project.status === "pending") {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "This project is awaiting admin approval",
+              });
+            }
+            if (!created && project.status === "rejected") {
+              throw new ORPCError("BAD_REQUEST", {
+                message: project.rejectionReason
+                  ? `This project was rejected: ${project.rejectionReason}`
+                  : "This project was rejected",
+              });
+            }
 
             const [counter] = await tx
               .insert(projectRoundCountersTable)
@@ -261,6 +276,7 @@ export const RoundsLive = Layer.effect(
                 description: input.description,
                 formats: input.formats,
                 repoUrl: input.repoUrl ?? null,
+                status: project.status === "approved" ? "open" : "pending",
               })
               .returning();
 
@@ -281,61 +297,6 @@ export const RoundsLive = Layer.effect(
         try {
           const [row] = await db.select().from(roundsTable).where(eq(roundsTable.id, id)).limit(1);
           return row ? toRoundRecord(row) : null;
-        } catch (error) {
-          throw toOrpcError(error);
-        }
-      },
-
-      approveRound: async (roundId) => {
-        try {
-          const [row] = await db
-            .select()
-            .from(roundsTable)
-            .where(eq(roundsTable.id, roundId))
-            .limit(1);
-          if (!row) {
-            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
-          }
-          if (row.status !== "pending") {
-            throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be approved" });
-          }
-          const now = new Date();
-          const [updated] = await db
-            .update(roundsTable)
-            .set({ status: "open", updatedAt: now })
-            .where(eq(roundsTable.id, roundId))
-            .returning();
-          return toRoundRecord(updated!);
-        } catch (error) {
-          throw toOrpcError(error);
-        }
-      },
-
-      rejectRound: async (roundId, reason) => {
-        try {
-          const [row] = await db
-            .select()
-            .from(roundsTable)
-            .where(eq(roundsTable.id, roundId))
-            .limit(1);
-          if (!row) {
-            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
-          }
-          if (row.status !== "pending") {
-            throw new ORPCError("BAD_REQUEST", { message: "Only pending rounds can be rejected" });
-          }
-          const now = new Date();
-          const [updated] = await db
-            .update(roundsTable)
-            .set({
-              status: "rejected",
-              rejectedAt: now,
-              rejectionReason: reason ?? null,
-              updatedAt: now,
-            })
-            .where(eq(roundsTable.id, roundId))
-            .returning();
-          return toRoundRecord(updated!);
         } catch (error) {
           throw toOrpcError(error);
         }
