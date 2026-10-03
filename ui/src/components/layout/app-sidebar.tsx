@@ -4,24 +4,25 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components";
-import type { SidebarItem } from "./nav-items";
+import type { SidebarItem, SidebarSection } from "./nav-items";
 import { SidebarOrgSwitcher } from "./sidebar-org-switcher";
 import { SidebarUserNav } from "./sidebar-user-nav";
 import { useIdentity } from "./use-identity";
 
 interface AppSidebarProps {
-  items: SidebarItem[];
+  sections: SidebarSection[];
   appName: string;
   isActive: (item: SidebarItem) => boolean;
 }
 
-export function AppSidebar({ items, appName, isActive }: AppSidebarProps) {
+export function AppSidebar({ sections, appName, isActive }: AppSidebarProps) {
   const { organizations, activeOrgId } = useIdentity();
 
   return (
@@ -35,25 +36,27 @@ export function AppSidebar({ items, appName, isActive }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarMenu>
-            {items.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item);
-              const slug = item.label.toLowerCase().replace(/\s+/g, "-");
-              return (
-                <SidebarMenuItem key={item.label}>
-                  <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-                    <Link to={item.to} preload="intent" data-testid={`sidebar-nav-${slug}`}>
-                      <Icon />
-                      <span className="capitalize">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })}
-          </SidebarMenu>
-        </SidebarGroup>
+        {sections.map((section) => (
+          <SidebarGroup key={section.id} data-testid={`sidebar-section-${section.id}`}>
+            <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+            <SidebarMenu>
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const slug = item.label.toLowerCase().replace(/\s+/g, "-");
+                return (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton asChild isActive={isActive(item)} tooltip={item.label}>
+                      <Link to={item.to} preload="intent" data-testid={`sidebar-nav-${slug}`}>
+                        <Icon />
+                        <span className="capitalize">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter>

@@ -4,7 +4,14 @@ import { getAppName } from "@/app";
 import { SidebarInset, SidebarProvider } from "@/components";
 import { AppHeader } from "./app-header";
 import { AppSidebar } from "./app-sidebar";
-import { filterSidebarByRole, getUserRole, NAV_ITEMS, type SidebarItem } from "./nav-items";
+import {
+  filterSidebarByRole,
+  getActiveItem,
+  getUserRole,
+  groupSidebarItems,
+  NAV_ITEMS,
+  type SidebarItem,
+} from "./nav-items";
 
 interface AppShellProps {
   session: SessionData | null | undefined;
@@ -18,12 +25,16 @@ export function AppShell({ session, runtimeConfig, isAdmin = false }: AppShellPr
 
   const visibleItems = filterSidebarByRole(NAV_ITEMS, getUserRole(!!session?.user, isAdmin));
 
-  const isActive = (item: SidebarItem) =>
-    pathname === item.to || (item.to !== "/" && pathname.startsWith(`${item.to}/`));
+  const activeItem = getActiveItem(visibleItems, pathname);
+  const isActive = (item: SidebarItem) => item === activeItem;
 
   return (
     <SidebarProvider className="flex-1 min-h-0">
-      <AppSidebar items={visibleItems} appName={appName} isActive={isActive} />
+      <AppSidebar
+        sections={groupSidebarItems(visibleItems)}
+        appName={appName}
+        isActive={isActive}
+      />
       <SidebarInset className="min-h-0">
         <AppHeader runtimeConfig={runtimeConfig} />
         <main className="flex-1 w-full min-h-0 overflow-y-auto">
