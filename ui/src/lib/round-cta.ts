@@ -23,12 +23,13 @@ export function signInToJoinLink(roundId: string) {
 
 export function roundCta(input: RoundCtaInput): RoundCta {
   if (!input.canJoin) return { kind: "none" };
-  if (input.nearAccountId) {
+  if (input.sessionPending) {
+    if (!input.nearAccountId) return { kind: "none" };
     return input.joined ? { kind: "leave" } : { kind: "join" };
   }
-  if (input.sessionPending) return { kind: "none" };
   if (!input.signedIn) {
     return { kind: "signin", loginTo: signInToJoinLink(input.roundId) };
   }
-  return { kind: "link-account" };
+  if (!input.nearAccountId) return { kind: "link-account" };
+  return input.joined ? { kind: "leave" } : { kind: "join" };
 }

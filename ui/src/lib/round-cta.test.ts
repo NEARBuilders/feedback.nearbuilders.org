@@ -31,6 +31,14 @@ describe("roundCta", () => {
     expect(roundCta({ ...base, sessionPending: true })).toEqual({ kind: "join" });
   });
 
+  it("routes a wallet-connected but signed-out visitor through sign-in", () => {
+    const cta = roundCta({ ...base, signedIn: false });
+    expect(cta).toEqual({
+      kind: "signin",
+      loginTo: { to: "/login", search: { redirect: "/feed/r1" } },
+    });
+  });
+
   it("waits for the session before choosing a sign-in or link-account CTA", () => {
     expect(roundCta({ ...base, sessionPending: true, nearAccountId: null })).toEqual({
       kind: "none",
