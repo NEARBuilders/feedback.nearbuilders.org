@@ -38,7 +38,6 @@ import { Route as AuthenticatedDashboardOrgsNewRouteImport } from './routes/_aut
 import { Route as AuthenticatedDashboardOrgsSlugRouteImport } from './routes/_authenticated/_dashboard/orgs/$slug'
 import { Route as AuthenticatedDashboardFeedRequestRouteImport } from './routes/_authenticated/_dashboard/feed/request'
 import { Route as AdminDashboardAdminProjectsRouteImport } from './routes/_admin/_dashboard/admin/projects'
-import { Route as AdminDashboardAdminRoundsRouteImport } from './routes/_admin/_dashboard/admin/rounds'
 import { Route as AuthenticatedDashboardOrgsInvitesIdRouteImport } from './routes/_authenticated/_dashboard/orgs/invites.$id'
 
 const PublicRoute = PublicRouteImport.update({
@@ -191,12 +190,6 @@ const AuthenticatedDashboardFeedRequestRoute =
   } as any)
 const AdminDashboardAdminProjectsRoute =
   AdminDashboardAdminProjectsRouteImport.update({
-    id: '/projects',
-    path: '/projects',
-    getParentRoute: () => AdminDashboardAdminRoute,
-  } as any)
-const AdminDashboardAdminRoundsRoute =
-  AdminDashboardAdminRoundsRouteImport.update({
     id: '/rounds',
     path: '/rounds',
     getParentRoute: () => AdminDashboardAdminRoute,
@@ -222,7 +215,6 @@ export interface FileRoutesByFullPath {
   '/$accountId/': typeof PublicAccountIdIndexRoute
   '/feed/': typeof PublicFeedIndexRoute
   '/admin/projects': typeof AdminDashboardAdminProjectsRoute
-  '/admin/rounds': typeof AdminDashboardAdminRoundsRoute
   '/feed/request': typeof AuthenticatedDashboardFeedRequestRoute
   '/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
   '/orgs/new': typeof AuthenticatedDashboardOrgsNewRoute
@@ -246,7 +238,6 @@ export interface FileRoutesByTo {
   '/$accountId': typeof PublicAccountIdIndexRoute
   '/feed': typeof PublicFeedIndexRoute
   '/admin/projects': typeof AdminDashboardAdminProjectsRoute
-  '/admin/rounds': typeof AdminDashboardAdminRoundsRoute
   '/feed/request': typeof AuthenticatedDashboardFeedRequestRoute
   '/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
   '/orgs/new': typeof AuthenticatedDashboardOrgsNewRoute
@@ -280,7 +271,6 @@ export interface FileRoutesById {
   '/_public/$accountId/': typeof PublicAccountIdIndexRoute
   '/_public/feed/': typeof PublicFeedIndexRoute
   '/_admin/_dashboard/admin/projects': typeof AdminDashboardAdminProjectsRoute
-  '/_admin/_dashboard/admin/rounds': typeof AdminDashboardAdminRoundsRoute
   '/_authenticated/_dashboard/feed/request': typeof AuthenticatedDashboardFeedRequestRoute
   '/_authenticated/_dashboard/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
   '/_authenticated/_dashboard/orgs/new': typeof AuthenticatedDashboardOrgsNewRoute
@@ -310,7 +300,6 @@ export interface FileRouteTypes {
     | '/$accountId/'
     | '/feed/'
     | '/admin/projects'
-    | '/admin/rounds'
     | '/feed/request'
     | '/orgs/$slug'
     | '/orgs/new'
@@ -334,7 +323,6 @@ export interface FileRouteTypes {
     | '/$accountId'
     | '/feed'
     | '/admin/projects'
-    | '/admin/rounds'
     | '/feed/request'
     | '/orgs/$slug'
     | '/orgs/new'
@@ -367,7 +355,6 @@ export interface FileRouteTypes {
     | '/_public/$accountId/'
     | '/_public/feed/'
     | '/_admin/_dashboard/admin/projects'
-    | '/_admin/_dashboard/admin/rounds'
     | '/_authenticated/_dashboard/feed/request'
     | '/_authenticated/_dashboard/orgs/$slug'
     | '/_authenticated/_dashboard/orgs/new'
@@ -588,16 +575,9 @@ declare module '@tanstack/react-router' {
     }
     '/_admin/_dashboard/admin/projects': {
       id: '/_admin/_dashboard/admin/projects'
-      path: '/projects'
+      path: '/rounds'
       fullPath: '/admin/projects'
       preLoaderRoute: typeof AdminDashboardAdminProjectsRouteImport
-      parentRoute: typeof AdminDashboardAdminRoute
-    }
-    '/_admin/_dashboard/admin/rounds': {
-      id: '/_admin/_dashboard/admin/rounds'
-      path: '/rounds'
-      fullPath: '/admin/rounds'
-      preLoaderRoute: typeof AdminDashboardAdminRoundsRouteImport
       parentRoute: typeof AdminDashboardAdminRoute
     }
     '/_authenticated/_dashboard/orgs/invites/$id': {
@@ -612,13 +592,11 @@ declare module '@tanstack/react-router' {
 
 interface AdminDashboardAdminRouteChildren {
   AdminDashboardAdminProjectsRoute: typeof AdminDashboardAdminProjectsRoute
-  AdminDashboardAdminRoundsRoute: typeof AdminDashboardAdminRoundsRoute
   AdminDashboardAdminIndexRoute: typeof AdminDashboardAdminIndexRoute
 }
 
 const AdminDashboardAdminRouteChildren: AdminDashboardAdminRouteChildren = {
   AdminDashboardAdminProjectsRoute: AdminDashboardAdminProjectsRoute,
-  AdminDashboardAdminRoundsRoute: AdminDashboardAdminRoundsRoute,
   AdminDashboardAdminIndexRoute: AdminDashboardAdminIndexRoute,
 }
 

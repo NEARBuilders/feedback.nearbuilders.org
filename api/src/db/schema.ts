@@ -91,6 +91,8 @@ export const rounds = pgTable(
     description: text("description").notNull(),
     formats: text("formats").array().notNull(),
     repoUrl: text("repo_url"),
+    // Markdown shown to testers at the top of the round workspace (#71).
+    readme: text("readme").default("").notNull(),
     status: roundStatus("status").default("pending").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
