@@ -28,7 +28,7 @@ function SettingsLayout() {
     tabs.find((t) => pathname === t.to || pathname.startsWith(`${t.to}/`))?.value ?? "profile";
 
   return (
-    <PageContainer variant="wide">
+    <PageContainer variant="default">
       <div className="space-y-6">
         <PageHeader icon={Settings} label="Account" title="Settings" />
 

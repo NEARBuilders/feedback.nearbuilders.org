@@ -70,7 +70,13 @@ export function createProjectsLookup(options: ProjectsLookupOptions = {}): Proje
       const trimmed = query.trim();
       if (!trimmed) return [];
       const result = await read("listProjects", () =>
-        client.listProjects({ query: trimmed, visibility: "public", limit: 10 }),
+        // No `limit`: nearbuilders.org's REST layer rejects numeric query
+        // params (no string coercion), so any limit 400s and the picker
+        // degrades. The endpoint's default page size is plenty.
+        // No `visibility`: omitting it lets unlisted projects (owner-named
+        // for a feedback round, still not private) appear alongside public
+        // ones; private is excluded upstream either way.
+        client.listProjects({ query: trimmed }),
       );
       return result?.data ?? null;
     },

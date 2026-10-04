@@ -4,14 +4,30 @@ import { Home as HomeIcon, Settings } from "lucide-react";
 import { useMemo } from "react";
 import {
   getAccount,
-  type Passkey,
   type SessionData,
   sessionQueryOptions,
+  useApiClient,
   useAuthClient,
 } from "@/app";
-import { Button, Card, Chip, InfoRow, PageHeader } from "@/components";
+import {
+  Badge,
+  Button,
+  Card,
+  InfoRow,
+  MyProjects,
+  PageHeader,
+  SectionHeader,
+  Skeleton,
+} from "@/components";
 import { pageHead } from "@/lib/page-title";
-import { useNearAccount } from "@/lib/use-near-account";
+import { useNearAccountStatus } from "@/lib/use-near-account";
+
+const ROUND_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  pending: "default",
+  open: "secondary",
+  closed: "outline",
+  rejected: "destructive",
+};
 
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard/")({
   beforeLoad: async ({ context }) => {
@@ -31,39 +47,28 @@ export const Route = createFileRoute("/_authenticated/_dashboard/dashboard/")({
 
 function Home() {
   const auth = useAuthClient();
+  const apiClient = useApiClient();
   const { tenant } = Route.useRouteContext();
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth, undefined));
-  const { data: passkeys = [] } = useQuery({
-    queryKey: ["passkeys"],
-    queryFn: async () => {
-      const { data } = await auth.passkey.listUserPasskeys();
-      return (data || []) as Passkey[];
-    },
-    staleTime: 60 * 1000,
-  });
   const user = session?.user;
-  const nearAccountId = useNearAccount();
 
-  const profile = useMemo(() => {
-    if (!user)
-      return {
-        isAnonymous: false,
-        hasEmail: false,
-        hasNear: false,
-        hasPasskeys: false,
-        isAdmin: false,
-      };
-    return {
-      isAnonymous: user.isAnonymous || false,
-      hasEmail: Boolean(user.email),
-      hasNear: Boolean(nearAccountId),
-      hasPasskeys: passkeys.length > 0,
-      isAdmin: user.role === "admin",
-    };
-  }, [user, nearAccountId, passkeys.length]);
+  const { accountId: nearAccountId, isDetecting } = useNearAccountStatus();
 
-  const activeOrgId = session?.session?.activeOrganizationId ?? null;
-  const isTenantMember = !!tenant && !!activeOrgId && activeOrgId === tenant.orgId;
+  const joinedRoundsQuery = useQuery({
+    queryKey: ["myRounds", "joined"],
+    queryFn: () => apiClient.listMyJoinedRounds(),
+    enabled: !!nearAccountId,
+  });
+
+  const joinedRounds = useMemo(() => {
+    const rounds = joinedRoundsQuery.data ?? [];
+    return [...rounds].sort((a, b) => {
+      if ((a.status === "open") !== (b.status === "open")) return a.status === "open" ? -1 : 1;
+      return 0;
+    });
+  }, [joinedRoundsQuery.data]);
+
+  const openCount = joinedRounds.filter((round) => round.status === "open").length;
 
   return (
     <div className="space-y-8">
@@ -72,12 +77,19 @@ function Home() {
         label="Workspace"
         title={user?.name || user?.email || "You"}
         actions={
-          <Button asChild variant="outline">
-            <Link to="/settings" preload="intent">
-              <Settings />
-              settings
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link to="/feed/request" preload="intent">
+                request a round
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/settings" preload="intent">
+                <Settings />
+                settings
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -85,51 +97,15 @@ function Home() {
         <div className="text-muted-foreground text-center py-12 text-sm">Loading…</div>
       ) : (
         <>
-          <Card className="p-6 space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Chip>workspace</Chip>
-              {profile.isAnonymous && <Chip>anonymous</Chip>}
-              {profile.isAdmin && <Chip accent>admin</Chip>}
-              {isTenantMember && <Chip accent>tenant member</Chip>}
-            </div>
-            <h2 className="text-foreground text-xl font-semibold">
-              {user.name || user.email || user.id.slice(0, 8)}
-            </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Manage your identity and connected accounts.
-            </p>
-          </Card>
+          <JoinedRounds
+            query={joinedRoundsQuery}
+            rounds={joinedRounds}
+            openCount={openCount}
+            hasNear={!!nearAccountId}
+            settled={!isDetecting}
+          />
 
-          <Card className="p-6 space-y-4">
-            <div className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-              Identity Status
-            </div>
-            <div className="flex flex-col gap-2">
-              <InfoRow
-                label="email"
-                value={profile.hasEmail ? (user.email ?? "linked") : "not linked"}
-              />
-              <InfoRow
-                label="near"
-                value={profile.hasNear ? (nearAccountId ?? "linked") : "not linked"}
-                mono
-              />
-              <InfoRow
-                label="passkeys"
-                value={profile.hasPasskeys ? `${passkeys.length} registered` : "not linked"}
-              />
-              <InfoRow
-                label="profile"
-                value={profile.isAnonymous ? "anonymous session" : "persistent account"}
-              />
-            </div>
-
-            {profile.isAnonymous && (
-              <div className="mt-2 rounded-[10px] bg-brand-accent-light border border-brand-accent-border text-foreground text-[13px] leading-relaxed px-4 py-3">
-                Link an email or NEAR wallet before signing out to keep your data.
-              </div>
-            )}
-          </Card>
+          <MyProjects />
         </>
       )}
 
@@ -155,6 +131,113 @@ function Home() {
             </Button>
           </div>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function JoinedRounds({
+  query,
+  rounds,
+  openCount,
+  hasNear,
+  settled,
+}: {
+  query: { isLoading: boolean };
+  rounds: Array<{
+    roundId: string;
+    roundTitle: string;
+    projectSlug: string;
+    status: string;
+    participantCount: number;
+  }>;
+  openCount: number;
+  hasNear: boolean;
+  settled: boolean;
+}) {
+  if (!hasNear) {
+    if (!settled) {
+      return (
+        <div className="space-y-3">
+          <SectionHeader title="Rounds you're testing" />
+          <div className="space-y-2">
+            {[1, 2, 3].map((n) => (
+              <Skeleton key={n} className="h-16 w-full" />
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        <SectionHeader title="Rounds you're testing" />
+        <Card className="p-6 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Link a NEAR account to see the rounds you've joined as a tester.
+          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/settings/auth-methods">link a NEAR account</Link>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <SectionHeader
+        title="Rounds you're testing"
+        action={
+          rounds.length > 0 ? (
+            <span className="text-sm text-muted-foreground">
+              {openCount} open · {rounds.length} total
+            </span>
+          ) : undefined
+        }
+      />
+      {query.isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((n) => (
+            <Skeleton key={n} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : rounds.length === 0 ? (
+        <Card className="p-6 space-y-3">
+          <p className="text-sm text-muted-foreground">You haven't joined any rounds yet.</p>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/feed">browse open rounds</Link>
+          </Button>
+        </Card>
+      ) : (
+        <ul className="space-y-2">
+          {rounds.map((round) => (
+            <li key={round.roundId}>
+              <Card className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <Link
+                      to="/feed/$roundId"
+                      params={{ roundId: round.roundId }}
+                      className="text-sm font-medium text-foreground underline-offset-2 hover:underline"
+                    >
+                      {round.roundTitle}
+                    </Link>
+                    <p className="text-xs font-mono text-muted-foreground">{round.projectSlug}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={ROUND_BADGE_VARIANT[round.status] ?? "outline"}>
+                      {round.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {round.participantCount}{" "}
+                      {round.participantCount === 1 ? "builder" : "builders"}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

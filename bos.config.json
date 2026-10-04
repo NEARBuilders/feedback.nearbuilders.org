@@ -2,7 +2,7 @@
   "extends": "bos://dev.everything.near/dev.everything.dev",
   "account": "nearbuilding.near",
   "domain": "feedback.nearbuilders.org",
- "title": "Feedback | NearBuilders",
+  "title": "Feedback | NearBuilders",
   "description": "Request a feedback round, get matched with builders, and turn testing into portable credit.",
   "repository": "https://github.com/NEARBuilders/feedback.nearbuilders.org",
   "ci": {
@@ -12,7 +12,11 @@
   },
   "app": {
     "ui": {
-      "development": "local:ui"
+      "development": "local:ui",
+      "production": "https://elliot-braem-8801-ui-feedback-nearbuilders-org-ne-a0a4e6725-ze.zephyrcloud.app",
+      "integrity": "sha384-LYhvFvVBbcfraaQwEzdmY9P1a25zpQA7HHfkWw2LX3+WeEDAtx7UZlcGUpxMLvd9",
+      "ssr": "https://elliot-braem-8803-ui-feedback-nearbuilders-org-ne-df048d35b-ze.zephyrcloud.app",
+      "ssrIntegrity": "sha384-3ORA9pB0JfhfBw3BIYtBlRGUoQ6Ouhc9BEmPsSSPU9KGGUQiNnXWaP+QQmIqiRkm"
     },
     "api": {
       "development": "local:api",

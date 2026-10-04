@@ -111,6 +111,16 @@ export interface BuilderRoundRecord {
   creditedAt: string;
 }
 
+export interface MyJoinedRoundRecord {
+  roundId: string;
+  roundTitle: string;
+  projectSlug: string;
+  status: RoundStatus;
+  formats: RoundFormat[];
+  participantCount: number;
+  joinedAt: string;
+}
+
 export interface CloseRoundCreditInput {
   builderAccountId: string;
   contributedMeaningfully: boolean;
@@ -148,6 +158,7 @@ export interface RoundsService {
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
   listBuilderRounds(accountId: string): Promise<BuilderRoundRecord[]>;
+  listMyJoinedRounds(accountId: string): Promise<MyJoinedRoundRecord[]>;
   setRoundActivityEventId(roundId: string, eventId: string): Promise<void>;
   setFeedbackActivityEventId(feedbackId: string, eventId: string): Promise<void>;
   setFeedbackNostrEventId(feedbackId: string, nostrEventId: string): Promise<void>;
@@ -615,6 +626,48 @@ export const RoundsLive = Layer.effect(
               creditedAt,
             };
           });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listMyJoinedRounds: async (accountId) => {
+        try {
+          const rows = await db
+            .select({
+              roundId: roundsTable.id,
+              roundTitle: roundsTable.title,
+              projectSlug: roundsTable.projectSlug,
+              status: roundsTable.status,
+              formats: roundsTable.formats,
+              joinedAt: roundParticipantsTable.joinedAt,
+            })
+            .from(roundParticipantsTable)
+            .innerJoin(roundsTable, eq(roundsTable.id, roundParticipantsTable.roundId))
+            .where(eq(roundParticipantsTable.accountId, accountId))
+            .orderBy(desc(roundParticipantsTable.joinedAt));
+          if (rows.length === 0) return [];
+          const countRows = await db
+            .select({ roundId: roundParticipantsTable.roundId, value: count() })
+            .from(roundParticipantsTable)
+            .where(
+              inArray(
+                roundParticipantsTable.roundId,
+                rows.map((row) => row.roundId),
+              ),
+            )
+            .groupBy(roundParticipantsTable.roundId);
+          const counts = new Map(countRows.map((row) => [row.roundId, row.value]));
+          return rows.map((row) => ({
+            roundId: row.roundId,
+            roundTitle: row.roundTitle,
+            projectSlug: row.projectSlug,
+            status: row.status,
+            formats: row.formats as RoundFormat[],
+            participantCount: counts.get(row.roundId) ?? 0,
+            joinedAt:
+              row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
+          }));
         } catch (error) {
           throw toOrpcError(error);
         }

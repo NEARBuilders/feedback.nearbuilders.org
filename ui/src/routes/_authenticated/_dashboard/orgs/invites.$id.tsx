@@ -3,7 +3,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthClient } from "@/app";
-import { Badge, Button, Card, CardContent, PageContainer, PageHeader } from "@/components";
+import { Badge, Button, Card, CardContent, PageHeader } from "@/components";
 import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/orgs/invites/$id")({
@@ -84,97 +84,91 @@ function AcceptInvitation() {
 
   if (isLoading) {
     return (
-      <PageContainer variant="wide">
-        <div className="flex items-center justify-center min-h-[40vh]">
-          <p className="text-sm text-muted-foreground">Loading invitation...</p>
-        </div>
-      </PageContainer>
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <p className="text-sm text-muted-foreground">Loading invitation...</p>
+      </div>
     );
   }
 
   if (!invitation) {
     return (
-      <PageContainer variant="wide">
-        <Card className="mt-12">
-          <CardContent className="p-8 text-center space-y-4">
-            <XCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p className="text-sm">
-              This invitation does not exist, has expired, or is not addressed to your account.
-            </p>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/orgs">go to organizations</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </PageContainer>
+      <Card className="mt-12">
+        <CardContent className="p-8 text-center space-y-4">
+          <XCircle className="h-8 w-8 mx-auto text-muted-foreground" />
+          <p className="text-sm">
+            This invitation does not exist, has expired, or is not addressed to your account.
+          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/orgs">go to organizations</Link>
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   const isPending_ = acceptMutation.isPending || rejectMutation.isPending;
 
   return (
-    <PageContainer variant="wide">
-      <div className="space-y-6">
-        <PageHeader title="You've been invited" />
-        <Card>
-          <CardContent className="p-8 space-y-6">
-            <div className="space-y-2 text-center">
-              <div className="flex justify-center">
-                <CheckCircle className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h1 className="text-xl font-semibold tracking-tight">You've been invited</h1>
-              <p className="text-sm text-muted-foreground">
-                You have been invited to join{" "}
-                <span className="font-medium text-foreground">
-                  {invitation.organizationName ?? invitation.organizationSlug}
-                </span>{" "}
-                as <span className="font-mono">{invitation.role ?? "member"}</span>.
-              </p>
+    <div className="space-y-6">
+      <PageHeader title="You've been invited" />
+      <Card>
+        <CardContent className="p-8 space-y-6">
+          <div className="space-y-2 text-center">
+            <div className="flex justify-center">
+              <CheckCircle className="h-8 w-8 text-muted-foreground" />
             </div>
+            <h1 className="text-xl font-semibold tracking-tight">You've been invited</h1>
+            <p className="text-sm text-muted-foreground">
+              You have been invited to join{" "}
+              <span className="font-medium text-foreground">
+                {invitation.organizationName ?? invitation.organizationSlug}
+              </span>{" "}
+              as <span className="font-mono">{invitation.role ?? "member"}</span>.
+            </p>
+          </div>
 
-            <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-2 text-xs font-mono">
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">organization</span>
-                <span className="text-right break-all">
-                  {invitation.organizationName ?? invitation.organizationSlug}
-                </span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">role</span>
-                <span>{invitation.role ?? "member"}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">expires</span>
-                <span>{new Date(invitation.expiresAt).toLocaleDateString()}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">status</span>
-                <Badge variant="outline">{invitation.status}</Badge>
-              </div>
+          <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-2 text-xs font-mono">
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">organization</span>
+              <span className="text-right break-all">
+                {invitation.organizationName ?? invitation.organizationSlug}
+              </span>
             </div>
-
-            <div className="flex gap-3 justify-center">
-              <Button onClick={() => acceptMutation.mutate()} disabled={isPending_} size="sm">
-                {acceptMutation.isPending ? "accepting..." : "accept"}
-              </Button>
-              <Button
-                onClick={() => rejectMutation.mutate()}
-                disabled={isPending_}
-                variant="outline"
-                size="sm"
-              >
-                {rejectMutation.isPending ? "declining..." : "decline"}
-              </Button>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">role</span>
+              <span>{invitation.role ?? "member"}</span>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">expires</span>
+              <span>{new Date(invitation.expiresAt).toLocaleDateString()}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">status</span>
+              <Badge variant="outline">{invitation.status}</Badge>
+            </div>
+          </div>
 
-        <div className="text-center">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/orgs">back to organizations</Link>
-          </Button>
-        </div>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => acceptMutation.mutate()} disabled={isPending_} size="sm">
+              {acceptMutation.isPending ? "accepting..." : "accept"}
+            </Button>
+            <Button
+              onClick={() => rejectMutation.mutate()}
+              disabled={isPending_}
+              variant="outline"
+              size="sm"
+            >
+              {rejectMutation.isPending ? "declining..." : "decline"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="text-center">
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/orgs">back to organizations</Link>
+        </Button>
       </div>
-    </PageContainer>
+    </div>
   );
 }

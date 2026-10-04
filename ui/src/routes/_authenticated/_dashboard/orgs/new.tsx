@@ -14,7 +14,6 @@ import {
   FieldError,
   FieldLabel,
   Input,
-  PageContainer,
   PageHeader,
 } from "@/components";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -68,147 +67,145 @@ function NewOrganization() {
   });
 
   return (
-    <PageContainer variant="wide">
-      <div className="space-y-6">
-        <PageHeader
-          icon={Users}
-          label="Teams"
-          title="New Organization"
-          actions={
-            <Button asChild variant="outline">
-              <Link to="/orgs">back to organizations</Link>
-            </Button>
-          }
-          headerTestId="orgs.new.heading"
-        />
+    <div className="space-y-6">
+      <PageHeader
+        icon={Users}
+        label="Teams"
+        title="New Organization"
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/orgs">back to organizations</Link>
+          </Button>
+        }
+        headerTestId="orgs.new.heading"
+      />
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            form.handleSubmit();
-          }}
-          className="space-y-6"
-        >
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <form.Field
-                name="name"
-                validators={{
-                  onChange: ({ value }) => (!value.trim() ? "name is required" : undefined),
-                }}
-              >
-                {(field) => {
-                  const errors = field.state.meta.isTouched ? field.state.meta.errors : [];
-                  return (
-                    <Field data-invalid={errors.length > 0 || undefined}>
-                      <FieldLabel htmlFor={field.name}>name</FieldLabel>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        type="text"
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => {
-                          field.handleChange(e.target.value);
-                          form.setFieldValue(
-                            "slug",
-                            deriveSlug(
-                              e.target.value,
-                              form.getFieldValue("slug"),
-                              slugManuallyEdited.current,
-                            ),
-                            { dontUpdateMeta: true },
-                          );
-                        }}
-                        placeholder="My Team"
-                        aria-invalid={errors.length > 0 || undefined}
-                      />
-                      {errors.length > 0 ? <FieldError>{errors.join(", ")}</FieldError> : null}
-                    </Field>
-                  );
-                }}
-              </form.Field>
-
-              <form.Field
-                name="slug"
-                validators={{
-                  onChange: ({ value }) => {
-                    if (!value) return "slug is required";
-                    if (!/^[a-z0-9-]+$/.test(value)) {
-                      return "only lowercase letters, numbers, and hyphens";
-                    }
-                    return undefined;
-                  },
-                }}
-              >
-                {(field) => {
-                  const errors = field.state.meta.isTouched ? field.state.meta.errors : [];
-                  return (
-                    <Field data-invalid={errors.length > 0 || undefined}>
-                      <FieldLabel htmlFor={field.name}>slug</FieldLabel>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        type="text"
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => {
-                          slugManuallyEdited.current = true;
-                          field.setMeta((meta) => ({ ...meta, isTouched: true }));
-                          field.handleChange(event.target.value.replace(/[^a-z0-9-]/g, ""));
-                        }}
-                        placeholder="my-team"
-                        pattern="[a-z0-9-]+"
-                        aria-invalid={errors.length > 0 || undefined}
-                      />
-                      <FieldDescription>
-                        Only lowercase letters, numbers, and hyphens.
-                      </FieldDescription>
-                      {errors.length > 0 ? <FieldError>{errors.join(", ")}</FieldError> : null}
-                    </Field>
-                  );
-                }}
-              </form.Field>
-            </CardContent>
-          </Card>
-
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link to="/orgs">cancel</Link>
-            </Button>
-            <form.Subscribe
-              selector={(state) =>
-                state.canSubmit && !!state.values.name.trim() && !!state.values.slug
-              }
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+        className="space-y-6"
+      >
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <form.Field
+              name="name"
+              validators={{
+                onChange: ({ value }) => (!value.trim() ? "name is required" : undefined),
+              }}
             >
-              {(canSubmit) => (
-                <Button
-                  type="submit"
-                  disabled={createMutation.isPending || !canSubmit}
-                  variant="outline"
-                  data-testid="orgs.new.submit"
-                >
-                  {createMutation.isPending ? "creating..." : "create"}
-                </Button>
-              )}
-            </form.Subscribe>
-          </div>
-        </form>
+              {(field) => {
+                const errors = field.state.meta.isTouched ? field.state.meta.errors : [];
+                return (
+                  <Field data-invalid={errors.length > 0 || undefined}>
+                    <FieldLabel htmlFor={field.name}>name</FieldLabel>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="text"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => {
+                        field.handleChange(e.target.value);
+                        form.setFieldValue(
+                          "slug",
+                          deriveSlug(
+                            e.target.value,
+                            form.getFieldValue("slug"),
+                            slugManuallyEdited.current,
+                          ),
+                          { dontUpdateMeta: true },
+                        );
+                      }}
+                      placeholder="My Team"
+                      aria-invalid={errors.length > 0 || undefined}
+                    />
+                    {errors.length > 0 ? <FieldError>{errors.join(", ")}</FieldError> : null}
+                  </Field>
+                );
+              }}
+            </form.Field>
 
-        <section className="space-y-4">
-          <SectionHeader title="What happens next" />
-          <Card>
-            <CardContent className="p-4">
-              <ul className="space-y-2 text-xs text-muted-foreground">
-                <li>• Your organization will be created immediately</li>
-                <li>• You'll be the owner with full permissions</li>
-                <li>• You can invite team members from the organization settings</li>
-                <li>• You can switch between organizations anytime</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </section>
-      </div>
-    </PageContainer>
+            <form.Field
+              name="slug"
+              validators={{
+                onChange: ({ value }) => {
+                  if (!value) return "slug is required";
+                  if (!/^[a-z0-9-]+$/.test(value)) {
+                    return "only lowercase letters, numbers, and hyphens";
+                  }
+                  return undefined;
+                },
+              }}
+            >
+              {(field) => {
+                const errors = field.state.meta.isTouched ? field.state.meta.errors : [];
+                return (
+                  <Field data-invalid={errors.length > 0 || undefined}>
+                    <FieldLabel htmlFor={field.name}>slug</FieldLabel>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      type="text"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) => {
+                        slugManuallyEdited.current = true;
+                        field.setMeta((meta) => ({ ...meta, isTouched: true }));
+                        field.handleChange(event.target.value.replace(/[^a-z0-9-]/g, ""));
+                      }}
+                      placeholder="my-team"
+                      pattern="[a-z0-9-]+"
+                      aria-invalid={errors.length > 0 || undefined}
+                    />
+                    <FieldDescription>
+                      Only lowercase letters, numbers, and hyphens.
+                    </FieldDescription>
+                    {errors.length > 0 ? <FieldError>{errors.join(", ")}</FieldError> : null}
+                  </Field>
+                );
+              }}
+            </form.Field>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link to="/orgs">cancel</Link>
+          </Button>
+          <form.Subscribe
+            selector={(state) =>
+              state.canSubmit && !!state.values.name.trim() && !!state.values.slug
+            }
+          >
+            {(canSubmit) => (
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || !canSubmit}
+                variant="outline"
+                data-testid="orgs.new.submit"
+              >
+                {createMutation.isPending ? "creating..." : "create"}
+              </Button>
+            )}
+          </form.Subscribe>
+        </div>
+      </form>
+
+      <section className="space-y-4">
+        <SectionHeader title="What happens next" />
+        <Card>
+          <CardContent className="p-4">
+            <ul className="space-y-2 text-xs text-muted-foreground">
+              <li>• Your organization will be created immediately</li>
+              <li>• You'll be the owner with full permissions</li>
+              <li>• You can invite team members from the organization settings</li>
+              <li>• You can switch between organizations anytime</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </section>
+    </div>
   );
 }

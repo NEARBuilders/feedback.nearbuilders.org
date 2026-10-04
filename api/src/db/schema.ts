@@ -130,6 +130,7 @@ export const roundParticipants = pgTable(
       table.accountId,
     ),
     roundIdx: index("round_participants_round_idx").on(table.roundId),
+    accountIdx: index("round_participants_account_idx").on(table.accountId),
   }),
 );
 

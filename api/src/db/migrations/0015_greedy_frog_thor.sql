@@ -1,0 +1,1 @@
+CREATE INDEX "round_participants_account_idx" ON "round_participants" USING btree ("account_id");
