@@ -45,15 +45,6 @@ describe("createActivityEmitter (disabled)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("returns no leaderboard and makes no request when the gateway is not configured", async () => {
-    const fetchMock = vi.fn();
-    const emitter = createActivityEmitter({ fetch: fetchMock, logger: { warn } });
-
-    expect(await emitter.leaderboard({ period: "weekly" })).toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(warn).not.toHaveBeenCalled();
-  });
-
   it("stays disabled when only one of URL / key is set", () => {
     const withUrl = createActivityEmitter({
       baseUrl: "https://activity.example/api",

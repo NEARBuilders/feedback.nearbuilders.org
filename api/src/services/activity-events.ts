@@ -249,17 +249,15 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
       }
     },
 
-    leaderboard: (input) => {
-      if (!baseUrl) return Promise.resolve(null);
-      return read("leaderboard", () =>
+    leaderboard: (input) =>
+      read("leaderboard", () =>
         client.leaderboard({
           period: input.period,
           type: input.type,
           limit: input.limit,
           source: sourceId || undefined,
         }),
-      );
-    },
+      ),
 
     endorsements: async (eventIds) => {
       if (eventIds.length === 0) return {};
