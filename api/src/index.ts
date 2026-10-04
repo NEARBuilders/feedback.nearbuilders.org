@@ -77,8 +77,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
     NOSTR_SECRET_KEY_HEX: z.string().default(""),
     // nearbuilders.org API base URL, used to resolve the "request a round" form's
     // project picker against real projects (#23). Read-only, no key required;
-    // the picker falls back to free-text entry when unset. See services/projects.ts.
-    PROJECTS_API_BASE_URL: z.string().default(""),
+    // the picker falls back to free-text entry when unreachable. See
+    // services/projects.ts.
+    PROJECTS_API_BASE_URL: z.string().default("https://nearbuilders.org/api"),
     // Optional GitHub PAT used to read issues filed on a round's repo for
     // GitHub-issue credit (#49). Public repos work unauthenticated too, just
     // rate-limited to 60/hr instead of 5000/hr. See services/github-issues.ts.
@@ -547,6 +548,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const accountId = context.near?.primaryAccountId;
           if (!accountId) return { joined: false };
           return { joined: await services.rounds.hasParticipant(input.id, accountId) };
+        }),
+
+      listMyJoinedRounds: builder.listMyJoinedRounds
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) return [];
+          return services.rounds.listMyJoinedRounds(accountId);
         }),
 
       postFeedback: builder.postFeedback

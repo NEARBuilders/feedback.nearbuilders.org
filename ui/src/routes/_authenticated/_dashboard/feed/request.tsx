@@ -5,20 +5,19 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import {
-  Badge,
   Button,
   Card,
-  CardContent,
   Checkbox,
   Field,
   FieldLabel,
   Input,
-  SectionHeader,
+  MyProjects,
   Textarea,
 } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { pageHead } from "@/lib/page-title";
+import { useNearAccountStatus } from "@/lib/use-near-account";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -52,7 +51,7 @@ function RequestRoundPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const navigate = useNavigate();
-  const nearAccountId = auth.near.getAccountId();
+  const { accountId: nearAccountId, isDetecting: isNearDetecting } = useNearAccountStatus();
   const sessionQuery = useQuery(sessionQueryOptions(auth));
   const activeOrgId = sessionQuery.data?.session?.activeOrganizationId ?? null;
 
@@ -119,8 +118,8 @@ function RequestRoundPage() {
     (!needsRepoUrl || !!repoUrl.trim());
 
   return (
-    <PageContainer variant="narrow">
-      <div className="space-y-6">
+    <PageContainer variant="default">
+      <div className="space-y-8">
         <PageHeader
           icon={Sparkles}
           label="Request"
@@ -128,7 +127,7 @@ function RequestRoundPage() {
           description="New projects are reviewed by an admin once. After approval, your organization's rounds open right away."
         />
 
-        {!nearAccountId && (
+        {!nearAccountId && !isNearDetecting && (
           <Card className="p-4">
             <p className="text-sm text-muted-foreground">
               Link a NEAR account before requesting a round.{" "}
@@ -160,140 +159,138 @@ function RequestRoundPage() {
           }}
           className="space-y-6"
         >
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <Field>
-                <FieldLabel htmlFor="round-project">project</FieldLabel>
-                <div className="relative">
-                  <Input
-                    id="round-project"
-                    value={projectQuery}
-                    onChange={(e) => {
-                      setProjectQuery(e.target.value);
-                      setSelectedProject(null);
-                      setShowProjectResults(true);
-                    }}
-                    onFocus={() => setShowProjectResults(true)}
-                    onBlur={() => setTimeout(() => setShowProjectResults(false), 150)}
-                    placeholder="Search nearbuilders.org projects, or type a new slug"
-                    autoComplete="off"
-                    required
-                    disabled={createMutation.isPending}
-                  />
-                  {showProjectResults && projectResults.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border border-border bg-popover shadow-md">
-                      {projectResults.map((project) => (
-                        <button
-                          key={project.id}
-                          type="button"
-                          className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-accent"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            setSelectedProject(project);
-                            setProjectQuery(project.title);
-                            setShowProjectResults(false);
-                          }}
-                        >
-                          <span className="font-medium text-foreground">{project.title}</span>
-                          <span className="text-xs text-muted-foreground">{project.slug}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {selectedProject ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Linked to nearbuilders.org project "{selectedProject.slug}".
-                  </p>
-                ) : (
-                  projectQuery.trim().length > 1 &&
-                  !projectSearch.isFetching && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      No match on nearbuilders.org — this will be stored as a free-text slug.
-                    </p>
-                  )
+          <Card className="p-6 space-y-4">
+            <Field>
+              <FieldLabel htmlFor="round-project">project</FieldLabel>
+              <div className="relative">
+                <Input
+                  id="round-project"
+                  value={projectQuery}
+                  onChange={(e) => {
+                    setProjectQuery(e.target.value);
+                    setSelectedProject(null);
+                    setShowProjectResults(true);
+                  }}
+                  onFocus={() => setShowProjectResults(true)}
+                  onBlur={() => setTimeout(() => setShowProjectResults(false), 150)}
+                  placeholder="Search nearbuilders.org projects, or type a new slug"
+                  autoComplete="off"
+                  required
+                  disabled={createMutation.isPending}
+                />
+                {showProjectResults && projectResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border border-border bg-popover shadow-md">
+                    {projectResults.map((project) => (
+                      <button
+                        key={project.id}
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-accent"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setProjectQuery(project.title);
+                          setShowProjectResults(false);
+                        }}
+                      >
+                        <span className="font-medium text-foreground">{project.title}</span>
+                        <span className="text-xs text-muted-foreground">{project.slug}</span>
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </Field>
+              </div>
+              {selectedProject ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Linked to nearbuilders.org project "{selectedProject.slug}".
+                </p>
+              ) : (
+                projectQuery.trim().length > 1 &&
+                !projectSearch.isFetching && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No match on nearbuilders.org — this will be stored as a free-text slug.
+                  </p>
+                )
+              )}
+            </Field>
 
-              <Field>
-                <FieldLabel htmlFor="round-title">title</FieldLabel>
-                <Input
-                  id="round-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Try the new onboarding flow"
-                  required
-                  disabled={createMutation.isPending}
-                />
-              </Field>
+            <Field>
+              <FieldLabel htmlFor="round-title">title</FieldLabel>
+              <Input
+                id="round-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Try the new onboarding flow"
+                required
+                disabled={createMutation.isPending}
+              />
+            </Field>
 
-              <Field>
-                <FieldLabel htmlFor="round-description">what needs testing</FieldLabel>
-                <Textarea
-                  id="round-description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={5}
-                  placeholder="What should testers focus on?"
-                  required
-                  disabled={createMutation.isPending}
-                />
-              </Field>
+            <Field>
+              <FieldLabel htmlFor="round-description">what needs testing</FieldLabel>
+              <Textarea
+                id="round-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={5}
+                placeholder="What should testers focus on?"
+                required
+                disabled={createMutation.isPending}
+              />
+            </Field>
 
-              <Field>
-                <FieldLabel htmlFor="round-readme">
-                  readme for testers (optional, markdown)
-                </FieldLabel>
-                <Textarea
-                  id="round-readme"
-                  value={readme}
-                  onChange={(e) => setReadme(e.target.value)}
-                  rows={8}
-                  maxLength={20000}
-                  placeholder={"## What to test\n\n1. Sign up...\n\n## Focus on\n\n- ..."}
-                  disabled={createMutation.isPending}
-                />
-              </Field>
+            <Field>
+              <FieldLabel htmlFor="round-readme">
+                readme for testers (optional, markdown)
+              </FieldLabel>
+              <Textarea
+                id="round-readme"
+                value={readme}
+                onChange={(e) => setReadme(e.target.value)}
+                rows={8}
+                maxLength={20000}
+                placeholder={"## What to test\n\n1. Sign up...\n\n## Focus on\n\n- ..."}
+                disabled={createMutation.isPending}
+              />
+            </Field>
 
-              <Field>
-                <FieldLabel>feedback formats</FieldLabel>
-                <div className="space-y-2.5 mt-1">
-                  {FORMAT_OPTIONS.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex items-start gap-2.5 cursor-pointer"
-                      htmlFor={`format-${option.value}`}
-                    >
-                      <Checkbox
-                        id={`format-${option.value}`}
-                        checked={formats.includes(option.value)}
-                        onCheckedChange={() => toggleFormat(option.value)}
-                        disabled={createMutation.isPending}
-                      />
-                      <span className="text-sm">
-                        <span className="text-foreground font-medium">{option.label}</span>
-                        <span className="block text-xs text-muted-foreground">{option.hint}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </Field>
+            <Field>
+              <FieldLabel>feedback formats</FieldLabel>
+              <div className="space-y-2.5 mt-1">
+                {FORMAT_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-start gap-2.5 cursor-pointer"
+                    htmlFor={`format-${option.value}`}
+                  >
+                    <Checkbox
+                      id={`format-${option.value}`}
+                      checked={formats.includes(option.value)}
+                      onCheckedChange={() => toggleFormat(option.value)}
+                      disabled={createMutation.isPending}
+                    />
+                    <span className="text-sm">
+                      <span className="text-foreground font-medium">{option.label}</span>
+                      <span className="block text-xs text-muted-foreground">{option.hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </Field>
 
-              <Field>
-                <FieldLabel htmlFor="round-repo">
-                  repo url{needsRepoUrl ? " (required for GitHub issues)" : " (optional)"}
-                </FieldLabel>
-                <Input
-                  id="round-repo"
-                  type="url"
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
-                  placeholder="https://github.com/org/repo"
-                  required={needsRepoUrl}
-                  disabled={createMutation.isPending}
-                />
-              </Field>
-            </CardContent>
+            <Field>
+              <FieldLabel htmlFor="round-repo">
+                repo url{needsRepoUrl ? " (required for GitHub issues)" : " (optional)"}
+              </FieldLabel>
+              <Input
+                id="round-repo"
+                type="url"
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                placeholder="https://github.com/org/repo"
+                required={needsRepoUrl}
+                disabled={createMutation.isPending}
+              />
+            </Field>
           </Card>
 
           <Button type="submit" disabled={!canSubmit || createMutation.isPending}>
@@ -304,65 +301,5 @@ function RequestRoundPage() {
         <MyProjects />
       </div>
     </PageContainer>
-  );
-}
-
-const PROJECT_STATUS_LABEL = {
-  pending: "Awaiting approval",
-  approved: "Approved",
-  rejected: "Rejected",
-} as const;
-
-/** The active org's projects with their approval status and any rejection reason. */
-function MyProjects() {
-  const apiClient = useApiClient();
-  const projectsQuery = useQuery({
-    queryKey: ["projects", "mine"],
-    queryFn: () => apiClient.listMyProjects(),
-    retry: false,
-  });
-  const projects = projectsQuery.data ?? [];
-  if (projects.length === 0) return null;
-
-  return (
-    <div className="space-y-3">
-      <SectionHeader title="Your projects" />
-      <ul className="space-y-2">
-        {projects.map((project) => (
-          <li key={project.id}>
-            <Card className="p-4 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{project.name}</p>
-                  <p className="text-xs font-mono text-muted-foreground">{project.slug}</p>
-                </div>
-                <Badge variant={project.status === "rejected" ? "destructive" : "outline"}>
-                  {PROJECT_STATUS_LABEL[project.status]}
-                </Badge>
-              </div>
-              {project.status === "rejected" && project.rejectionReason && (
-                <p className="text-sm text-foreground">{project.rejectionReason}</p>
-              )}
-              {project.rounds.length > 0 && (
-                <ul className="space-y-1">
-                  {project.rounds.map((round) => (
-                    <li key={round.id} className="text-sm">
-                      <Link
-                        to="/feed/$roundId"
-                        params={{ roundId: round.id }}
-                        className="text-foreground underline"
-                      >
-                        #{round.projectRoundNumber} {round.title}
-                      </Link>{" "}
-                      <span className="text-xs text-muted-foreground">({round.status})</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

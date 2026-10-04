@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { CircleHelp } from "lucide-react";
 import { Button, Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -48,8 +49,10 @@ const FOR_BUILDERS = [
 function HowToIntegratePage() {
   return (
     <PageContainer variant="default">
-      <div className="space-y-10">
+      <div className="space-y-8">
         <PageHeader
+          icon={CircleHelp}
+          label="Feedback Rounds"
           title="How it works"
           description="Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs tested, builders join and try it, testers report back, and the round produces a durable record of who contributed."
         />

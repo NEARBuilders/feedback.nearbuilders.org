@@ -1,17 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Users } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, ExternalLink, MessageSquare, Share2, Trash2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import {
   Badge,
   Button,
   Card,
+  ConfirmDialog,
   EmptyState,
   Field,
   FieldLabel,
   Input,
+  SegmentedToggle,
   Skeleton,
   Textarea,
 } from "@/components";
@@ -23,6 +25,7 @@ import { RoundReadme } from "@/components/round-readme";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { pageHead } from "@/lib/page-title";
 import { roundCta } from "@/lib/round-cta";
+import { useNearAccountStatus } from "@/lib/use-near-account";
 
 const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "default",
@@ -32,6 +35,8 @@ const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" |
 };
 
 type FeedbackFormat = "written" | "recorded";
+
+const FEEDBACK_BODY_MAX = 5000;
 
 export const Route = createFileRoute("/_public/feed/$roundId")({
   head: ({ params }) => pageHead("Round", `Feedback round ${params.roundId}.`),
@@ -44,6 +49,30 @@ const FORMAT_LABELS: Record<string, string> = {
   recorded: "Recorded session",
 };
 
+const FORMAT_HINTS: Record<FeedbackFormat, string> = {
+  written:
+    "Write up what you tried, what worked, and what didn't. It's posted publicly on the round.",
+  recorded: "Paste a link to your session recording — Loom, YouTube, anything viewable.",
+};
+
+type FeedbackDraft = { body: string; url: string };
+
+const EMPTY_DRAFT: FeedbackDraft = { body: "", url: "" };
+
+async function shareRound(title: string) {
+  const url = window.location.href;
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title, url });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    }
+  }
+  await navigator.clipboard.writeText(url);
+  toast.success("Link copied");
+}
+
 function RoundDetailPage() {
   const { roundId } = Route.useParams();
   const apiClient = useApiClient();
@@ -51,7 +80,7 @@ function RoundDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const canGoBack = router.history.canGoBack?.() ?? false;
-  const nearAccountId = auth.near.getAccountId();
+  const { accountId: nearAccountId, isDetecting: isNearDetecting } = useNearAccountStatus();
   const sessionQuery = useQuery(sessionQueryOptions(auth));
   const isAdmin = sessionQuery.data?.user?.role === "admin";
 
@@ -82,6 +111,7 @@ function RoundDetailPage() {
     onSuccess: (detail, next) => {
       queryClient.setQueryData(["round", roundId], detail);
       queryClient.setQueryData(["round", roundId, "participation"], { joined: next });
+      void queryClient.invalidateQueries({ queryKey: ["myRounds"] });
       toast.success(next ? "Joined the round" : "Left the round");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -89,8 +119,8 @@ function RoundDetailPage() {
 
   if (roundQuery.isLoading) {
     return (
-      <PageContainer variant="narrow">
-        <div className="space-y-3 py-6">
+      <PageContainer variant="default">
+        <div className="space-y-3">
           <Skeleton className="h-8 w-2/3" />
           <Skeleton className="h-24 w-full" />
         </div>
@@ -100,7 +130,7 @@ function RoundDetailPage() {
 
   if (!round) {
     return (
-      <PageContainer variant="narrow">
+      <PageContainer variant="default">
         <EmptyState
           title="Round not found."
           action={
@@ -120,23 +150,24 @@ function RoundDetailPage() {
   const cta = roundCta({
     roundId,
     canJoin,
-    sessionPending: sessionQuery.isPending,
+    sessionPending: sessionQuery.isPending || isNearDetecting,
     signedIn: !!sessionQuery.data?.user,
     nearAccountId: nearAccountId || null,
     joined,
   });
 
   return (
-    <PageContainer variant="narrow">
-      <div className="space-y-6 py-6">
-        <div className="flex items-center gap-3">
+    <PageContainer variant="default">
+      <div className="space-y-8">
+        <div className="flex items-center justify-between gap-3">
           {canGoBack ? (
             <button
               type="button"
+              aria-label="Go back"
               onClick={() => router.history.back()}
-              className="flex items-center justify-center w-8 h-8 border border-border bg-card rounded-md hover:bg-muted"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card hover:bg-muted"
             >
-              <ArrowLeft size={14} />
+              <ArrowLeft className="h-4 w-4" />
             </button>
           ) : (
             <Link
@@ -147,10 +178,21 @@ function RoundDetailPage() {
               feed
             </Link>
           )}
-          <Badge variant={STATUS_BADGE_VARIANT[round.status] ?? "outline"}>{round.status}</Badge>
+          <Button variant="outline" size="sm" onClick={() => void shareRound(round.title)}>
+            <Share2 className="h-3.5 w-3.5" />
+            Share
+          </Button>
         </div>
 
-        <PageHeader title={round.title} subtitle={round.projectSlug} />
+        <PageHeader
+          icon={MessageSquare}
+          label="Feedback Rounds"
+          title={round.title}
+          subtitle={round.projectSlug}
+          actions={
+            <Badge variant={STATUS_BADGE_VARIANT[round.status] ?? "outline"}>{round.status}</Badge>
+          }
+        />
 
         <RoundReadme roundId={roundId} readme={round.readme} canEdit={canManage} />
 
@@ -253,10 +295,10 @@ function RoundDetailPage() {
 
         <FeedbackThread
           roundId={roundId}
-          formats={round.formats.filter(
-            (f): f is FeedbackFormat => f === "written" || f === "recorded",
-          )}
+          formats={round.formats}
+          repoUrl={round.repoUrl}
           canPost={joined && round.status === "open"}
+          canDelete={round.status === "open"}
         />
       </div>
     </PageContainer>
@@ -266,17 +308,52 @@ function RoundDetailPage() {
 function FeedbackThread({
   roundId,
   formats,
+  repoUrl,
   canPost,
+  canDelete,
 }: {
   roundId: string;
-  formats: FeedbackFormat[];
+  formats: string[];
+  repoUrl?: string | null;
   canPost: boolean;
+  canDelete: boolean;
 }) {
   const apiClient = useApiClient();
+  const auth = useAuthClient();
   const queryClient = useQueryClient();
-  const [format, setFormat] = useState<FeedbackFormat>(formats[0] ?? "written");
-  const [body, setBody] = useState("");
-  const [url, setUrl] = useState("");
+  const nearAccountId = auth.near.getAccountId();
+
+  const writableFormats = formats.filter(
+    (f): f is FeedbackFormat => f === "written" || f === "recorded",
+  );
+  const [format, setFormat] = useState<FeedbackFormat>(writableFormats[0] ?? "written");
+  const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const draftKey = `feedback-draft:${roundId}`;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<FeedbackDraft>;
+        setDraft({ body: parsed.body ?? "", url: parsed.url ?? "" });
+      }
+    } catch {
+      localStorage.removeItem(draftKey);
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (draft.body || draft.url) {
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } else {
+        localStorage.removeItem(draftKey);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft, draftKey]);
 
   const feedbackQuery = useQuery({
     queryKey: ["round", roundId, "feedback"],
@@ -288,14 +365,23 @@ function FeedbackThread({
       apiClient.postFeedback({
         id: roundId,
         format,
-        body: format === "written" ? body.trim() : undefined,
-        url: format === "recorded" ? url.trim() : undefined,
+        body: format === "written" ? draft.body.trim() : undefined,
+        url: format === "recorded" ? draft.url.trim() : undefined,
       }),
     onSuccess: () => {
-      setBody("");
-      setUrl("");
+      setDraft(EMPTY_DRAFT);
+      localStorage.removeItem(draftKey);
       void queryClient.invalidateQueries({ queryKey: ["round", roundId, "feedback"] });
       toast.success("Feedback posted");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (feedbackId: string) => apiClient.deleteFeedback({ id: roundId, feedbackId }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "feedback"] });
+      toast.success("Feedback deleted");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -303,41 +389,69 @@ function FeedbackThread({
   const entries = feedbackQuery.data ?? [];
   const canSubmit =
     !postMutation.isPending &&
-    (format === "written" ? !!body.trim() : !!url.trim()) &&
-    formats.includes(format);
+    (format === "written" ? draft.body.trim().length > 0 : draft.url.trim().length > 0) &&
+    writableFormats.includes(format);
+
+  const issuesUrl = repoUrl ? `${repoUrl.replace(/\/+$/, "")}/issues` : null;
 
   return (
-    <div className="space-y-4 border-t border-border pt-6">
-      <SectionHeader title="Feedback" />
+    <div className="space-y-4 border-t border-border pt-8">
+      <SectionHeader
+        title="Feedback"
+        action={
+          !feedbackQuery.isLoading && entries.length > 0 ? (
+            <span className="text-sm text-muted-foreground">
+              {entries.length} {entries.length === 1 ? "entry" : "entries"}
+            </span>
+          ) : undefined
+        }
+      />
 
-      {canPost && formats.length > 0 && (
-        <Card className="p-4 space-y-3">
-          {formats.length > 1 && (
-            <div className="flex gap-1.5">
-              {formats.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFormat(f)}
-                  className={`rounded-sm border px-3 py-1 text-xs font-medium ${
-                    format === f
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border bg-card text-foreground"
-                  }`}
-                >
-                  {f === "written" ? "Written" : "Recorded"}
-                </button>
-              ))}
-            </div>
+      {formats.includes("issues") && issuesUrl && (
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">
+            For bugs, file an issue on the project's GitHub so it's tracked where fixes land.{" "}
+            <a
+              href={issuesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-foreground underline"
+            >
+              File an issue
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </p>
+        </Card>
+      )}
+
+      {canPost && writableFormats.length > 0 && (
+        <Card className="p-6 space-y-4">
+          {writableFormats.length > 1 && (
+            <SegmentedToggle
+              value={format}
+              onValueChange={setFormat}
+              options={writableFormats.map((f) => ({
+                value: f,
+                label: f === "written" ? "Written" : "Recorded",
+              }))}
+              ariaLabel="Feedback format"
+            />
           )}
+          <p className="text-xs text-muted-foreground">{FORMAT_HINTS[format]}</p>
           {format === "written" ? (
             <Field>
-              <FieldLabel htmlFor="feedback-body">your feedback</FieldLabel>
+              <div className="flex items-center justify-between gap-3">
+                <FieldLabel htmlFor="feedback-body">your feedback</FieldLabel>
+                <span className="text-xs text-muted-foreground">
+                  {draft.body.length}/{FEEDBACK_BODY_MAX}
+                </span>
+              </div>
               <Textarea
                 id="feedback-body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={4}
+                value={draft.body}
+                onChange={(e) => setDraft((prev) => ({ ...prev, body: e.target.value }))}
+                rows={5}
+                maxLength={FEEDBACK_BODY_MAX}
                 placeholder="What worked, what didn't?"
               />
             </Field>
@@ -347,8 +461,8 @@ function FeedbackThread({
               <Input
                 id="feedback-url"
                 type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                value={draft.url}
+                onChange={(e) => setDraft((prev) => ({ ...prev, url: e.target.value }))}
                 placeholder="https://..."
               />
             </Field>
@@ -365,36 +479,65 @@ function FeedbackThread({
         <p className="text-sm text-muted-foreground">No feedback yet.</p>
       ) : (
         <ul className="space-y-3">
-          {entries.map((entry) => (
-            <li
-              key={entry.id}
-              className="rounded-[10px] border border-border bg-card p-4 space-y-1.5"
-            >
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="font-mono text-foreground">{entry.authorAccountId}</span>
-                <Badge variant="outline" className="text-[10px]">
-                  {entry.format === "written" ? "Written" : "Recorded"}
-                </Badge>
-                <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
-              </div>
-              {entry.format === "written" ? (
-                <p className="text-sm text-foreground whitespace-pre-wrap">{entry.body}</p>
-              ) : (
-                entry.url && (
-                  <a
-                    href={entry.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-foreground underline break-all"
-                  >
-                    {entry.url}
-                  </a>
-                )
-              )}
-            </li>
-          ))}
+          {entries.map((entry) => {
+            const isOwn = !!nearAccountId && entry.authorAccountId === nearAccountId;
+            return (
+              <li key={entry.id}>
+                <Card className={`p-4 space-y-1.5 ${isOwn ? "border-foreground/30" : ""}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-mono text-foreground">{entry.authorAccountId}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {entry.format === "written" ? "Written" : "Recorded"}
+                      </Badge>
+                      <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
+                      {isOwn && <Badge className="text-[10px]">yours</Badge>}
+                    </div>
+                    {isOwn && canDelete && (
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(entry.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                  {entry.format === "written" ? (
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{entry.body}</p>
+                  ) : (
+                    entry.url && (
+                      <a
+                        href={entry.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-foreground underline break-all"
+                      >
+                        {entry.url}
+                      </a>
+                    )
+                  )}
+                </Card>
+              </li>
+            );
+          })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
+        title="Delete this feedback?"
+        description="Your feedback will be removed from the round. This can't be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        isPending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteId) {
+            deleteMutation.mutate(deleteId);
+            setDeleteId(null);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -409,23 +552,25 @@ function CreditsSection({ roundId }: { roundId: string }) {
   if (isLoading || credits.length === 0) return null;
 
   return (
-    <div className="space-y-3 border-t border-border pt-6">
+    <div className="space-y-3 border-t border-border pt-8">
       <SectionHeader title="Credited contributors" />
       <ul className="space-y-2">
         {credits.map((credit) => (
-          <li key={credit.id} className="rounded-[10px] border border-border bg-card p-4 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm text-foreground">{credit.builderAccountId}</span>
-              {credit.contributedMeaningfully && (
-                <Badge variant="secondary" className="text-[10px]">
-                  meaningful
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {credit.writtenCount} written · {credit.recordedCount} recorded
-            </p>
-            {credit.summary && <p className="text-sm text-foreground">{credit.summary}</p>}
+          <li key={credit.id}>
+            <Card className="p-4 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm text-foreground">{credit.builderAccountId}</span>
+                {credit.contributedMeaningfully && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    meaningful
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {credit.writtenCount} written · {credit.recordedCount} recorded
+              </p>
+              {credit.summary && <p className="text-sm text-foreground">{credit.summary}</p>}
+            </Card>
           </li>
         ))}
       </ul>
@@ -519,6 +664,7 @@ function OwnerClosePanel({ roundId }: { roundId: string }) {
     onSuccess: (detail) => {
       queryClient.setQueryData(["round", roundId], detail);
       void queryClient.invalidateQueries({ queryKey: ["round", roundId, "credits"] });
+      void queryClient.invalidateQueries({ queryKey: ["myRounds"] });
       toast.success("Round closed");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -553,7 +699,7 @@ function OwnerClosePanel({ roundId }: { roundId: string }) {
                 return (
                   <li
                     key={c.accountId}
-                    className="rounded-[8px] border border-border p-3 space-y-2"
+                    className="rounded-[10px] border border-border p-3 space-y-2"
                   >
                     <label
                       className="flex items-center gap-2 text-sm"

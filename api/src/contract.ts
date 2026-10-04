@@ -169,6 +169,18 @@ export const BuilderRoundSchema = z.object({
 
 export type BuilderRound = z.infer<typeof BuilderRoundSchema>;
 
+export const MyJoinedRoundSchema = z.object({
+  roundId: z.string(),
+  roundTitle: z.string(),
+  projectSlug: z.string(),
+  status: RoundStatusSchema,
+  formats: z.array(RoundFormatSchema),
+  participantCount: z.number().int().nonnegative(),
+  joinedAt: z.string(),
+});
+
+export type MyJoinedRound = z.infer<typeof MyJoinedRoundSchema>;
+
 export const CreditCandidateSchema = z.object({
   accountId: z.string(),
   writtenCount: z.number().int().nonnegative(),
@@ -434,6 +446,11 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.object({ joined: z.boolean() }))
     .errors({ UNAUTHORIZED }),
+
+  listMyJoinedRounds: oc
+    .route({ method: "GET", path: "/rounds/joined" })
+    .output(z.array(MyJoinedRoundSchema))
+    .errors({ UNAUTHORIZED, BAD_REQUEST }),
 
   postFeedback: oc
     .route({ method: "POST", path: "/rounds/{id}/feedback" })

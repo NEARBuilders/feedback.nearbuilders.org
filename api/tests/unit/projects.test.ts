@@ -32,7 +32,7 @@ describe("createProjectsLookup (disabled)", () => {
 describe("createProjectsLookup (enabled)", () => {
   const config = { baseUrl: "https://nearbuilders.org/api" };
 
-  it("searches public projects by query", async () => {
+  it("searches projects by query (public and unlisted)", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -44,9 +44,7 @@ describe("createProjectsLookup (enabled)", () => {
 
     expect(result).toEqual([project]);
     const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toBe(
-      "https://nearbuilders.org/api/v1/projects?query=onboarding&visibility=public&limit=10",
-    );
+    expect(url).toBe("https://nearbuilders.org/api/v1/projects?query=onboarding");
   });
 
   it("skips the request and returns an empty list for a blank query", async () => {

@@ -92,6 +92,8 @@ export { SidebarUserNav } from "./layout/sidebar-user-nav";
 export { ThemeToggle } from "./layout/theme-toggle";
 export { UserNav } from "./layout/user-nav";
 export { Logo } from "./logo";
+export { MyProjects } from "./my-projects";
+export { SegmentedToggle } from "./segmented-toggle";
 export { type Step, type StepState, useStepper } from "./ui/stepper";
 export { UnderConstruction } from "./under-construction";
 

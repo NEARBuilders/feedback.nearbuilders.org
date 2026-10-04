@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApiClient } from "@/app";
-import { EmptyState, Input, Skeleton } from "@/components";
+import { EmptyState, Input, SegmentedToggle, Skeleton } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundsTable } from "@/components/rounds-table";
@@ -47,28 +47,21 @@ function FeedPage() {
   }, [rounds, query]);
 
   return (
-    <PageContainer variant="wide">
+    <PageContainer variant="default">
       <div className="space-y-8">
         <div className="space-y-4">
           <PageHeader icon={MessageSquare} label="Feedback Rounds" title="Feed" />
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex rounded-md border border-border bg-card p-0.5">
-              {(["open", "closed"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setStatus(value)}
-                  className={`h-8 px-3 text-sm font-medium rounded-[8px] transition-colors ${
-                    status === value
-                      ? "bg-foreground text-background"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
+            <SegmentedToggle
+              value={status}
+              onValueChange={setStatus}
+              options={[
+                { value: "open", label: "open" },
+                { value: "closed", label: "closed" },
+              ]}
+              ariaLabel="Round status filter"
+            />
             <div className="relative max-w-sm flex-1 min-w-[12rem]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
