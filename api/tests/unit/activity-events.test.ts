@@ -37,6 +37,7 @@ describe("createActivityEmitter (disabled)", () => {
     const emitter = createActivityEmitter({ fetch: fetchMock, logger: { warn } });
 
     expect(emitter.enabled).toBe(false);
+    expect(emitter.readable).toBe(false);
     await emitter.emitRoundOpened(round);
     await emitter.emitFeedbackPosted(feedback);
 
@@ -44,11 +45,25 @@ describe("createActivityEmitter (disabled)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("returns no leaderboard and makes no request when the gateway is not configured", async () => {
+    const fetchMock = vi.fn();
+    const emitter = createActivityEmitter({ fetch: fetchMock, logger: { warn } });
+
+    expect(await emitter.leaderboard({ period: "weekly" })).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("stays disabled when only one of URL / key is set", () => {
-    expect(
-      createActivityEmitter({ baseUrl: "https://activity.example/api", logger: { warn } }).enabled,
-    ).toBe(false);
-    expect(createActivityEmitter({ apiKey: "act_secret", logger: { warn } }).enabled).toBe(false);
+    const withUrl = createActivityEmitter({
+      baseUrl: "https://activity.example/api",
+      logger: { warn },
+    });
+    expect(withUrl.enabled).toBe(false);
+    expect(withUrl.readable).toBe(true);
+    const withKey = createActivityEmitter({ apiKey: "act_secret", logger: { warn } });
+    expect(withKey.enabled).toBe(false);
+    expect(withKey.readable).toBe(false);
   });
 });
 

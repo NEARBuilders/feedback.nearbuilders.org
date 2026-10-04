@@ -187,6 +187,7 @@ export const LeaderboardEntrySchema = z.object({
 export const LeaderboardSchema = z.object({
   period: LeaderboardPeriodSchema,
   data: z.array(LeaderboardEntrySchema),
+  configured: z.boolean(),
 });
 
 export type Leaderboard = z.infer<typeof LeaderboardSchema>;

@@ -17,7 +17,10 @@
     "api": {
       "development": "local:api",
       "secrets": [
-        "API_DATABASE_URL"
+        "API_DATABASE_URL",
+        "ACTIVITY_API_BASE_URL",
+        "ACTIVITY_API_KEY",
+        "ACTIVITY_SOURCE_ID"
       ]
     }
   },

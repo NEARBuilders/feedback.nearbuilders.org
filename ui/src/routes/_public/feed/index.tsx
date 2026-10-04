@@ -7,7 +7,6 @@ import { EmptyState, Input, Skeleton } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundsTable } from "@/components/rounds-table";
-import { TopTesters } from "@/components/top-testers";
 import { pageHead } from "@/lib/page-title";
 
 type RoundStatusFilter = "open" | "closed";
@@ -80,8 +79,6 @@ function FeedPage() {
             </div>
           </div>
         </div>
-
-        <TopTesters />
 
         {isLoading ? (
           <div className="space-y-2" data-testid="rounds-loading">

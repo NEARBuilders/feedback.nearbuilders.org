@@ -98,6 +98,8 @@ export interface ActorEventsInput {
 export interface ActivityEmitter {
   /** True when a gateway URL and API key are configured. */
   readonly enabled: boolean;
+  /** True when a gateway URL is set. Leaderboard reads do not need an API key. */
+  readonly readable: boolean;
   /** Returns the gateway's event id on success, or null if disabled/failed. */
   emitRoundOpened(round: RoundOpenedInput): Promise<string | null>;
   emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<string | null>;
@@ -126,6 +128,7 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
   const sourceId = options.sourceId ?? "";
   const logger = options.logger ?? console;
   const enabled = Boolean(baseUrl && apiKey);
+  const readable = Boolean(baseUrl);
 
   const client = new ActivityClient({
     apiBaseUrl: baseUrl,
@@ -173,6 +176,7 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
 
   return {
     enabled,
+    readable,
 
     emitRoundOpened: (round) =>
       submit({
@@ -245,15 +249,17 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
       }
     },
 
-    leaderboard: (input) =>
-      read("leaderboard", () =>
+    leaderboard: (input) => {
+      if (!baseUrl) return Promise.resolve(null);
+      return read("leaderboard", () =>
         client.leaderboard({
           period: input.period,
           type: input.type,
           limit: input.limit,
           source: sourceId || undefined,
         }),
-      ),
+      );
+    },
 
     endorsements: async (eventIds) => {
       if (eventIds.length === 0) return {};

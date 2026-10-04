@@ -6,7 +6,9 @@ describe("dashboard navigation", () => {
   it("shows the feed and how-it-works links to everyone", () => {
     const anonymousPaths = filterSidebarByRole(NAV_ITEMS, "anon").map((item) => item.to);
 
-    expect(anonymousPaths).toEqual(expect.arrayContaining(["/feed", "/how-to-integrate"]));
+    expect(anonymousPaths).toEqual(
+      expect.arrayContaining(["/feed", "/leaderboard", "/how-to-integrate"]),
+    );
     expect(anonymousPaths).not.toContain("/admin");
   });
 
@@ -36,6 +38,7 @@ describe("dashboard navigation", () => {
   });
 
   it("highlights the feed on round detail pages but not on request a round", () => {
+    expect(getActiveItem(NAV_ITEMS, "/leaderboard")?.label).toBe("leaderboard");
     expect(getActiveItem(NAV_ITEMS, "/feed")?.label).toBe("feed");
     expect(getActiveItem(NAV_ITEMS, "/feed/round_1")?.label).toBe("feed");
     expect(getActiveItem(NAV_ITEMS, "/feed/request")?.label).toBe("request a round");

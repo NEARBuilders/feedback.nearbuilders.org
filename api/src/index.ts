@@ -780,22 +780,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
+        if (!services.activityEvents.readable) {
+          return { period: input.period, data: [], configured: false };
+        }
         const result = await services.activityEvents.leaderboard({
           period: input.period,
           type: "feedback.posted",
           limit: input.limit,
         });
-        return result
-          ? {
-              period: result.period,
-              data: result.data.map((entry) => ({
-                rank: entry.rank,
-                actor: entry.actor,
-                score: entry.score,
-                eventCount: entry.eventCount,
-              })),
-            }
-          : { period: input.period, data: [] };
+        if (!result) {
+          return { period: input.period, data: [], configured: true };
+        }
+        return {
+          period: result.period,
+          data: result.data.map((entry) => ({
+            rank: entry.rank,
+            actor: entry.actor,
+            score: entry.score,
+            eventCount: entry.eventCount,
+          })),
+          configured: true,
+        };
       }),
 
       testError: builder.testError.handler(async ({ input }) => {

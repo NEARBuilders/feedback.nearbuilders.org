@@ -96,6 +96,19 @@ describe("API Plugin Integration Tests", () => {
     });
   });
 
+  describe("getLeaderboard", () => {
+    it("returns an empty standing when the activity gateway is not configured", async () => {
+      const client = await getPluginClient();
+      const weekly = await client.getLeaderboard({ period: "weekly" });
+      const monthly = await client.getLeaderboard({ period: "monthly" });
+      const allTime = await client.getLeaderboard({ period: "all-time" });
+
+      expect(weekly).toEqual({ period: "weekly", data: [], configured: false });
+      expect(monthly).toEqual({ period: "monthly", data: [], configured: false });
+      expect(allTime).toEqual({ period: "all-time", data: [], configured: false });
+    });
+  });
+
   describe("testError", () => {
     it("maps error kinds to client-visible failures", async () => {
       const client = await getPluginClient();

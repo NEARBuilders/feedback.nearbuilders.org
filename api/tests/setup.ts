@@ -23,6 +23,8 @@ const TEST_CONFIG = {
   secrets: {
     ...pluginDevConfig.config.secrets,
     NOSTR_SECRET_KEY_HEX: TEST_NOSTR_SECRET_KEY_HEX,
+    ACTIVITY_API_BASE_URL: "",
+    ACTIVITY_API_KEY: "",
   },
 };
 
