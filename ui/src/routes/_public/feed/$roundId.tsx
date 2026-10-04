@@ -22,6 +22,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { RoundReadme } from "@/components/round-readme";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { pageHead } from "@/lib/page-title";
+import { roundCta } from "@/lib/round-cta";
 
 const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "default",
@@ -116,6 +117,14 @@ function RoundDetailPage() {
   const canManage = round.canManage ?? false;
   const isOwner = !!nearAccountId && nearAccountId === round.ownerAccountId;
   const canJoin = round.status === "open" && !isOwner && !canManage;
+  const cta = roundCta({
+    roundId,
+    canJoin,
+    sessionPending: sessionQuery.isPending,
+    signedIn: !!sessionQuery.data?.user,
+    nearAccountId: nearAccountId || null,
+    joined,
+  });
 
   return (
     <PageContainer variant="narrow">
@@ -188,16 +197,25 @@ function RoundDetailPage() {
             {round.participantCount} {round.participantCount === 1 ? "builder" : "builders"} joined
           </span>
 
-          {canJoin && nearAccountId && (
+          {(cta.kind === "join" || cta.kind === "leave") && (
             <Button
-              variant={joined ? "outline" : "default"}
-              onClick={() => joinMutation.mutate(!joined)}
+              variant={cta.kind === "leave" ? "outline" : "default"}
+              onClick={() => joinMutation.mutate(cta.kind === "join")}
               disabled={joinMutation.isPending || participationQuery.isLoading}
             >
-              {joined ? "Leave round" : "Join round"}
+              {cta.kind === "leave" ? "Leave round" : "Join round"}
             </Button>
           )}
-          {canJoin && !nearAccountId && (
+          {cta.kind === "signin" && (
+            <Link
+              to={cta.loginTo.to}
+              search={cta.loginTo.search}
+              className="text-sm text-foreground underline"
+            >
+              Sign in to join
+            </Link>
+          )}
+          {cta.kind === "link-account" && (
             <Link to="/settings/auth-methods" className="text-sm text-foreground underline">
               Link a NEAR account to join
             </Link>
