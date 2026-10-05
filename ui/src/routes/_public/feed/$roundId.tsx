@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, MessageSquare, Share2, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ExternalLink, MessageSquare, Share2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
@@ -18,6 +18,7 @@ import {
   Textarea,
 } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
+import { FeedbackTable } from "@/components/feedback-table";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -112,6 +113,7 @@ function RoundDetailPage() {
       queryClient.setQueryData(["round", roundId], detail);
       queryClient.setQueryData(["round", roundId, "participation"], { joined: next });
       void queryClient.invalidateQueries({ queryKey: ["myRounds"] });
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "participants"] });
       toast.success(next ? "Joined the round" : "Left the round");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -293,12 +295,15 @@ function RoundDetailPage() {
 
         {round.status === "closed" && <CreditsSection roundId={roundId} />}
 
+        {(canManage || isAdmin || joined) && <ParticipantsSection roundId={roundId} />}
+
         <FeedbackThread
           roundId={roundId}
           formats={round.formats}
           repoUrl={round.repoUrl}
           canPost={joined && round.status === "open"}
           canDelete={round.status === "open"}
+          canModerate={canManage || isAdmin}
         />
       </div>
     </PageContainer>
@@ -311,12 +316,14 @@ function FeedbackThread({
   repoUrl,
   canPost,
   canDelete,
+  canModerate,
 }: {
   roundId: string;
   formats: string[];
   repoUrl?: string | null;
   canPost: boolean;
   canDelete: boolean;
+  canModerate: boolean;
 }) {
   const apiClient = useApiClient();
   const auth = useAuthClient();
@@ -478,47 +485,14 @@ function FeedbackThread({
       ) : entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">No feedback yet.</p>
       ) : (
-        <ul className="space-y-3">
-          {entries.map((entry) => {
-            const isOwn = !!nearAccountId && entry.authorAccountId === nearAccountId;
-            return (
-              <li key={entry.id}>
-                <Card className={`p-4 space-y-1.5 ${isOwn ? "border-foreground/30" : ""}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-mono text-foreground">{entry.authorAccountId}</span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {entry.format === "written" ? "Written" : "Recorded"}
-                      </Badge>
-                      <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
-                      {isOwn && <Badge className="text-[10px]">yours</Badge>}
-                    </div>
-                    {isOwn && canDelete && (
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(entry.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                  {entry.format === "written" ? (
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{entry.body}</p>
-                  ) : (
-                    entry.url && (
-                      <a
-                        href={entry.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-foreground underline break-all"
-                      >
-                        {entry.url}
-                      </a>
-                    )
-                  )}
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
+        <FeedbackTable
+          roundId={roundId}
+          entries={entries}
+          canModerate={canModerate}
+          currentAccountId={nearAccountId || null}
+          canDelete={canDelete}
+          onDelete={setDeleteId}
+        />
       )}
 
       <ConfirmDialog
@@ -538,6 +512,51 @@ function FeedbackThread({
           }
         }}
       />
+    </div>
+  );
+}
+
+function ParticipantsSection({ roundId }: { roundId: string }) {
+  const apiClient = useApiClient();
+  const participantsQuery = useQuery({
+    queryKey: ["round", roundId, "participants"],
+    queryFn: () => apiClient.listParticipants({ id: roundId }),
+  });
+  const participants = participantsQuery.data ?? [];
+
+  return (
+    <div className="space-y-3 border-t border-border pt-8">
+      <SectionHeader
+        title="Participants"
+        action={
+          participants.length > 0 ? (
+            <span className="text-sm text-muted-foreground">{participants.length}</span>
+          ) : undefined
+        }
+      />
+      {participantsQuery.isLoading ? (
+        <Skeleton className="h-12 w-full" />
+      ) : participantsQuery.isError ? (
+        <p className="text-sm text-muted-foreground">Couldn't load participants.</p>
+      ) : participants.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nobody has joined this round yet.</p>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {participants.map((participant) => (
+            <li
+              key={participant.accountId}
+              className="flex items-center justify-between gap-3 px-4 py-2.5"
+            >
+              <span className="font-mono text-sm text-foreground break-all">
+                {participant.accountId}
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                Joined {new Date(participant.joinedAt).toLocaleDateString()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
