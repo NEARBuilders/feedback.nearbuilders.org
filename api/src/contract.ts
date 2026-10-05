@@ -198,6 +198,10 @@ export const LeaderboardEntrySchema = z.object({
 
 export const LeaderboardSchema = z.object({
   period: LeaderboardPeriodSchema,
+  /** False when no activity gateway URL is configured. */
+  configured: z.boolean(),
+  /** False when the gateway is unconfigured or the request to it failed. */
+  available: z.boolean(),
   data: z.array(LeaderboardEntrySchema),
 });
 
