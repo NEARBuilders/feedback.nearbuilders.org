@@ -17,6 +17,7 @@ import {
   Skeleton,
   Textarea,
 } from "@/components";
+import { BroadcastPanel } from "@/components/broadcast-panel";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { FeedbackTable } from "@/components/feedback-table";
 import { PageContainer } from "@/components/layout/page-container";
@@ -288,6 +289,10 @@ function RoundDetailPage() {
               <p className="text-sm text-foreground">{round.rejectionReason}</p>
             )}
           </Card>
+        )}
+
+        {(canManage || isAdmin) && round.status === "open" && (
+          <BroadcastPanel roundId={roundId} participantCount={round.participantCount} />
         )}
 
         {canManage && round.status === "open" && <OwnerClosePanel roundId={roundId} />}
