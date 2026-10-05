@@ -102,6 +102,17 @@ export type RoundDetail = z.infer<typeof RoundDetailSchema>;
 
 export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 
+export const RoundFeedbackStatusSchema = z.enum(["unresolved", "resolved", "dismissed"]);
+
+export type RoundFeedbackStatus = z.infer<typeof RoundFeedbackStatusSchema>;
+
+export const RoundParticipantSchema = z.object({
+  accountId: z.string(),
+  joinedAt: z.string(),
+});
+
+export type RoundParticipant = z.infer<typeof RoundParticipantSchema>;
+
 export const RoundFeedbackSchema = z.object({
   id: z.string(),
   roundId: z.string(),
@@ -109,6 +120,7 @@ export const RoundFeedbackSchema = z.object({
   format: RoundFeedbackFormatSchema,
   body: z.string().nullable(),
   url: z.string().nullable(),
+  status: RoundFeedbackStatusSchema,
   createdAt: z.string(),
   nostrEventId: z.string().nullable(),
 });
@@ -232,6 +244,13 @@ export const NearBuildersProjectSchema = z.object({
 });
 
 export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
+
+export const ProjectSearchResultSchema = z.object({
+  available: z.boolean(),
+  results: z.array(NearBuildersProjectSchema),
+});
+
+export type ProjectSearchResult = z.infer<typeof ProjectSearchResultSchema>;
 
 const PostFeedbackInputSchema = z
   .object({
@@ -470,6 +489,24 @@ export const contract = oc.router({
     .output(RoundFeedbackSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
+  setFeedbackStatus: oc
+    .route({ method: "PATCH", path: "/rounds/{id}/feedback/status" })
+    .input(
+      z.object({
+        id: z.string(),
+        feedbackIds: z.array(z.string()).min(1).max(500),
+        status: RoundFeedbackStatusSchema,
+      }),
+    )
+    .output(z.array(RoundFeedbackSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  listParticipants: oc
+    .route({ method: "GET", path: "/rounds/{id}/participants" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(RoundParticipantSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
   getRoundGithubIssues: oc
     .route({ method: "GET", path: "/rounds/{id}/github-issues" })
     .input(z.object({ id: z.string() }))
@@ -530,7 +567,11 @@ export const contract = oc.router({
   searchProjects: oc
     .route({ method: "GET", path: "/projects/search" })
     .input(z.object({ query: z.string().trim().min(1).max(200) }))
-    .output(z.array(NearBuildersProjectSchema)),
+    .output(ProjectSearchResultSchema),
+
+  getProjectSearchStatus: oc
+    .route({ method: "GET", path: "/projects/search/status" })
+    .output(z.object({ enabled: z.boolean() })),
 
   resolveProjectBySlug: oc
     .route({ method: "GET", path: "/projects/by-slug/{slug}" })

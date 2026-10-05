@@ -136,6 +136,12 @@ export const roundParticipants = pgTable(
 
 export const roundFeedbackFormat = pgEnum("round_feedback_format", ["written", "recorded"]);
 
+export const roundFeedbackStatus = pgEnum("round_feedback_status", [
+  "unresolved",
+  "resolved",
+  "dismissed",
+]);
+
 export const roundFeedback = pgTable(
   "round_feedback",
   {
@@ -147,6 +153,7 @@ export const roundFeedback = pgTable(
     format: roundFeedbackFormat("format").notNull(),
     body: text("body"),
     url: text("url"),
+    status: roundFeedbackStatus("status").default("unresolved").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     activityEventId: text("activity_event_id"),
     nostrEventId: text("nostr_event_id"),
