@@ -801,8 +801,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       searchProjects: builder.searchProjects.handler(async ({ input }) => {
         const results = await services.projectsLookup.search(input.query);
-        return results ?? [];
+        return { available: results !== null, results: results ?? [] };
       }),
+
+      getProjectSearchStatus: builder.getProjectSearchStatus.handler(async () => ({
+        enabled: services.projectsLookup.enabled,
+      })),
 
       resolveProjectBySlug: builder.resolveProjectBySlug.handler(async ({ input }) => {
         return await services.projectsLookup.resolveBySlug(input.slug);

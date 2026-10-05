@@ -69,13 +69,21 @@ function RequestRoundPage() {
   const [repoUrl, setRepoUrl] = useState("");
 
   const debouncedProjectQuery = useDebouncedValue(projectQuery.trim(), 300);
+  const searchStatus = useQuery({
+    queryKey: ["projectSearchStatus"],
+    queryFn: () => apiClient.getProjectSearchStatus(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const searchConfigured = searchStatus.data?.enabled ?? true;
   const projectSearch = useQuery({
     queryKey: ["searchProjects", debouncedProjectQuery],
     queryFn: () => apiClient.searchProjects({ query: debouncedProjectQuery }),
-    enabled: debouncedProjectQuery.length > 1 && !selectedProject,
+    enabled: searchConfigured && debouncedProjectQuery.length > 1 && !selectedProject,
     staleTime: 30 * 1000,
   });
-  const projectResults = selectedProject ? [] : (projectSearch.data ?? []);
+  const searchUnavailable =
+    !searchConfigured || (projectSearch.isSuccess && !projectSearch.data.available);
+  const projectResults = selectedProject ? [] : (projectSearch.data?.results ?? []);
 
   const toggleFormat = (value: "issues" | "written" | "recorded") => {
     setFormats((prev) =>
@@ -173,7 +181,11 @@ function RequestRoundPage() {
                   }}
                   onFocus={() => setShowProjectResults(true)}
                   onBlur={() => setTimeout(() => setShowProjectResults(false), 150)}
-                  placeholder="Search nearbuilders.org projects, or type a new slug"
+                  placeholder={
+                    searchConfigured
+                      ? "Search nearbuilders.org projects, or type a new slug"
+                      : "Type a project slug"
+                  }
                   autoComplete="off"
                   required
                   disabled={createMutation.isPending}
@@ -202,6 +214,18 @@ function RequestRoundPage() {
               {selectedProject ? (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Linked to nearbuilders.org project "{selectedProject.slug}".
+                </p>
+              ) : searchUnavailable ? (
+                <p
+                  className="mt-1 text-xs text-muted-foreground"
+                  data-testid="project-search-unavailable"
+                >
+                  {searchConfigured
+                    ? "Project search is unavailable right now"
+                    : "Project search is unavailable"}
+                  {projectQuery.trim()
+                    ? " — this will be stored as a free-text slug."
+                    : " — enter a slug to use as a free-text project."}
                 </p>
               ) : (
                 projectQuery.trim().length > 1 &&

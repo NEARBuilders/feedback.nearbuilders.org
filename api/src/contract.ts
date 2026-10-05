@@ -238,6 +238,13 @@ export const NearBuildersProjectSchema = z.object({
 
 export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
 
+export const ProjectSearchResultSchema = z.object({
+  available: z.boolean(),
+  results: z.array(NearBuildersProjectSchema),
+});
+
+export type ProjectSearchResult = z.infer<typeof ProjectSearchResultSchema>;
+
 const PostFeedbackInputSchema = z
   .object({
     id: z.string(),
@@ -547,7 +554,11 @@ export const contract = oc.router({
   searchProjects: oc
     .route({ method: "GET", path: "/projects/search" })
     .input(z.object({ query: z.string().trim().min(1).max(200) }))
-    .output(z.array(NearBuildersProjectSchema)),
+    .output(ProjectSearchResultSchema),
+
+  getProjectSearchStatus: oc
+    .route({ method: "GET", path: "/projects/search/status" })
+    .output(z.object({ enabled: z.boolean() })),
 
   resolveProjectBySlug: oc
     .route({ method: "GET", path: "/projects/by-slug/{slug}" })
