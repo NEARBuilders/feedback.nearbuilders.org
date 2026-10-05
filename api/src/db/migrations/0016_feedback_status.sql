@@ -1,0 +1,2 @@
+CREATE TYPE "public"."round_feedback_status" AS ENUM('unresolved', 'resolved', 'dismissed');--> statement-breakpoint
+ALTER TABLE "round_feedback" ADD COLUMN "status" "round_feedback_status" DEFAULT 'unresolved' NOT NULL;

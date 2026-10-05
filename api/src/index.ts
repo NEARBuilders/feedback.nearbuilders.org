@@ -663,6 +663,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return feedback;
         }),
 
+      setFeedbackStatus: builder.setFeedbackStatus
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (context.user?.role !== "admin") {
+            await assertCanManageRound(
+              round,
+              context,
+              "Only the round owner can resolve or dismiss feedback",
+            );
+          }
+          return await services.rounds.setFeedbackStatus(round.id, input.feedbackIds, input.status);
+        }),
+
       getRoundGithubIssues: builder.getRoundGithubIssues.handler(async ({ input, errors }) => {
         const round = await services.rounds.resolveRoundById(input.id);
         if (!round) {
