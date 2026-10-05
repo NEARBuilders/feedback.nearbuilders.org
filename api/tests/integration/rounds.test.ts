@@ -824,3 +824,154 @@ describe("project picker (PROJECTS_API_BASE_URL unset in tests)", () => {
     await expect(client.resolveProjectBySlug({ slug: "onboarding-flow" })).resolves.toBeNull();
   });
 });
+
+describe("feedback status", () => {
+  async function roundWithEntries(owner: string, builder: string) {
+    const round = await createOpenRound(owner, { title: `Status ${owner}` });
+    const ownerClient = await getPluginClient(nearAuthedContext(owner));
+    const builderClient = await getPluginClient(nearAuthedContext(builder));
+    await builderClient.joinRound({ id: round.id });
+    const first = await builderClient.postFeedback({
+      id: round.id,
+      format: "written",
+      body: "First",
+    });
+    const second = await builderClient.postFeedback({
+      id: round.id,
+      format: "written",
+      body: "Second",
+    });
+    return { round, ownerClient, builderClient, first, second };
+  }
+
+  it("defaults new feedback to unresolved", async () => {
+    const { first } = await roundWithEntries("fs1.near", "fsb1.near");
+    expect(first.status).toBe("unresolved");
+  });
+
+  it("lets the round owner resolve and dismiss, persisting the status", async () => {
+    const { round, ownerClient, first, second } = await roundWithEntries("fs2.near", "fsb2.near");
+
+    const resolved = await ownerClient.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [first.id],
+      status: "resolved",
+    });
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0]?.status).toBe("resolved");
+
+    await ownerClient.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [second.id],
+      status: "dismissed",
+    });
+
+    const anon = await getPluginClient();
+    const thread = await anon.listFeedback({ id: round.id });
+    expect(thread.find((f) => f.id === first.id)?.status).toBe("resolved");
+    expect(thread.find((f) => f.id === second.id)?.status).toBe("dismissed");
+  });
+
+  it("applies a bulk status change to the whole selection", async () => {
+    const { round, ownerClient, first, second } = await roundWithEntries("fs3.near", "fsb3.near");
+    const updated = await ownerClient.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [first.id, second.id],
+      status: "resolved",
+    });
+    expect(updated.map((f) => f.status)).toEqual(["resolved", "resolved"]);
+  });
+
+  it("can move feedback back to unresolved", async () => {
+    const { round, ownerClient, first } = await roundWithEntries("fs4.near", "fsb4.near");
+    await ownerClient.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [first.id],
+      status: "resolved",
+    });
+    const [reopened] = await ownerClient.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [first.id],
+      status: "unresolved",
+    });
+    expect(reopened?.status).toBe("unresolved");
+  });
+
+  it("rejects the feedback author and other non-owners", async () => {
+    const { round, builderClient, first } = await roundWithEntries("fs5.near", "fsb5.near");
+    await expect(
+      builderClient.setFeedbackStatus({
+        id: round.id,
+        feedbackIds: [first.id],
+        status: "resolved",
+      }),
+    ).rejects.toThrow("round owner");
+    const stranger = await getPluginClient(nearAuthedContext("fs-stranger.near"));
+    await expect(
+      stranger.setFeedbackStatus({ id: round.id, feedbackIds: [first.id], status: "resolved" }),
+    ).rejects.toThrow("round owner");
+  });
+
+  it("rejects unauthenticated callers", async () => {
+    const { round, first } = await roundWithEntries("fs6.near", "fsb6.near");
+    const anon = await getPluginClient();
+    await expect(
+      anon.setFeedbackStatus({ id: round.id, feedbackIds: [first.id], status: "resolved" }),
+    ).rejects.toThrow("Authentication required");
+  });
+
+  it("lets an admin set status", async () => {
+    const { round, first } = await roundWithEntries("fs7.near", "fsb7.near");
+    const admin = await getPluginClient(adminContext());
+    const [updated] = await admin.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [first.id],
+      status: "dismissed",
+    });
+    expect(updated?.status).toBe("dismissed");
+  });
+
+  it("ignores feedback ids that belong to another round", async () => {
+    const a = await roundWithEntries("fs8.near", "fsb8.near");
+    const b = await roundWithEntries("fs9.near", "fsb9.near");
+    const updated = await a.ownerClient.setFeedbackStatus({
+      id: a.round.id,
+      feedbackIds: [b.first.id],
+      status: "resolved",
+    });
+    expect(updated).toEqual([]);
+    const thread = await (await getPluginClient()).listFeedback({ id: b.round.id });
+    expect(thread.find((f) => f.id === b.first.id)?.status).toBe("unresolved");
+  });
+});
+
+describe("listParticipants", () => {
+  it("returns participants with joined dates to the owner and to participants", async () => {
+    const round = await createOpenRound("lp1.near", { title: "Participants" });
+    const ownerClient = await getPluginClient(nearAuthedContext("lp1.near"));
+    const builderClient = await getPluginClient(nearAuthedContext("lpb1.near"));
+    await builderClient.joinRound({ id: round.id });
+
+    const asOwner = await ownerClient.listParticipants({ id: round.id });
+    expect(asOwner).toEqual([{ accountId: "lpb1.near", joinedAt: expect.any(String) }]);
+
+    const asParticipant = await builderClient.listParticipants({ id: round.id });
+    expect(asParticipant).toEqual(asOwner);
+  });
+
+  it("returns an empty list when nobody has joined", async () => {
+    const round = await createOpenRound("lp2.near", { title: "Empty participants" });
+    const ownerClient = await getPluginClient(nearAuthedContext("lp2.near"));
+    await expect(ownerClient.listParticipants({ id: round.id })).resolves.toEqual([]);
+  });
+
+  it("hides the list from strangers and anonymous callers", async () => {
+    const round = await createOpenRound("lp3.near", { title: "Hidden participants" });
+    const stranger = await getPluginClient(nearAuthedContext("lp-stranger.near"));
+    await expect(stranger.listParticipants({ id: round.id })).rejects.toThrow("participants");
+    const anon = await getPluginClient();
+    await expect(anon.listParticipants({ id: round.id })).rejects.toThrow(
+      "Authentication required",
+    );
+  });
+});
