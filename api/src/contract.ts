@@ -180,7 +180,12 @@ export const MyJoinedRoundSchema = z.object({
   projectSlug: z.string(),
   status: RoundStatusSchema,
   formats: z.array(RoundFormatSchema),
+  /** Markdown for testers from the round owner; empty string when unset. */
+  readme: z.string(),
+  repoUrl: z.string().nullable(),
   participantCount: z.number().int().nonnegative(),
+  /** How many feedback items the caller has posted in this round. */
+  myFeedbackCount: z.number().int().nonnegative(),
   joinedAt: z.string(),
 });
 
