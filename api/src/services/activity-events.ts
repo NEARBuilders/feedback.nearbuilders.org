@@ -98,6 +98,8 @@ export interface ActorEventsInput {
 export interface ActivityEmitter {
   /** True when a gateway URL and API key are configured. */
   readonly enabled: boolean;
+  /** True when a gateway URL is set. Reads are public, so no API key is needed. */
+  readonly readable: boolean;
   /** Returns the gateway's event id on success, or null if disabled/failed. */
   emitRoundOpened(round: RoundOpenedInput): Promise<string | null>;
   emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<string | null>;
@@ -126,6 +128,7 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
   const sourceId = options.sourceId ?? "";
   const logger = options.logger ?? console;
   const enabled = Boolean(baseUrl && apiKey);
+  const readable = Boolean(baseUrl);
 
   const client = new ActivityClient({
     apiBaseUrl: baseUrl,
@@ -157,6 +160,7 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
   }
 
   async function read<T>(label: string, run: () => Promise<T>): Promise<T | null> {
+    if (!readable) return null;
     try {
       return await run();
     } catch (error) {
@@ -173,6 +177,7 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
 
   return {
     enabled,
+    readable,
 
     emitRoundOpened: (round) =>
       submit({
