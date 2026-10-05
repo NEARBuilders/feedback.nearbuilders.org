@@ -50,6 +50,48 @@ describe("createActivityEmitter (disabled)", () => {
     ).toBe(false);
     expect(createActivityEmitter({ apiKey: "act_secret", logger: { warn } }).enabled).toBe(false);
   });
+
+  it("is readable with just a gateway URL, since reads are public", () => {
+    const urlOnly = createActivityEmitter({
+      baseUrl: "https://activity.example/api",
+      logger: { warn },
+    });
+    expect(urlOnly.enabled).toBe(false);
+    expect(urlOnly.readable).toBe(true);
+    expect(createActivityEmitter({ apiKey: "act_secret", logger: { warn } }).readable).toBe(false);
+    expect(createActivityEmitter({ logger: { warn } }).readable).toBe(false);
+  });
+
+  it("makes no request and logs nothing when reading without a gateway URL", async () => {
+    const fetchMock = vi.fn();
+    const emitter = createActivityEmitter({ fetch: fetchMock, logger: { warn } });
+
+    await expect(emitter.leaderboard({ period: "weekly" })).resolves.toBeNull();
+    await expect(emitter.endorsements(["evt_1"])).resolves.toBeNull();
+    await expect(emitter.listActorEvents({ actor: "alice.near", limit: 5 })).resolves.toBeNull();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reads the leaderboard with only a gateway URL, sending no credentials", async () => {
+    const body = { period: "weekly", data: [] };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => body,
+    } as Response);
+    const emitter = createActivityEmitter({
+      baseUrl: "https://activity.example/api",
+      fetch: fetchMock,
+      logger: { warn },
+    });
+
+    await expect(emitter.leaderboard({ period: "weekly" })).resolves.toEqual(body);
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit | undefined];
+    expect(JSON.stringify(init?.headers ?? {})).not.toMatch(/authorization/i);
+  });
 });
 
 describe("createActivityEmitter (enabled)", () => {
