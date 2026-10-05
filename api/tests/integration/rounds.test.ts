@@ -814,9 +814,17 @@ describe("deleteFeedback", () => {
 });
 
 describe("project picker (PROJECTS_API_BASE_URL unset in tests)", () => {
-  it("searchProjects degrades to an empty list rather than erroring", async () => {
+  it("searchProjects reports itself unavailable rather than erroring", async () => {
     const client = await getPluginClient();
-    await expect(client.searchProjects({ query: "onboarding" })).resolves.toEqual([]);
+    await expect(client.searchProjects({ query: "onboarding" })).resolves.toEqual({
+      available: false,
+      results: [],
+    });
+  });
+
+  it("getProjectSearchStatus reports search as not configured", async () => {
+    const client = await getPluginClient();
+    await expect(client.getProjectSearchStatus()).resolves.toEqual({ enabled: false });
   });
 
   it("resolveProjectBySlug degrades to null rather than erroring", async () => {
