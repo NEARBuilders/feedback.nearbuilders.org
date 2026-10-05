@@ -5,6 +5,7 @@ import { DatabaseTag } from "../db/layer";
 import {
   projectRoundCounters as projectRoundCountersTable,
   roundCredits as roundCreditsTable,
+  type roundFeedbackStatus,
   roundFeedback as roundFeedbackTable,
   roundParticipants as roundParticipantsTable,
   type roundStatus,
@@ -15,6 +16,7 @@ import { ensureProject } from "./project-records";
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
 export type RoundFormat = "issues" | "written" | "recorded";
 export type RoundFeedbackFormat = "written" | "recorded";
+export type RoundFeedbackStatus = (typeof roundFeedbackStatus)["enumValues"][number];
 
 export interface RoundRecord {
   id: string;
@@ -65,6 +67,7 @@ export interface RoundFeedbackRecord {
   format: RoundFeedbackFormat;
   body: string | null;
   url: string | null;
+  status: RoundFeedbackStatus;
   createdAt: string;
   activityEventId: string | null;
   nostrEventId: string | null;
@@ -154,6 +157,11 @@ export interface RoundsService {
   hasParticipant(roundId: string, accountId: string): Promise<boolean>;
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string): Promise<RoundFeedbackRecord[]>;
+  setFeedbackStatus(
+    roundId: string,
+    feedbackIds: string[],
+    status: RoundFeedbackStatus,
+  ): Promise<RoundFeedbackRecord[]>;
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
@@ -208,6 +216,7 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     format: row.format,
     body: row.body,
     url: row.url,
+    status: row.status,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     activityEventId: row.activityEventId,
     nostrEventId: row.nostrEventId,
@@ -449,6 +458,25 @@ export const RoundsLive = Layer.effect(
             .from(roundFeedbackTable)
             .where(eq(roundFeedbackTable.roundId, roundId))
             .orderBy(asc(roundFeedbackTable.createdAt));
+          return rows.map(toFeedbackRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setFeedbackStatus: async (roundId, feedbackIds, status) => {
+        try {
+          if (feedbackIds.length === 0) return [];
+          const rows = await db
+            .update(roundFeedbackTable)
+            .set({ status })
+            .where(
+              and(
+                eq(roundFeedbackTable.roundId, roundId),
+                inArray(roundFeedbackTable.id, feedbackIds),
+              ),
+            )
+            .returning();
           return rows.map(toFeedbackRecord);
         } catch (error) {
           throw toOrpcError(error);

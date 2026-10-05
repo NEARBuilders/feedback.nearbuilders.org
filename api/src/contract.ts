@@ -102,6 +102,10 @@ export type RoundDetail = z.infer<typeof RoundDetailSchema>;
 
 export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 
+export const RoundFeedbackStatusSchema = z.enum(["unresolved", "resolved", "dismissed"]);
+
+export type RoundFeedbackStatus = z.infer<typeof RoundFeedbackStatusSchema>;
+
 export const RoundFeedbackSchema = z.object({
   id: z.string(),
   roundId: z.string(),
@@ -109,6 +113,7 @@ export const RoundFeedbackSchema = z.object({
   format: RoundFeedbackFormatSchema,
   body: z.string().nullable(),
   url: z.string().nullable(),
+  status: RoundFeedbackStatusSchema,
   createdAt: z.string(),
   nostrEventId: z.string().nullable(),
 });
@@ -468,6 +473,18 @@ export const contract = oc.router({
     .route({ method: "DELETE", path: "/rounds/{id}/feedback/{feedbackId}" })
     .input(z.object({ id: z.string(), feedbackId: z.string() }))
     .output(RoundFeedbackSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  setFeedbackStatus: oc
+    .route({ method: "PATCH", path: "/rounds/{id}/feedback/status" })
+    .input(
+      z.object({
+        id: z.string(),
+        feedbackIds: z.array(z.string()).min(1).max(500),
+        status: RoundFeedbackStatusSchema,
+      }),
+    )
+    .output(z.array(RoundFeedbackSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   getRoundGithubIssues: oc

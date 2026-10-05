@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, MessageSquare, Share2, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ExternalLink, MessageSquare, Share2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
@@ -18,6 +18,7 @@ import {
   Textarea,
 } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
+import { FeedbackTable } from "@/components/feedback-table";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -299,6 +300,7 @@ function RoundDetailPage() {
           repoUrl={round.repoUrl}
           canPost={joined && round.status === "open"}
           canDelete={round.status === "open"}
+          canModerate={canManage || isAdmin}
         />
       </div>
     </PageContainer>
@@ -311,12 +313,14 @@ function FeedbackThread({
   repoUrl,
   canPost,
   canDelete,
+  canModerate,
 }: {
   roundId: string;
   formats: string[];
   repoUrl?: string | null;
   canPost: boolean;
   canDelete: boolean;
+  canModerate: boolean;
 }) {
   const apiClient = useApiClient();
   const auth = useAuthClient();
@@ -478,47 +482,14 @@ function FeedbackThread({
       ) : entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">No feedback yet.</p>
       ) : (
-        <ul className="space-y-3">
-          {entries.map((entry) => {
-            const isOwn = !!nearAccountId && entry.authorAccountId === nearAccountId;
-            return (
-              <li key={entry.id}>
-                <Card className={`p-4 space-y-1.5 ${isOwn ? "border-foreground/30" : ""}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-mono text-foreground">{entry.authorAccountId}</span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {entry.format === "written" ? "Written" : "Recorded"}
-                      </Badge>
-                      <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
-                      {isOwn && <Badge className="text-[10px]">yours</Badge>}
-                    </div>
-                    {isOwn && canDelete && (
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(entry.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                  {entry.format === "written" ? (
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{entry.body}</p>
-                  ) : (
-                    entry.url && (
-                      <a
-                        href={entry.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-foreground underline break-all"
-                      >
-                        {entry.url}
-                      </a>
-                    )
-                  )}
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
+        <FeedbackTable
+          roundId={roundId}
+          entries={entries}
+          canModerate={canModerate}
+          currentAccountId={nearAccountId || null}
+          canDelete={canDelete}
+          onDelete={setDeleteId}
+        />
       )}
 
       <ConfirmDialog
