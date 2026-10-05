@@ -1,4 +1,12 @@
-import { BookOpen, Building2, Home, MessageSquare, PlusCircle, Shield } from "lucide-react";
+import {
+  BookOpen,
+  Building2,
+  ClipboardCheck,
+  Home,
+  MessageSquare,
+  PlusCircle,
+  Shield,
+} from "lucide-react";
 
 export type SidebarRole = "anon" | "member" | "admin";
 export type SidebarSectionId = "main" | "workspace" | "manage";
@@ -34,6 +42,13 @@ export const NAV_ITEMS: SidebarItem[] = [
     to: "/how-to-integrate",
     section: "main",
     roleRequired: "anon",
+  },
+  {
+    icon: ClipboardCheck,
+    label: "testing",
+    to: "/testing",
+    section: "workspace",
+    roleRequired: "member",
   },
   {
     icon: PlusCircle,

@@ -23,6 +23,7 @@ import { Route as AdminDashboardRouteImport } from './routes/_admin/_dashboard'
 import { Route as PublicFeedIndexRouteImport } from './routes/_public/feed/index'
 import { Route as PublicAccountIdIndexRouteImport } from './routes/_public/$accountId/index'
 import { Route as PublicFeedRoundIdRouteImport } from './routes/_public/feed/$roundId'
+import { Route as AuthenticatedDashboardTestingRouteImport } from './routes/_authenticated/_dashboard/testing'
 import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/_dashboard/settings'
 import { Route as AuthenticatedDashboardOrgsRouteImport } from './routes/_authenticated/_dashboard/orgs'
 import { Route as AuthenticatedDashboardDashboardRouteImport } from './routes/_authenticated/_dashboard/dashboard'
@@ -106,6 +107,12 @@ const PublicFeedRoundIdRoute = PublicFeedRoundIdRouteImport.update({
   path: '/feed/$roundId',
   getParentRoute: () => PublicRoute,
 } as any)
+const AuthenticatedDashboardTestingRoute =
+  AuthenticatedDashboardTestingRouteImport.update({
+    id: '/testing',
+    path: '/testing',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const AuthenticatedDashboardSettingsRoute =
   AuthenticatedDashboardSettingsRouteImport.update({
     id: '/settings',
@@ -219,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardDashboardRouteWithChildren
   '/orgs': typeof AuthenticatedDashboardOrgsRouteWithChildren
   '/settings': typeof AuthenticatedDashboardSettingsRouteWithChildren
+  '/testing': typeof AuthenticatedDashboardTestingRoute
   '/feed/$roundId': typeof PublicFeedRoundIdRoute
   '/$accountId/': typeof PublicAccountIdIndexRoute
   '/feed/': typeof PublicFeedIndexRoute
@@ -242,6 +250,7 @@ export interface FileRoutesByTo {
   '/how-to-integrate': typeof PublicHowToIntegrateRoute
   '/login': typeof PublicLoginRoute
   '/skill': typeof PublicSkillRoute
+  '/testing': typeof AuthenticatedDashboardTestingRoute
   '/feed/$roundId': typeof PublicFeedRoundIdRoute
   '/$accountId': typeof PublicAccountIdIndexRoute
   '/feed': typeof PublicFeedIndexRoute
@@ -276,6 +285,7 @@ export interface FileRoutesById {
   '/_authenticated/_dashboard/dashboard': typeof AuthenticatedDashboardDashboardRouteWithChildren
   '/_authenticated/_dashboard/orgs': typeof AuthenticatedDashboardOrgsRouteWithChildren
   '/_authenticated/_dashboard/settings': typeof AuthenticatedDashboardSettingsRouteWithChildren
+  '/_authenticated/_dashboard/testing': typeof AuthenticatedDashboardTestingRoute
   '/_public/feed/$roundId': typeof PublicFeedRoundIdRoute
   '/_public/$accountId/': typeof PublicAccountIdIndexRoute
   '/_public/feed/': typeof PublicFeedIndexRoute
@@ -306,6 +316,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/orgs'
     | '/settings'
+    | '/testing'
     | '/feed/$roundId'
     | '/$accountId/'
     | '/feed/'
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/how-to-integrate'
     | '/login'
     | '/skill'
+    | '/testing'
     | '/feed/$roundId'
     | '/$accountId'
     | '/feed'
@@ -362,6 +374,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_dashboard/dashboard'
     | '/_authenticated/_dashboard/orgs'
     | '/_authenticated/_dashboard/settings'
+    | '/_authenticated/_dashboard/testing'
     | '/_public/feed/$roundId'
     | '/_public/$accountId/'
     | '/_public/feed/'
@@ -485,6 +498,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/feed/$roundId'
       preLoaderRoute: typeof PublicFeedRoundIdRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_authenticated/_dashboard/testing': {
+      id: '/_authenticated/_dashboard/testing'
+      path: '/testing'
+      fullPath: '/testing'
+      preLoaderRoute: typeof AuthenticatedDashboardTestingRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
     }
     '/_authenticated/_dashboard/settings': {
       id: '/_authenticated/_dashboard/settings'
@@ -710,6 +730,7 @@ interface AuthenticatedDashboardRouteChildren {
   AuthenticatedDashboardDashboardRoute: typeof AuthenticatedDashboardDashboardRouteWithChildren
   AuthenticatedDashboardOrgsRoute: typeof AuthenticatedDashboardOrgsRouteWithChildren
   AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRouteWithChildren
+  AuthenticatedDashboardTestingRoute: typeof AuthenticatedDashboardTestingRoute
   AuthenticatedDashboardFeedRequestRoute: typeof AuthenticatedDashboardFeedRequestRoute
 }
 
@@ -721,6 +742,7 @@ const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
       AuthenticatedDashboardOrgsRouteWithChildren,
     AuthenticatedDashboardSettingsRoute:
       AuthenticatedDashboardSettingsRouteWithChildren,
+    AuthenticatedDashboardTestingRoute: AuthenticatedDashboardTestingRoute,
     AuthenticatedDashboardFeedRequestRoute:
       AuthenticatedDashboardFeedRequestRoute,
   }

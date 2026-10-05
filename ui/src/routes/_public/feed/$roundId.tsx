@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { ArrowLeft, ExternalLink, MessageSquare, Share2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -105,6 +105,16 @@ function RoundDetailPage() {
 
   const round = roundQuery.data;
   const joined = participationQuery.data?.joined ?? false;
+
+  const hash = useRouterState({ select: (state) => state.location.hash });
+  const roundLoaded = !!round;
+  useEffect(() => {
+    if (hash !== "feedback" || !roundLoaded) return;
+    const timer = setTimeout(() => {
+      document.getElementById("feedback")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [hash, roundLoaded]);
 
   const joinMutation = useMutation({
     mutationFn: (next: boolean) =>
@@ -399,7 +409,7 @@ function FeedbackThread({
   const issuesUrl = repoUrl ? `${repoUrl.replace(/\/+$/, "")}/issues` : null;
 
   return (
-    <div className="space-y-4 border-t border-border pt-8">
+    <div id="feedback" className="space-y-4 border-t border-border pt-8 scroll-mt-20">
       <SectionHeader
         title="Feedback"
         action={

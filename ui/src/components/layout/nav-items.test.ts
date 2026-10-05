@@ -14,7 +14,7 @@ describe("dashboard navigation", () => {
     const memberPaths = filterSidebarByRole(NAV_ITEMS, "member").map((item) => item.to);
 
     expect(memberPaths).toEqual(
-      expect.arrayContaining(["/dashboard", "/feed/request", "/orgs", "/feed"]),
+      expect.arrayContaining(["/dashboard", "/testing", "/feed/request", "/orgs", "/feed"]),
     );
   });
 
@@ -39,6 +39,7 @@ describe("dashboard navigation", () => {
     expect(getActiveItem(NAV_ITEMS, "/feed")?.label).toBe("feed");
     expect(getActiveItem(NAV_ITEMS, "/feed/round_1")?.label).toBe("feed");
     expect(getActiveItem(NAV_ITEMS, "/feed/request")?.label).toBe("request a round");
+    expect(getActiveItem(NAV_ITEMS, "/testing")?.label).toBe("testing");
     expect(getActiveItem(NAV_ITEMS, "/orgs/acme")?.label).toBe("orgs");
     expect(getActiveItem(NAV_ITEMS, "/settings/profile")).toBeUndefined();
   });
