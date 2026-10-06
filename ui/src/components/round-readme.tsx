@@ -28,8 +28,8 @@ export function RoundReadme({ roundId, readme, canEdit }: RoundReadmeProps) {
 
   const saveMutation = useMutation({
     mutationFn: () => apiClient.updateRoundReadme({ id: roundId, readme: draft }),
-    onSuccess: (round) => {
-      void invalidateRoundQueries(queryClient, round.id);
+    onSuccess: () => {
+      void invalidateRoundQueries(queryClient);
       setEditing(false);
       toast.success("Readme saved");
     },

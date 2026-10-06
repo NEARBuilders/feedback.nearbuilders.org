@@ -21,6 +21,7 @@ import { Route as PublicAboutRouteImport } from './routes/_public/about'
 import { Route as PublicAccountIdRouteImport } from './routes/_public/$accountId'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/_dashboard'
 import { Route as AdminDashboardRouteImport } from './routes/_admin/_dashboard'
+import { Route as PublicRoundsIndexRouteImport } from './routes/_public/rounds/index'
 import { Route as PublicFeedIndexRouteImport } from './routes/_public/feed/index'
 import { Route as PublicAccountIdIndexRouteImport } from './routes/_public/$accountId/index'
 import { Route as PublicFeedRoundIdRouteImport } from './routes/_public/feed/$roundId'
@@ -33,6 +34,7 @@ import { Route as AuthenticatedDashboardSettingsIndexRouteImport } from './route
 import { Route as AuthenticatedDashboardOrgsIndexRouteImport } from './routes/_authenticated/_dashboard/orgs/index'
 import { Route as AuthenticatedDashboardDashboardIndexRouteImport } from './routes/_authenticated/_dashboard/dashboard/index'
 import { Route as AdminDashboardAdminIndexRouteImport } from './routes/_admin/_dashboard/admin/index'
+import { Route as PublicProjectsSlugNRouteImport } from './routes/_public/projects/$slug/$n'
 import { Route as AuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_authenticated/_dashboard/settings/security'
 import { Route as AuthenticatedDashboardSettingsProfileRouteImport } from './routes/_authenticated/_dashboard/settings/profile'
 import { Route as AuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_authenticated/_dashboard/settings/auth-methods'
@@ -41,6 +43,8 @@ import { Route as AuthenticatedDashboardOrgsNewRouteImport } from './routes/_aut
 import { Route as AuthenticatedDashboardOrgsSlugRouteImport } from './routes/_authenticated/_dashboard/orgs/$slug'
 import { Route as AuthenticatedDashboardFeedRequestRouteImport } from './routes/_authenticated/_dashboard/feed/request'
 import { Route as AdminDashboardAdminProjectsRouteImport } from './routes/_admin/_dashboard/admin/projects'
+import { Route as PublicProjectsSlugNIndexRouteImport } from './routes/_public/projects/$slug/$n/index'
+import { Route as PublicProjectsSlugNFeedbackRouteImport } from './routes/_public/projects/$slug/$n/feedback'
 import { Route as AuthenticatedDashboardOrgsInvitesIdRouteImport } from './routes/_authenticated/_dashboard/orgs/invites.$id'
 
 const PublicRoute = PublicRouteImport.update({
@@ -97,6 +101,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => AdminRoute,
+} as any)
+const PublicRoundsIndexRoute = PublicRoundsIndexRouteImport.update({
+  id: '/rounds/',
+  path: '/rounds/',
+  getParentRoute: () => PublicRoute,
 } as any)
 const PublicFeedIndexRoute = PublicFeedIndexRouteImport.update({
   id: '/feed/',
@@ -166,6 +175,11 @@ const AdminDashboardAdminIndexRoute =
     path: '/',
     getParentRoute: () => AdminDashboardAdminRoute,
   } as any)
+const PublicProjectsSlugNRoute = PublicProjectsSlugNRouteImport.update({
+  id: '/projects/$slug/$n',
+  path: '/projects/$slug/$n',
+  getParentRoute: () => PublicRoute,
+} as any)
 const AuthenticatedDashboardSettingsSecurityRoute =
   AuthenticatedDashboardSettingsSecurityRouteImport.update({
     id: '/security',
@@ -214,6 +228,18 @@ const AdminDashboardAdminProjectsRoute =
     path: '/projects',
     getParentRoute: () => AdminDashboardAdminRoute,
   } as any)
+const PublicProjectsSlugNIndexRoute =
+  PublicProjectsSlugNIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PublicProjectsSlugNRoute,
+  } as any)
+const PublicProjectsSlugNFeedbackRoute =
+  PublicProjectsSlugNFeedbackRouteImport.update({
+    id: '/feedback',
+    path: '/feedback',
+    getParentRoute: () => PublicProjectsSlugNRoute,
+  } as any)
 const AuthenticatedDashboardOrgsInvitesIdRoute =
   AuthenticatedDashboardOrgsInvitesIdRouteImport.update({
     id: '/invites/$id',
@@ -237,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/feed/$roundId': typeof PublicFeedRoundIdRoute
   '/$accountId/': typeof PublicAccountIdIndexRoute
   '/feed/': typeof PublicFeedIndexRoute
+  '/rounds/': typeof PublicRoundsIndexRoute
   '/admin/projects': typeof AdminDashboardAdminProjectsRoute
   '/feed/request': typeof AuthenticatedDashboardFeedRequestRoute
   '/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
@@ -245,11 +272,14 @@ export interface FileRoutesByFullPath {
   '/settings/auth-methods': typeof AuthenticatedDashboardSettingsAuthMethodsRoute
   '/settings/profile': typeof AuthenticatedDashboardSettingsProfileRoute
   '/settings/security': typeof AuthenticatedDashboardSettingsSecurityRoute
+  '/projects/$slug/$n': typeof PublicProjectsSlugNRouteWithChildren
   '/admin/': typeof AdminDashboardAdminIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardDashboardIndexRoute
   '/orgs/': typeof AuthenticatedDashboardOrgsIndexRoute
   '/settings/': typeof AuthenticatedDashboardSettingsIndexRoute
   '/orgs/invites/$id': typeof AuthenticatedDashboardOrgsInvitesIdRoute
+  '/projects/$slug/$n/feedback': typeof PublicProjectsSlugNFeedbackRoute
+  '/projects/$slug/$n/': typeof PublicProjectsSlugNIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -262,6 +292,7 @@ export interface FileRoutesByTo {
   '/feed/$roundId': typeof PublicFeedRoundIdRoute
   '/$accountId': typeof PublicAccountIdIndexRoute
   '/feed': typeof PublicFeedIndexRoute
+  '/rounds': typeof PublicRoundsIndexRoute
   '/admin/projects': typeof AdminDashboardAdminProjectsRoute
   '/feed/request': typeof AuthenticatedDashboardFeedRequestRoute
   '/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
@@ -275,6 +306,8 @@ export interface FileRoutesByTo {
   '/orgs': typeof AuthenticatedDashboardOrgsIndexRoute
   '/settings': typeof AuthenticatedDashboardSettingsIndexRoute
   '/orgs/invites/$id': typeof AuthenticatedDashboardOrgsInvitesIdRoute
+  '/projects/$slug/$n/feedback': typeof PublicProjectsSlugNFeedbackRoute
+  '/projects/$slug/$n': typeof PublicProjectsSlugNIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -298,6 +331,7 @@ export interface FileRoutesById {
   '/_public/feed/$roundId': typeof PublicFeedRoundIdRoute
   '/_public/$accountId/': typeof PublicAccountIdIndexRoute
   '/_public/feed/': typeof PublicFeedIndexRoute
+  '/_public/rounds/': typeof PublicRoundsIndexRoute
   '/_admin/_dashboard/admin/projects': typeof AdminDashboardAdminProjectsRoute
   '/_authenticated/_dashboard/feed/request': typeof AuthenticatedDashboardFeedRequestRoute
   '/_authenticated/_dashboard/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
@@ -306,11 +340,14 @@ export interface FileRoutesById {
   '/_authenticated/_dashboard/settings/auth-methods': typeof AuthenticatedDashboardSettingsAuthMethodsRoute
   '/_authenticated/_dashboard/settings/profile': typeof AuthenticatedDashboardSettingsProfileRoute
   '/_authenticated/_dashboard/settings/security': typeof AuthenticatedDashboardSettingsSecurityRoute
+  '/_public/projects/$slug/$n': typeof PublicProjectsSlugNRouteWithChildren
   '/_admin/_dashboard/admin/': typeof AdminDashboardAdminIndexRoute
   '/_authenticated/_dashboard/dashboard/': typeof AuthenticatedDashboardDashboardIndexRoute
   '/_authenticated/_dashboard/orgs/': typeof AuthenticatedDashboardOrgsIndexRoute
   '/_authenticated/_dashboard/settings/': typeof AuthenticatedDashboardSettingsIndexRoute
   '/_authenticated/_dashboard/orgs/invites/$id': typeof AuthenticatedDashboardOrgsInvitesIdRoute
+  '/_public/projects/$slug/$n/feedback': typeof PublicProjectsSlugNFeedbackRoute
+  '/_public/projects/$slug/$n/': typeof PublicProjectsSlugNIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -330,6 +367,7 @@ export interface FileRouteTypes {
     | '/feed/$roundId'
     | '/$accountId/'
     | '/feed/'
+    | '/rounds/'
     | '/admin/projects'
     | '/feed/request'
     | '/orgs/$slug'
@@ -338,11 +376,14 @@ export interface FileRouteTypes {
     | '/settings/auth-methods'
     | '/settings/profile'
     | '/settings/security'
+    | '/projects/$slug/$n'
     | '/admin/'
     | '/dashboard/'
     | '/orgs/'
     | '/settings/'
     | '/orgs/invites/$id'
+    | '/projects/$slug/$n/feedback'
+    | '/projects/$slug/$n/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -355,6 +396,7 @@ export interface FileRouteTypes {
     | '/feed/$roundId'
     | '/$accountId'
     | '/feed'
+    | '/rounds'
     | '/admin/projects'
     | '/feed/request'
     | '/orgs/$slug'
@@ -368,6 +410,8 @@ export interface FileRouteTypes {
     | '/orgs'
     | '/settings'
     | '/orgs/invites/$id'
+    | '/projects/$slug/$n/feedback'
+    | '/projects/$slug/$n'
   id:
     | '__root__'
     | '/_admin'
@@ -390,6 +434,7 @@ export interface FileRouteTypes {
     | '/_public/feed/$roundId'
     | '/_public/$accountId/'
     | '/_public/feed/'
+    | '/_public/rounds/'
     | '/_admin/_dashboard/admin/projects'
     | '/_authenticated/_dashboard/feed/request'
     | '/_authenticated/_dashboard/orgs/$slug'
@@ -398,11 +443,14 @@ export interface FileRouteTypes {
     | '/_authenticated/_dashboard/settings/auth-methods'
     | '/_authenticated/_dashboard/settings/profile'
     | '/_authenticated/_dashboard/settings/security'
+    | '/_public/projects/$slug/$n'
     | '/_admin/_dashboard/admin/'
     | '/_authenticated/_dashboard/dashboard/'
     | '/_authenticated/_dashboard/orgs/'
     | '/_authenticated/_dashboard/settings/'
     | '/_authenticated/_dashboard/orgs/invites/$id'
+    | '/_public/projects/$slug/$n/feedback'
+    | '/_public/projects/$slug/$n/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -497,6 +545,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_public/rounds/': {
+      id: '/_public/rounds/'
+      path: '/rounds'
+      fullPath: '/rounds/'
+      preLoaderRoute: typeof PublicRoundsIndexRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/feed/': {
       id: '/_public/feed/'
       path: '/feed'
@@ -581,6 +636,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardAdminIndexRouteImport
       parentRoute: typeof AdminDashboardAdminRoute
     }
+    '/_public/projects/$slug/$n': {
+      id: '/_public/projects/$slug/$n'
+      path: '/projects/$slug/$n'
+      fullPath: '/projects/$slug/$n'
+      preLoaderRoute: typeof PublicProjectsSlugNRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_authenticated/_dashboard/settings/security': {
       id: '/_authenticated/_dashboard/settings/security'
       path: '/security'
@@ -636,6 +698,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/projects'
       preLoaderRoute: typeof AdminDashboardAdminProjectsRouteImport
       parentRoute: typeof AdminDashboardAdminRoute
+    }
+    '/_public/projects/$slug/$n/': {
+      id: '/_public/projects/$slug/$n/'
+      path: '/'
+      fullPath: '/projects/$slug/$n/'
+      preLoaderRoute: typeof PublicProjectsSlugNIndexRouteImport
+      parentRoute: typeof PublicProjectsSlugNRoute
+    }
+    '/_public/projects/$slug/$n/feedback': {
+      id: '/_public/projects/$slug/$n/feedback'
+      path: '/feedback'
+      fullPath: '/projects/$slug/$n/feedback'
+      preLoaderRoute: typeof PublicProjectsSlugNFeedbackRouteImport
+      parentRoute: typeof PublicProjectsSlugNRoute
     }
     '/_authenticated/_dashboard/orgs/invites/$id': {
       id: '/_authenticated/_dashboard/orgs/invites/$id'
@@ -795,6 +871,19 @@ const PublicAccountIdRouteWithChildren = PublicAccountIdRoute._addFileChildren(
   PublicAccountIdRouteChildren,
 )
 
+interface PublicProjectsSlugNRouteChildren {
+  PublicProjectsSlugNFeedbackRoute: typeof PublicProjectsSlugNFeedbackRoute
+  PublicProjectsSlugNIndexRoute: typeof PublicProjectsSlugNIndexRoute
+}
+
+const PublicProjectsSlugNRouteChildren: PublicProjectsSlugNRouteChildren = {
+  PublicProjectsSlugNFeedbackRoute: PublicProjectsSlugNFeedbackRoute,
+  PublicProjectsSlugNIndexRoute: PublicProjectsSlugNIndexRoute,
+}
+
+const PublicProjectsSlugNRouteWithChildren =
+  PublicProjectsSlugNRoute._addFileChildren(PublicProjectsSlugNRouteChildren)
+
 interface PublicRouteChildren {
   PublicAccountIdRoute: typeof PublicAccountIdRouteWithChildren
   PublicAboutRoute: typeof PublicAboutRoute
@@ -805,6 +894,8 @@ interface PublicRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
   PublicFeedRoundIdRoute: typeof PublicFeedRoundIdRoute
   PublicFeedIndexRoute: typeof PublicFeedIndexRoute
+  PublicRoundsIndexRoute: typeof PublicRoundsIndexRoute
+  PublicProjectsSlugNRoute: typeof PublicProjectsSlugNRouteWithChildren
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
@@ -817,6 +908,8 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
   PublicFeedRoundIdRoute: PublicFeedRoundIdRoute,
   PublicFeedIndexRoute: PublicFeedIndexRoute,
+  PublicRoundsIndexRoute: PublicRoundsIndexRoute,
+  PublicProjectsSlugNRoute: PublicProjectsSlugNRouteWithChildren,
 }
 
 const PublicRouteWithChildren =

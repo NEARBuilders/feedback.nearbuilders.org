@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useApiClient } from "@/app";
 import { Badge, Card, SectionHeader } from "@/components";
 import { myProjectsQueryOptions } from "@/lib/queries/projects";
+import { roundParams } from "@/lib/round-links";
 
 const PROJECT_STATUS_LABEL = {
   pending: "Awaiting approval",
@@ -40,8 +41,8 @@ export function MyProjects() {
                   {project.rounds.map((round) => (
                     <li key={round.id} className="text-sm">
                       <Link
-                        to="/feed/$roundId"
-                        params={{ roundId: round.id }}
+                        to="/projects/$slug/$n"
+                        params={roundParams({ ...round, projectSlug: project.slug })}
                         className="text-foreground underline"
                       >
                         #{round.projectRoundNumber} {round.title}

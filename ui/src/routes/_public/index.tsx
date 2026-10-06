@@ -45,7 +45,7 @@ function LandingPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild size="lg">
-              <Link to="/feed">browse open rounds</Link>
+              <Link to="/rounds">browse open rounds</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
               <Link to="/how-to-integrate">how it works</Link>

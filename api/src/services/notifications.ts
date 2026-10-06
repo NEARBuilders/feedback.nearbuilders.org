@@ -15,6 +15,8 @@ export interface NotificationRecord {
   id: string;
   roundId: string;
   roundTitle: string;
+  projectSlug: string;
+  projectRoundNumber: number;
   kind: NotificationKindValue;
   title: string;
   body: string;
@@ -72,6 +74,8 @@ const recordColumns = {
   id: notificationsTable.id,
   roundId: notificationsTable.roundId,
   roundTitle: roundsTable.title,
+  projectSlug: roundsTable.projectSlug,
+  projectRoundNumber: roundsTable.projectRoundNumber,
   kind: notificationsTable.kind,
   title: notificationsTable.title,
   body: notificationsTable.body,
@@ -79,23 +83,14 @@ const recordColumns = {
   createdAt: notificationsTable.createdAt,
 };
 
-function toRecord(row: {
-  id: string;
-  roundId: string;
-  roundTitle: string;
-  kind: NotificationKindValue;
-  title: string;
-  body: string;
-  readAt: Date | string | null;
-  createdAt: Date | string;
-}): NotificationRecord {
+function toRecord(
+  row: Omit<NotificationRecord, "readAt" | "createdAt"> & {
+    readAt: Date | string | null;
+    createdAt: Date | string;
+  },
+): NotificationRecord {
   return {
-    id: row.id,
-    roundId: row.roundId,
-    roundTitle: row.roundTitle,
-    kind: row.kind,
-    title: row.title,
-    body: row.body,
+    ...row,
     readAt: row.readAt === null ? null : iso(row.readAt),
     createdAt: iso(row.createdAt),
   };

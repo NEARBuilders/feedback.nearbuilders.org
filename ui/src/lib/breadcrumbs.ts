@@ -27,7 +27,7 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
     if (segments[0] === "orgs" && index === 1) {
       return { label: options.orgName?.(decoded) ?? decoded, href };
     }
-    if (segments[0] === "feed" && index === 1) return { label: "round", href };
+    if (segments[0] === "projects" && index === 2) return { label: `round ${decoded}`, href };
     return { label: decoded, href };
   });
 }

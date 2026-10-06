@@ -593,8 +593,8 @@ describe("postFeedback / listFeedback", () => {
     });
 
     const anon = await getPluginClient();
-    const thread = await anon.listFeedback({ id: round.id });
-    expect(thread.map((e) => e.format)).toEqual(["written", "recorded"]);
+    const { items: thread } = await anon.listFeedback({ id: round.id });
+    expect(thread.map((e) => e.format)).toEqual(["recorded", "written"]);
     expect(thread.find((e) => e.format === "written")?.body).toBe("First note");
     expect(thread.find((e) => e.format === "recorded")?.url).toBe("https://example.com/session");
   });
@@ -798,7 +798,7 @@ describe("deleteFeedback", () => {
     expect(removed.id).toBe(feedback.id);
 
     const anon = await getPluginClient();
-    const thread = await anon.listFeedback({ id: round.id });
+    const { items: thread } = await anon.listFeedback({ id: round.id });
     expect(thread.find((f) => f.id === feedback.id)).toBeUndefined();
   });
 
@@ -875,7 +875,7 @@ describe("feedback status", () => {
     });
 
     const anon = await getPluginClient();
-    const thread = await anon.listFeedback({ id: round.id });
+    const { items: thread } = await anon.listFeedback({ id: round.id });
     expect(thread.find((f) => f.id === first.id)?.status).toBe("resolved");
     expect(thread.find((f) => f.id === second.id)?.status).toBe("dismissed");
   });
@@ -948,7 +948,7 @@ describe("feedback status", () => {
       status: "resolved",
     });
     expect(updated).toEqual([]);
-    const thread = await (await getPluginClient()).listFeedback({ id: b.round.id });
+    const { items: thread } = await (await getPluginClient()).listFeedback({ id: b.round.id });
     expect(thread.find((f) => f.id === b.first.id)?.status).toBe("unresolved");
   });
 });

@@ -15,6 +15,7 @@ import {
 } from "@/components";
 import { invalidateProjectQueries, projectsQueryOptions } from "@/lib/queries/projects";
 import { invalidateRoundQueries } from "@/lib/queries/rounds";
+import { roundParams } from "@/lib/round-links";
 
 export const Route = createFileRoute("/_admin/_dashboard/admin/projects")({
   head: () => ({
@@ -108,8 +109,8 @@ function PendingProjectCard({
                 {round.status}
               </Badge>
               <Link
-                to="/feed/$roundId"
-                params={{ roundId: round.id }}
+                to="/projects/$slug/$n"
+                params={roundParams({ ...round, projectSlug: project.slug })}
                 className="text-foreground underline"
               >
                 #{round.projectRoundNumber} {round.title}

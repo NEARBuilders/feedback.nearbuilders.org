@@ -1,5 +1,8 @@
-import { type QueryClient, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, type QueryClient } from "@tanstack/react-query";
 import type { ApiClient } from "@/app";
+
+export type FeedbackPage = Awaited<ReturnType<ApiClient["listFeedback"]>>;
+export type FeedbackEntry = FeedbackPage["items"][number];
 
 export const feedbackKeys = {
   all: ["feedback"] as const,
@@ -7,9 +10,11 @@ export const feedbackKeys = {
 };
 
 export function roundFeedbackQueryOptions(apiClient: ApiClient, roundId: string) {
-  return queryOptions({
+  return infiniteQueryOptions({
     queryKey: feedbackKeys.round(roundId),
-    queryFn: () => apiClient.listFeedback({ id: roundId }),
+    queryFn: ({ pageParam }) => apiClient.listFeedback({ id: roundId, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
 }
 

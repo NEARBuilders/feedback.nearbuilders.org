@@ -1,8 +1,11 @@
+import type { RoundStatus } from "@/lib/queries/rounds";
+
 export interface WorkspaceRound {
   roundId: string;
   roundTitle: string;
   projectSlug: string;
-  status: string;
+  projectRoundNumber: number;
+  status: RoundStatus;
   formats: string[];
   readme: string;
   repoUrl: string | null;

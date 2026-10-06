@@ -96,7 +96,7 @@ function HowToIntegratePage() {
 
         <div className="flex flex-wrap gap-3">
           <Button asChild>
-            <Link to="/feed">browse open rounds</Link>
+            <Link to="/rounds">browse open rounds</Link>
           </Button>
           <Button asChild variant="outline">
             <Link to="/feed/request">request a round</Link>

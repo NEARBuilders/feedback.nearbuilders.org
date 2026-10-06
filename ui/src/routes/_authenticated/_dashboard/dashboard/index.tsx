@@ -10,7 +10,6 @@ import {
   useAuthClient,
 } from "@/app";
 import {
-  Badge,
   Button,
   Card,
   InfoRow,
@@ -19,16 +18,12 @@ import {
   SectionHeader,
   Skeleton,
 } from "@/components";
+import { RoundStatusBadge } from "@/components/round-status-badge";
 import { pageHead } from "@/lib/page-title";
 import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
+import type { RoundStatus } from "@/lib/queries/rounds";
+import { roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
-
-const ROUND_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  pending: "default",
-  open: "secondary",
-  closed: "outline",
-  rejected: "destructive",
-};
 
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard/")({
   beforeLoad: async ({ context }) => {
@@ -148,7 +143,8 @@ function JoinedRounds({
     roundId: string;
     roundTitle: string;
     projectSlug: string;
-    status: string;
+    projectRoundNumber: number;
+    status: RoundStatus;
     participantCount: number;
   }>;
   openCount: number;
@@ -208,7 +204,7 @@ function JoinedRounds({
         <Card className="p-6 space-y-3">
           <p className="text-sm text-muted-foreground">You haven't joined any rounds yet.</p>
           <Button asChild variant="outline" size="sm">
-            <Link to="/feed">browse open rounds</Link>
+            <Link to="/rounds">browse open rounds</Link>
           </Button>
         </Card>
       ) : (
@@ -219,8 +215,8 @@ function JoinedRounds({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <Link
-                      to="/feed/$roundId"
-                      params={{ roundId: round.roundId }}
+                      to="/projects/$slug/$n"
+                      params={roundParams(round)}
                       className="text-sm font-medium text-foreground underline-offset-2 hover:underline"
                     >
                       {round.roundTitle}
@@ -228,9 +224,7 @@ function JoinedRounds({
                     <p className="text-xs font-mono text-muted-foreground">{round.projectSlug}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={ROUND_BADGE_VARIANT[round.status] ?? "outline"}>
-                      {round.status}
-                    </Badge>
+                    <RoundStatusBadge status={round.status} />
                     <span className="text-xs text-muted-foreground">
                       {round.participantCount}{" "}
                       {round.participantCount === 1 ? "builder" : "builders"}

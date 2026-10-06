@@ -1,12 +1,15 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import type { ApiClient } from "@/app";
 
-export type RoundStatus = NonNullable<Parameters<ApiClient["listRounds"]>[0]>["status"];
+export type RoundStatus = NonNullable<
+  NonNullable<Parameters<ApiClient["listRounds"]>[0]>["status"]
+>;
 
 export const roundKeys = {
   all: ["rounds"] as const,
   list: (status?: RoundStatus) => [...roundKeys.all, "list", status ?? "all"] as const,
   detail: (id: string) => [...roundKeys.all, "detail", id] as const,
+  bySlug: (slug: string, number: number) => [...roundKeys.all, "slug", slug, number] as const,
   participants: (id: string) => [...roundKeys.detail(id), "participants"] as const,
   credits: (id: string) => [...roundKeys.detail(id), "credits"] as const,
   creditCandidates: (id: string) => [...roundKeys.detail(id), "credit-candidates"] as const,
@@ -24,6 +27,14 @@ export function roundQueryOptions(apiClient: ApiClient, id: string) {
   return queryOptions({
     queryKey: roundKeys.detail(id),
     queryFn: () => apiClient.getRound({ id }),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function roundBySlugQueryOptions(apiClient: ApiClient, slug: string, number: number) {
+  return queryOptions({
+    queryKey: roundKeys.bySlug(slug, number),
+    queryFn: () => apiClient.getRoundBySlug({ slug, number }),
     staleTime: 30 * 1000,
   });
 }
@@ -49,6 +60,6 @@ export function creditCandidatesQueryOptions(apiClient: ApiClient, id: string) {
   });
 }
 
-export function invalidateRoundQueries(queryClient: QueryClient, id?: string) {
-  return queryClient.invalidateQueries({ queryKey: id ? roundKeys.detail(id) : roundKeys.all });
+export function invalidateRoundQueries(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: roundKeys.all });
 }

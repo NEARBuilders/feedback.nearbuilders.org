@@ -11,6 +11,10 @@ type SearchParams = {
   redirect?: string;
 };
 
+function afterLogin(redirect?: string) {
+  return redirect?.startsWith("/") ? redirect : "/rounds";
+}
+
 export const Route = createFileRoute("/_public/login")({
   ssr: false,
   head: () => pageHead("Sign in"),
@@ -25,7 +29,7 @@ export const Route = createFileRoute("/_public/login")({
       queryClient.getQueryData(sessionQueryOptions(authClient, initialSession).queryKey);
 
     if (session?.user && !session.user.banned) {
-      const redirectTo = search.redirect?.startsWith("/") ? search.redirect : "/feed";
+      const redirectTo = afterLogin(search.redirect);
       throw redirect({ to: redirectTo, search: {} });
     }
   },
@@ -56,7 +60,7 @@ function LoginPage() {
   }, [auth.near]);
 
   const handleSuccess = async (message: string) => {
-    const redirectTo = redirect?.startsWith("/") ? redirect : "/feed";
+    const redirectTo = afterLogin(redirect);
     toast.success(message);
     const { data: freshSession } = await auth.getSession({
       query: { disableCookieCache: true },
@@ -92,7 +96,7 @@ function LoginPage() {
   };
 
   if (session?.user && !session.user.banned) {
-    const redirectTo = redirect?.startsWith("/") ? redirect : "/feed";
+    const redirectTo = afterLogin(redirect);
     return <Navigate to={redirectTo} replace search={{}} />;
   }
 

@@ -96,7 +96,7 @@ export type Round = z.infer<typeof RoundSchema>;
 
 export const RoundDetailSchema = RoundSchema.extend({
   participantCount: z.number().int().nonnegative(),
-  /** Whether the caller's org owns this round's project (#70). Only set by getRound. */
+  /** Whether the caller's org owns this round's project (#70). Only set by getRound and getRoundBySlug. */
   canManage: z.boolean().optional(),
 });
 
@@ -129,6 +129,13 @@ export const RoundFeedbackSchema = z.object({
 
 export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;
 
+export const FeedbackPageSchema = z.object({
+  items: z.array(RoundFeedbackSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type FeedbackPage = z.infer<typeof FeedbackPageSchema>;
+
 export const RoundCreditSchema = z.object({
   id: z.string(),
   roundId: z.string(),
@@ -157,6 +164,8 @@ export const NotificationSchema = z.object({
   id: z.string(),
   roundId: z.string(),
   roundTitle: z.string(),
+  projectSlug: z.string(),
+  projectRoundNumber: z.number().int().positive(),
   kind: NotificationKindSchema,
   title: z.string(),
   body: z.string(),
@@ -233,6 +242,7 @@ export const MyJoinedRoundSchema = z.object({
   roundId: z.string(),
   roundTitle: z.string(),
   projectSlug: z.string(),
+  projectRoundNumber: z.number().int().positive(),
   status: RoundStatusSchema,
   formats: z.array(RoundFormatSchema),
   /** Markdown for testers from the round owner; empty string when unset. */
@@ -538,6 +548,12 @@ export const contract = oc.router({
     .output(RoundDetailSchema)
     .errors({ NOT_FOUND }),
 
+  getRoundBySlug: oc
+    .route({ method: "GET", path: "/projects/{slug}/rounds/{number}" })
+    .input(z.object({ slug: z.string().min(1), number: z.number().int().positive() }))
+    .output(RoundDetailSchema)
+    .errors({ NOT_FOUND }),
+
   joinRound: oc
     .route({ method: "POST", path: "/rounds/{id}/join" })
     .input(z.object({ id: z.string() }))
@@ -569,8 +585,14 @@ export const contract = oc.router({
 
   listFeedback: oc
     .route({ method: "GET", path: "/rounds/{id}/feedback" })
-    .input(z.object({ id: z.string() }))
-    .output(z.array(RoundFeedbackSchema))
+    .input(
+      z.object({
+        id: z.string(),
+        cursor: z.uuid().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      }),
+    )
+    .output(FeedbackPageSchema)
     .errors({ NOT_FOUND }),
 
   deleteFeedback: oc

@@ -14,6 +14,7 @@ import {
   Skeleton,
 } from "@/components";
 import { formatRelativeTime, formatUnreadCount } from "@/lib/notifications";
+import { roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 const NOTIFICATIONS_KEY = ["notifications"] as const;
@@ -109,8 +110,8 @@ export function NotificationBell() {
                       }}
                     >
                       <Link
-                        to="/feed/$roundId"
-                        params={{ roundId: item.roundId }}
+                        to="/projects/$slug/$n"
+                        params={roundParams(item)}
                         className="flex cursor-pointer gap-2.5 rounded-none px-3 py-2.5"
                       >
                         <span

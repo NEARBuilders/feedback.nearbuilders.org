@@ -6,10 +6,12 @@ import { useApiClient } from "@/app";
 import { Badge, Button, Card, EmptyState, Markdown, SectionHeader } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
 import { myProjectsQueryOptions } from "@/lib/queries/projects";
+import { roundParams } from "@/lib/round-links";
 import {
   awaitingFeedback,
   feedbackPostedLabel,
@@ -20,13 +22,6 @@ import {
   type WorkspaceRound,
 } from "@/lib/tester-workspace";
 import { useNearAccountStatus } from "@/lib/use-near-account";
-
-const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  pending: "default",
-  open: "secondary",
-  closed: "outline",
-  rejected: "destructive",
-};
 
 export const Route = createFileRoute("/_authenticated/_dashboard/testing")({
   loader: ({ context }) => {
@@ -66,7 +61,7 @@ function TesterWorkspacePage() {
           description="The rounds you've joined and what each one needs from you."
           actions={
             <Button asChild variant="outline">
-              <Link to="/feed" preload="intent">
+              <Link to="/rounds" preload="intent">
                 browse rounds
               </Link>
             </Button>
@@ -102,7 +97,7 @@ function TesterWorkspacePage() {
                 className="min-h-[30vh]"
                 action={
                   <Button asChild variant="outline" size="sm">
-                    <Link to="/feed">browse open rounds</Link>
+                    <Link to="/rounds">browse open rounds</Link>
                   </Button>
                 }
               />
@@ -128,8 +123,8 @@ function TesterWorkspacePage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <Link
-                          to="/feed/$roundId"
-                          params={{ roundId: round.id }}
+                          to="/projects/$slug/$n"
+                          params={roundParams(round)}
                           className="text-sm font-medium text-foreground underline-offset-2 hover:underline"
                         >
                           #{round.projectRoundNumber} {round.title}
@@ -140,9 +135,7 @@ function TesterWorkspacePage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="default">owner</Badge>
-                        <Badge variant={STATUS_BADGE_VARIANT[round.status] ?? "outline"}>
-                          {round.status}
-                        </Badge>
+                        <RoundStatusBadge status={round.status} />
                       </div>
                     </div>
                   </Card>
@@ -170,8 +163,8 @@ function TesterRoundCard({ round }: { round: WorkspaceRound }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <Link
-            to="/feed/$roundId"
-            params={{ roundId: round.roundId }}
+            to="/projects/$slug/$n"
+            params={roundParams(round)}
             className="text-sm font-medium text-foreground underline-offset-2 hover:underline"
           >
             {round.roundTitle}
@@ -180,7 +173,7 @@ function TesterRoundCard({ round }: { round: WorkspaceRound }) {
         </div>
         <div className="flex items-center gap-2">
           {needsFeedback && <Badge variant="default">needs your feedback</Badge>}
-          <Badge variant={STATUS_BADGE_VARIANT[round.status] ?? "outline"}>{round.status}</Badge>
+          <RoundStatusBadge status={round.status} />
         </div>
       </div>
 
@@ -216,9 +209,10 @@ function TesterRoundCard({ round }: { round: WorkspaceRound }) {
         ) : (
           <Button asChild size="sm" variant={needsFeedback ? "default" : "outline"}>
             <Link
-              to="/feed/$roundId"
-              params={{ roundId: round.roundId }}
-              hash={action.kind === "view-round" ? undefined : "feedback"}
+              to={
+                action.kind === "view-round" ? "/projects/$slug/$n" : "/projects/$slug/$n/feedback"
+              }
+              params={roundParams(round)}
             >
               {action.label}
             </Link>
@@ -226,7 +220,7 @@ function TesterRoundCard({ round }: { round: WorkspaceRound }) {
         )}
         {action.kind !== "view-round" && (
           <Button asChild size="sm" variant="ghost">
-            <Link to="/feed/$roundId" params={{ roundId: round.roundId }}>
+            <Link to="/projects/$slug/$n" params={roundParams(round)}>
               Open round
             </Link>
           </Button>

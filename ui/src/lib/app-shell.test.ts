@@ -3,8 +3,8 @@ import { shouldUseAppShell } from "./app-shell";
 
 describe("shouldUseAppShell", () => {
   it.each([
-    "/feed",
-    "/feed/round_1",
+    "/rounds",
+    "/projects/near-wallet/3",
     "/leaderboard",
     "/how-to-integrate",
     "/admin",
@@ -15,8 +15,8 @@ describe("shouldUseAppShell", () => {
   });
 
   it.each([
-    "/feed",
-    "/feed/round_1",
+    "/rounds",
+    "/projects/near-wallet/3",
     "/leaderboard",
     "/how-to-integrate",
     "/admin",

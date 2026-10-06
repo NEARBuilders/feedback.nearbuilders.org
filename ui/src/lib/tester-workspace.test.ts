@@ -14,6 +14,7 @@ function round(overrides: Partial<WorkspaceRound> = {}): WorkspaceRound {
     roundId: "r1",
     roundTitle: "Round",
     projectSlug: "project",
+    projectRoundNumber: 1,
     status: "open",
     formats: ["written"],
     readme: "",

@@ -17,6 +17,7 @@ import {
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { pageHead } from "@/lib/page-title";
+import { roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -111,7 +112,7 @@ function RequestRoundPage() {
           ? "Round opened"
           : "Project submitted for admin approval; its round opens once approved",
       );
-      void navigate({ to: "/feed/$roundId", params: { roundId: round.id } });
+      void navigate({ to: "/projects/$slug/$n", params: roundParams(round) });
     },
     onError: (err: Error) => toast.error(err.message),
   });

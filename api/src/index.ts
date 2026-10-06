@@ -27,7 +27,7 @@ import {
   needsTeamCheck,
   type RoundActor,
 } from "./services/round-access";
-import { RoundsLive, RoundsTag } from "./services/rounds";
+import { type RoundDetailRecord, RoundsLive, RoundsTag } from "./services/rounds";
 import { createTeamAccess } from "./services/team-access";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
@@ -230,6 +230,25 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
       if (!allowed) throw new ORPCError("FORBIDDEN", { message });
+    };
+
+    const roundNotFound = (resourceId: string) =>
+      new ORPCError("NOT_FOUND", {
+        message: "Round not found",
+        data: { resource: "round", resourceId },
+      });
+
+    const viewRoundDetail = async (
+      round: RoundDetailRecord | null,
+      context: ActorContext & { user?: { role?: string | null } | null },
+      resourceId: string,
+    ) => {
+      if (!round) throw roundNotFound(resourceId);
+      const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+      const canManage = canManageRound(round, project, await resolveActor(project, context));
+      const hidden = round.status === "pending" || round.status === "rejected";
+      if (hidden && !canManage && context.user?.role !== "admin") throw roundNotFound(resourceId);
+      return { ...round, canManage };
     };
 
     return {
@@ -564,27 +583,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return round;
         }),
 
-      getRound: builder.getRound.handler(async ({ input, context, errors }) => {
-        const round = await services.rounds.getRoundDetail(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
-          });
-        }
-        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
-        const canManage = canManageRound(round, project, await resolveActor(project, context));
-        if (round.status === "pending" || round.status === "rejected") {
-          const isAdmin = context.user?.role === "admin";
-          if (!canManage && !isAdmin) {
-            throw errors.NOT_FOUND({
-              message: "Round not found",
-              data: { resource: "round", resourceId: input.id },
-            });
-          }
-        }
-        return { ...round, canManage };
-      }),
+      getRound: builder.getRound.handler(async ({ input, context }) =>
+        viewRoundDetail(await services.rounds.getRoundDetail(input.id), context, input.id),
+      ),
+
+      getRoundBySlug: builder.getRoundBySlug.handler(async ({ input, context }) =>
+        viewRoundDetail(
+          await services.rounds.getRoundDetailBySlug(input.slug, input.number),
+          context,
+          `${input.slug}/${input.number}`,
+        ),
+      ),
 
       joinRound: builder.joinRound.use(requireAuth).handler(async ({ input, context, errors }) => {
         const accountId = context.near?.primaryAccountId;
@@ -726,7 +735,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             data: { resource: "round", resourceId: input.id },
           });
         }
-        return await services.rounds.listFeedback(round.id);
+        return await services.rounds.listFeedback(round.id, input);
       }),
 
       deleteFeedback: builder.deleteFeedback
@@ -746,8 +755,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           await assertCanManageRound(round, context, "Only the round owner can remove feedback");
-          const feedbackList = await services.rounds.listFeedback(round.id);
-          const feedback = feedbackList.find((f) => f.id === input.feedbackId);
+          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) {
             throw errors.NOT_FOUND({
               message: "Feedback not found",

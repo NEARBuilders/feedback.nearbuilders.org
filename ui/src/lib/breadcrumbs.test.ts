@@ -16,7 +16,15 @@ describe("getBreadcrumbs", () => {
   it("labels known routes", () => {
     expect(getBreadcrumbs("/how-to-integrate")[0].label).toBe("how it works");
     expect(getBreadcrumbs("/feed/request")[1].label).toBe("request a round");
-    expect(getBreadcrumbs("/feed/round_1")[1].label).toBe("round");
+  });
+
+  it("labels the round number in canonical round URLs", () => {
+    expect(getBreadcrumbs("/projects/near-wallet/3/feedback").map((c) => c.label)).toEqual([
+      "projects",
+      "near-wallet",
+      "round 3",
+      "feedback",
+    ]);
   });
 
   it("looks up organization names and falls back to the slug", () => {

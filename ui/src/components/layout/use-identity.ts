@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { Organization } from "@/app";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { getNearInitials, resolveNearImageUrl } from "@/lib/near-profile";
+import { nearProfileQueryOptions } from "@/lib/queries/profiles";
 import { useNearAccount } from "@/lib/use-near-account";
 
 export function useIdentity() {
@@ -31,15 +32,7 @@ export function useIdentity() {
     return organizations?.find((org) => org.id === activeOrgId);
   }, [organizations, activeOrgId]);
 
-  const { data: nearProfile } = useQuery({
-    queryKey: ["near-profile", nearAccountId],
-    queryFn: async () => {
-      const { data } = await auth.near.getProfile(nearAccountId ?? undefined);
-      return data ?? null;
-    },
-    enabled: !!nearAccountId,
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: nearProfile } = useQuery(nearProfileQueryOptions(auth, nearAccountId ?? null));
 
   const signOutMutation = useMutation({
     mutationFn: async () => {

@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { type ApiClient, useApiClient } from "@/app";
+import { useApiClient } from "@/app";
 import { Badge, Button, Checkbox } from "@/components";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SegmentedToggle } from "@/components/segmented-toggle";
@@ -40,9 +40,7 @@ import {
   feedbackToJson,
   filterFeedbackByStatus,
 } from "@/lib/feedback-export";
-import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
-
-type FeedbackEntry = Awaited<ReturnType<ApiClient["listFeedback"]>>[number];
+import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 
 const STATUS_FILTERS: Array<{ value: FeedbackStatusFilter; label: string }> = [
   { value: "all", label: "All" },

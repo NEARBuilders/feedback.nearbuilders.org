@@ -3,11 +3,11 @@ import { shouldUseAppShell } from "../../lib/app-shell";
 import { filterSidebarByRole, getActiveItem, groupSidebarItems, NAV_ITEMS } from "./nav-items";
 
 describe("dashboard navigation", () => {
-  it("shows the feed, leaderboard and how-it-works links to everyone", () => {
+  it("shows rounds, leaderboard and how-it-works links to everyone", () => {
     const anonymousPaths = filterSidebarByRole(NAV_ITEMS, "anon").map((item) => item.to);
 
     expect(anonymousPaths).toEqual(
-      expect.arrayContaining(["/feed", "/leaderboard", "/how-to-integrate"]),
+      expect.arrayContaining(["/rounds", "/leaderboard", "/how-to-integrate"]),
     );
     expect(anonymousPaths).not.toContain("/admin");
   });
@@ -16,7 +16,7 @@ describe("dashboard navigation", () => {
     const memberPaths = filterSidebarByRole(NAV_ITEMS, "member").map((item) => item.to);
 
     expect(memberPaths).toEqual(
-      expect.arrayContaining(["/dashboard", "/testing", "/feed/request", "/orgs", "/feed"]),
+      expect.arrayContaining(["/dashboard", "/testing", "/feed/request", "/orgs", "/rounds"]),
     );
   });
 
@@ -37,9 +37,9 @@ describe("dashboard navigation", () => {
     expect(admin.every((section) => section.label && section.items.length > 0)).toBe(true);
   });
 
-  it("highlights the feed on round detail pages but not on request a round", () => {
-    expect(getActiveItem(NAV_ITEMS, "/feed")?.label).toBe("feed");
-    expect(getActiveItem(NAV_ITEMS, "/feed/round_1")?.label).toBe("feed");
+  it("highlights rounds on round pages but not on request a round", () => {
+    expect(getActiveItem(NAV_ITEMS, "/rounds")?.label).toBe("rounds");
+    expect(getActiveItem(NAV_ITEMS, "/projects/near-wallet/3")?.label).toBe("rounds");
     expect(getActiveItem(NAV_ITEMS, "/feed/request")?.label).toBe("request a round");
     expect(getActiveItem(NAV_ITEMS, "/testing")?.label).toBe("testing");
     expect(getActiveItem(NAV_ITEMS, "/leaderboard")?.label).toBe("leaderboard");
