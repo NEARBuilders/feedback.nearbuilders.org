@@ -97,7 +97,7 @@ export function TopTesters() {
 
       <Link
         to="/leaderboard"
-        search={{ period }}
+        search={{ period, metric: "submissions" }}
         className="inline-block text-xs text-muted-foreground underline hover:text-foreground"
       >
         View full leaderboard

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filterStandings,
+  isLeaderboardMetric,
   isLeaderboardPeriod,
   leaderboardState,
   paginate,
@@ -77,5 +78,14 @@ describe("leaderboardState", () => {
     expect(leaderboardState({ configured: true, available: true, data: [] }, 0)).toBe("empty");
     expect(leaderboardState(ok, 0)).toBe("no-match");
     expect(leaderboardState(ok, 1)).toBe("ready");
+  });
+});
+
+describe("isLeaderboardMetric", () => {
+  it("recognises only the supported metrics", () => {
+    expect(isLeaderboardMetric("submissions")).toBe(true);
+    expect(isLeaderboardMetric("points")).toBe(true);
+    expect(isLeaderboardMetric("score")).toBe(false);
+    expect(isLeaderboardMetric(undefined)).toBe(false);
   });
 });

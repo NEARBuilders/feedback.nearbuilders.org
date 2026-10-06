@@ -93,6 +93,43 @@ section on their `nearbuilders.org` profile.
 
 An account with no credited closed rounds returns `[]`.
 
+## Points
+
+Testers earn points when a round owner **accepts** their feedback, not for every submission.
+Points are derived from feedback status, so there is no separate ledger to keep in sync.
+
+| Feedback status | Points |
+| --- | --- |
+| `resolved` (accepted by the round owner or an admin) | **10** |
+| `unresolved` (not reviewed yet) | 0 |
+| `dismissed` | 0 |
+
+- **What earns points:** each feedback item whose status is `resolved`. The status is set with
+  `setFeedbackStatus` (the owner's resolve action, or the bulk resolve in the feedback table).
+- **What does not:** posting feedback, GitHub issues filed on the repo, joining a round, and
+  feedback that is dismissed or still unresolved.
+- **No self-service:** members of the project's owning organization can't join its rounds as
+  testers, so nobody can accept their own feedback to earn points.
+- **Taking points back:** moving an item from `resolved` to `unresolved` or `dismissed` removes
+  its points. Accepting an item twice never counts twice. Deleting a round removes the points
+  its feedback earned.
+- **Periods:** the weekly and monthly boards count feedback accepted in the last 7 and 30 days
+  (a rolling window, based on when the status last changed). All-time counts every accepted item.
+- **Ranking:** by points, highest first. Builders with equal points share a rank, then the
+  next rank skips ahead (1, 2, 2, 4). Builders with no accepted feedback are not listed.
+
+Where points show up:
+
+- `GET /api/v1/points/leaderboard?period=weekly|monthly|all-time&limit=` is public and returns
+  `{ period, pointsPerAcceptedFeedback, data: [{ rank, actor, points, acceptedCount }] }`.
+  The leaderboard page switches between submissions and points with the `metric` toggle.
+- `GET /api/v1/builders/{accountId}/points` is public and returns
+  `{ accountId, points, acceptedCount, submittedCount, rank }` (`rank` is the all-time rank, or
+  `null` with no points). It backs the "Earned credit" card on a builder's profile.
+
+The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
+`api/src/services/points.ts`.
+
 ## Activity events
 
 feedback.nearbuilders.org is an [Activity Source](https://github.com/NEARBuilders/activity.nearbuilders.org)

@@ -12,6 +12,12 @@ import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
+import {
+  POINTS_PER_ACCEPTED_FEEDBACK,
+  periodStart,
+  pointsForAccepted,
+  rankStandings,
+} from "./services/points";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
 import { canManageRound } from "./services/round-access";
@@ -516,6 +522,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (round.ownerAccountId === accountId) {
           throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
         }
+        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+        if (
+          project?.ownerOrgId &&
+          context.organization?.activeOrganizationId === project.ownerOrgId
+        ) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Your organization runs this round, so you can't join it as a tester",
+          });
+        }
         await services.rounds.addParticipant(round.id, accountId);
         const detail = await services.rounds.getRoundDetail(round.id);
         if (!detail) {
@@ -916,6 +931,34 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       resolveProjectBySlug: builder.resolveProjectBySlug.handler(async ({ input }) => {
         return await services.projectsLookup.resolveBySlug(input.slug);
+      }),
+
+      getPointsLeaderboard: builder.getPointsLeaderboard.handler(async ({ input }) => {
+        const counts = await services.rounds.listAcceptedCounts(periodStart(input.period));
+        const standings = rankStandings(counts).slice(0, input.limit ?? 50);
+        return {
+          period: input.period,
+          pointsPerAcceptedFeedback: POINTS_PER_ACCEPTED_FEEDBACK,
+          data: standings.map((entry) => ({
+            rank: entry.rank,
+            actor: entry.accountId,
+            points: entry.points,
+            acceptedCount: entry.acceptedCount,
+          })),
+        };
+      }),
+
+      getBuilderPoints: builder.getBuilderPoints.handler(async ({ input }) => {
+        const totals = await services.rounds.getFeedbackTotals(input.accountId);
+        const standings = rankStandings(await services.rounds.listAcceptedCounts(null));
+        const rank = standings.find((entry) => entry.accountId === input.accountId)?.rank ?? null;
+        return {
+          accountId: input.accountId,
+          points: pointsForAccepted(totals.acceptedCount),
+          acceptedCount: totals.acceptedCount,
+          submittedCount: totals.submittedCount,
+          rank,
+        };
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {

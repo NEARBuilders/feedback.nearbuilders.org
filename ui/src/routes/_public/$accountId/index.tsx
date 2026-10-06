@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { Activity, ExternalLink, MessageSquare } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Activity, ExternalLink, MessageSquare, Trophy } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Badge, Card, EmptyState, Skeleton } from "@/components";
 import { SectionHeader } from "@/components/layout/section-header";
 import { ListRow } from "@/components/list-row";
 import { toActivityEventViews } from "@/lib/activity-events";
 import { toBuilderRoundViews } from "@/lib/builder-rounds";
+import { acceptanceRate, acceptedLabel, pointsLabel } from "@/lib/points";
 
 export const Route = createFileRoute("/_public/$accountId/")({
   component: AccountOverviewPage,
@@ -16,9 +17,57 @@ function AccountOverviewPage() {
   const { accountId } = Route.useParams();
   return (
     <div className="space-y-8">
+      <BuilderPoints accountId={accountId} />
       <BuilderFeedbackRounds accountId={accountId} />
       <BuilderActivityFeed accountId={accountId} />
     </div>
+  );
+}
+
+/**
+ * Credit earned for feedback the round owners accepted. Hidden until the builder
+ * has submitted feedback, so profiles of people who have not tested anything stay clean.
+ */
+export function BuilderPoints({ accountId }: { accountId: string }) {
+  const apiClient = useApiClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["builders", accountId, "points"],
+    queryFn: () => apiClient.getBuilderPoints({ accountId }),
+    staleTime: 30_000,
+  });
+
+  if (isLoading) return <Skeleton className="h-24 w-full" />;
+  if (!data || data.submittedCount === 0) return null;
+
+  return (
+    <section className="space-y-4" data-testid="builder-points">
+      <SectionHeader title="Earned credit" />
+      <Card className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
+              <Trophy className="h-5 w-5" />
+              {pointsLabel(data.points)}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {acceptedLabel(data.acceptedCount)} of {data.submittedCount} submitted ·{" "}
+              {acceptanceRate(data.acceptedCount, data.submittedCount)} accepted
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {data.rank !== null && <Badge variant="secondary">rank #{data.rank}</Badge>}
+            <Link
+              to="/leaderboard"
+              search={{ period: "all-time", metric: "points" }}
+              className="text-sm text-foreground underline"
+            >
+              View points leaderboard
+            </Link>
+          </div>
+        </div>
+      </Card>
+    </section>
   );
 }
 
