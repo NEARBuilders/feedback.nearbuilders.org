@@ -32,6 +32,13 @@
     }
   },
   "plugins": {
+    "legion": {
+      "development": "local:plugins/legion",
+      "variables": {
+        "nodeUrl": "https://rpc.mainnet.near.dev",
+        "contractIds": ["initiate.nearlegion.near", "ascendant.nearlegion.near"]
+      }
+    },
     "nostr": {
       "extends": "bos://nearbuilding.near/nostr.nearbuilders.org",
       "variables": {

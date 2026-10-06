@@ -10,6 +10,7 @@ import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
+import { createLegionAccess } from "./services/legion-access";
 import { notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
 import {
@@ -139,6 +140,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       const teamAccess = createTeamAccess(plugins.auth);
 
+      const legionAccess = createLegionAccess(plugins.legion);
+
       const githubIssuesLookup = createGithubIssuesLookup({
         token: config.secrets.GITHUB_API_TOKEN,
       });
@@ -156,6 +159,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         feedbackNostr,
         projectsLookup,
         teamAccess,
+        legionAccess,
         githubIssuesLookup,
       };
     }),
@@ -655,6 +659,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (!accountId) return { joined: false };
           return { joined: await services.rounds.hasParticipant(input.id, accountId) };
         }),
+
+      getMyLegionAccess: builder.getMyLegionAccess.handler(async ({ context }) => {
+        return await services.legionAccess.getMyAccess(
+          context,
+          context.near?.primaryAccountId ?? null,
+        );
+      }),
 
       listMyJoinedRounds: builder.listMyJoinedRounds
         .use(requireAuth)
