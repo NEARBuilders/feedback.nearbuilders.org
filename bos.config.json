@@ -32,11 +32,39 @@
     }
   },
   "plugins": {
+    "legion": {
+      "development": "local:plugins/legion",
+      "variables": {
+        "nodeUrl": "https://rpc.mainnet.near.dev",
+        "contractIds": ["initiate.nearlegion.near", "ascendant.nearlegion.near"]
+      }
+    },
     "nostr": {
       "extends": "bos://nearbuilding.near/nostr.nearbuilders.org",
       "variables": {
         "clientName": "nearbuilders.org"
       }
+    },
+    "storage": {
+      "development": "local:plugins/storage",
+      "variables": {
+        "allowedContentTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ],
+        "maxUploadBytes": 5242880
+      },
+      "secrets": [
+        "STORAGE_DATABASE_URL",
+        "STORAGE_ENDPOINT",
+        "STORAGE_BUCKET",
+        "STORAGE_REGION",
+        "STORAGE_PUBLIC_URL",
+        "STORAGE_ACCESS_KEY_ID",
+        "STORAGE_SECRET_ACCESS_KEY"
+      ]
     }
   }
 }

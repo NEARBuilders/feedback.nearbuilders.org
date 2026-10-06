@@ -624,6 +624,22 @@ export const contract = oc.router({
     .output(z.array(MyJoinedRoundSchema))
     .errors({ UNAUTHORIZED, BAD_REQUEST }),
 
+  getMyLegionAccess: oc
+    .route({
+      method: "GET",
+      path: "/my/legion-access",
+      summary: "Check the caller's Legion holder access",
+      description:
+        "Resolves the session's linked NEAR account and asks the legion plugin whether it holds a Legion NFT (#128). Unauthenticated or unlinked callers get hasAccess=false and the mint URL.",
+    })
+    .output(
+      z.object({
+        hasAccess: z.boolean(),
+        linkedNearAccount: z.string().nullable(),
+        mintUrl: z.string().url(),
+      }),
+    ),
+
   postFeedback: oc
     .route({ method: "POST", path: "/rounds/{id}/feedback" })
     .input(PostFeedbackInputSchema)

@@ -55,6 +55,12 @@ export const authListTeamMembers = vi.fn();
 
 const mockAuthClient = { listTeams: authListTeams, listTeamMembers: authListTeamMembers };
 
+// Stand-in for the legion plugin's holder check (`plugins.legion` in src/index.ts).
+// Tests decide whether the checked account holds a Legion NFT (#128).
+export const legionCheckAccess = vi.fn().mockResolvedValue({ hasAccess: false });
+
+const mockLegionClient = { checkAccess: legionCheckAccess };
+
 export const runtime = createPluginRuntime({
   registry: TEST_REGISTRY,
   secrets: {},
@@ -69,6 +75,7 @@ export async function getPluginClient(context?: Record<string, unknown>) {
     const { router } = await runtime.usePlugin(TEST_PLUGIN_ID, TEST_CONFIG, {
       nostr: () => mockNostrClient,
       auth: () => mockAuthClient,
+      legion: () => mockLegionClient,
     });
     const rpcHandler = new RPCHandler(router);
 
