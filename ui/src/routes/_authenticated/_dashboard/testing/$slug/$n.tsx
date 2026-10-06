@@ -1,14 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, type SearchSchemaInput } from "@tanstack/react-router";
-import {
-  ArrowLeft,
-  CalendarClock,
-  ClipboardCheck,
-  ExternalLink,
-  Eye,
-  GitBranch,
-  PictureInPicture2,
-} from "lucide-react";
+import { ArrowLeft, CalendarClock, ClipboardCheck, Eye, PictureInPicture2 } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card, EmptyState, Markdown, SectionHeader } from "@/components";
 import { ActionCard } from "@/components/action-card";
@@ -17,6 +9,7 @@ import { FeedbackList } from "@/components/feedback-list";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { RoundRepoLinks } from "@/components/round-repo-links";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { isCompact } from "@/lib/app-shell";
@@ -24,7 +17,6 @@ import { pageHead } from "@/lib/page-title";
 import { myFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { loadRound, type RoundDetail, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
-import { issuesUrl } from "@/lib/tester-workspace";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/testing/$slug/$n")({
@@ -100,7 +92,11 @@ function TesterRoundWorkspace() {
           <RoundBrief round={round} collapsed={!!compact} />
           <section className="min-w-0 space-y-4">
             {viewer.canPost ? (
-              <FeedbackComposer roundId={round.id} formats={round.formats} />
+              <FeedbackComposer
+                roundId={round.id}
+                formats={round.formats}
+                accountId={viewer.accountId}
+              />
             ) : (
               !viewer.participationPending &&
               !viewer.joined && (
@@ -123,7 +119,6 @@ function TesterRoundWorkspace() {
 }
 
 function RoundBrief({ round, collapsed }: { round: RoundDetail; collapsed: boolean }) {
-  const issues = round.formats.includes("issues") ? issuesUrl(round.repoUrl) : null;
   const readme = round.readme.trim() ? (
     <Markdown content={round.readme} />
   ) : (
@@ -132,23 +127,8 @@ function RoundBrief({ round, collapsed }: { round: RoundDetail; collapsed: boole
 
   return (
     <section className="min-w-0 space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {round.repoUrl && (
-          <Button asChild variant="outline" size="sm">
-            <a href={round.repoUrl} target="_blank" rel="noopener noreferrer">
-              <GitBranch className="h-3.5 w-3.5" />
-              repository
-            </a>
-          </Button>
-        )}
-        {issues && (
-          <Button asChild variant="outline" size="sm">
-            <a href={issues} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3.5 w-3.5" />
-              issues
-            </a>
-          </Button>
-        )}
+      <div className="flex flex-wrap items-center gap-2">
+        <RoundRepoLinks round={round} />
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           <CalendarClock className="h-3.5 w-3.5" />
           {round.closedAt

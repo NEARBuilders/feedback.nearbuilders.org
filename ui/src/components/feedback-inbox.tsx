@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Check, Download, X } from "lucide-react";
+import { Download } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Button, Checkbox, ConfirmDialog } from "@/components";
+import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
-import { exportFeedback } from "@/lib/feedback-export";
+import { exportFeedback, feedbackText } from "@/lib/feedback-export";
 import { inboxKeyAction, isTypingTarget } from "@/lib/inbox-keys";
 import type { FeedbackEntry, FeedbackStatus } from "@/lib/queries/feedback";
 import type { RoundParams } from "@/lib/round-links";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 type BulkStatus = Exclude<FeedbackStatus, "unresolved">;
 
-const BULK_VERBS: Record<BulkStatus, string> = { resolved: "Resolve", dismissed: "Dismiss" };
+const BULK_VERBS: Record<BulkStatus, string> = { resolved: "resolve", dismissed: "dismiss" };
 
 interface FeedbackInboxProps {
   roundId: string;
@@ -20,10 +21,6 @@ interface FeedbackInboxProps {
   entries: FeedbackEntry[];
   openId: string | undefined;
   footer?: ReactNode;
-}
-
-export function feedbackSnippet(entry: FeedbackEntry): string {
-  return (entry.format === "written" ? entry.body : entry.url) ?? "";
 }
 
 export function FeedbackInbox({ roundId, params, entries, openId, footer }: FeedbackInboxProps) {
@@ -79,22 +76,16 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
         {selection.length > 0 ? (
           <>
             <span className="text-sm text-muted-foreground">{selection.length} selected</span>
-            <Button variant="outline" size="sm" onClick={() => setPendingBulk("resolved")}>
-              <Check className="h-3.5 w-3.5" />
-              resolve
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPendingBulk("dismissed")}>
-              <X className="h-3.5 w-3.5" />
-              dismiss
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => exportSelection("csv")}>
-              <Download className="h-3.5 w-3.5" />
-              CSV
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => exportSelection("json")}>
-              <Download className="h-3.5 w-3.5" />
-              JSON
-            </Button>
+            <FeedbackStatusActions
+              current="unresolved"
+              onChange={(status) => status !== "unresolved" && setPendingBulk(status)}
+            />
+            {(["csv", "json"] as const).map((kind) => (
+              <Button key={kind} variant="ghost" size="sm" onClick={() => exportSelection(kind)}>
+                <Download className="h-3.5 w-3.5" />
+                {kind}
+              </Button>
+            ))}
           </>
         ) : (
           <span className="text-xs text-muted-foreground">j/k to move · r resolve · d dismiss</span>
@@ -126,7 +117,7 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
                 <FeedbackStatusBadge status={entry.status} />
               </span>
               <span className="line-clamp-2 text-sm text-foreground break-words">
-                {feedbackSnippet(entry)}
+                {feedbackText(entry)}
               </span>
             </Link>
           </li>

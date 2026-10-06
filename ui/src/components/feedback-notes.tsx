@@ -6,7 +6,7 @@ import { type ApiClient, useApiClient } from "@/app";
 import { Badge, Button, Textarea } from "@/components";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 
-export type FeedbackNote = Awaited<ReturnType<ApiClient["addFeedbackNote"]>>;
+type FeedbackNote = Awaited<ReturnType<ApiClient["addFeedbackNote"]>>;
 
 const NOTE_MAX = 1000;
 

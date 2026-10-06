@@ -15,8 +15,3 @@ export function roundParams(round: RoundRef): RoundParams {
 export function roundHref(round: RoundRef): string {
   return `/projects/${encodeURIComponent(round.projectSlug)}/${round.projectRoundNumber}`;
 }
-
-export function parseRoundNumber(value: string): number | null {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : null;
-}

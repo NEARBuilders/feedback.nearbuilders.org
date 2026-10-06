@@ -13,6 +13,7 @@ export const roundKeys = {
   participants: (id: string) => [...roundKeys.detail(id), "participants"] as const,
   credits: (id: string) => [...roundKeys.detail(id), "credits"] as const,
   creditCandidates: (id: string) => [...roundKeys.detail(id), "credit-candidates"] as const,
+  endorsements: (roundIds: string[]) => [...roundKeys.all, "endorsements", roundIds] as const,
 };
 
 export function roundsQueryOptions(apiClient: ApiClient, status?: RoundStatus) {
@@ -57,6 +58,15 @@ export function creditCandidatesQueryOptions(apiClient: ApiClient, id: string) {
   return queryOptions({
     queryKey: roundKeys.creditCandidates(id),
     queryFn: () => apiClient.getCreditCandidates({ id }),
+  });
+}
+
+export function roundEndorsementsQueryOptions(apiClient: ApiClient, roundIds: string[]) {
+  return queryOptions({
+    queryKey: roundKeys.endorsements(roundIds),
+    queryFn: () => apiClient.getRoundEndorsements({ roundIds }),
+    enabled: roundIds.length > 0,
+    staleTime: 60 * 1000,
   });
 }
 

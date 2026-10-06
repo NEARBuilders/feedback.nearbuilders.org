@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, redirect, useMatch } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useMatch } from "@tanstack/react-router";
 import { Eye, Inbox, LayoutDashboard, Lock, Megaphone, Settings, Users } from "lucide-react";
 import { Button, Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
@@ -7,15 +7,10 @@ import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { RouteTab, RouteTabs } from "@/components/route-tabs";
 import { pageHead } from "@/lib/page-title";
-import { loadRound, useRound } from "@/lib/round-route";
+import { loadRound, requireRoundManager, useRound } from "@/lib/round-route";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n")({
-  beforeLoad: async ({ context, params }) => {
-    const round = await loadRound(context, params);
-    if (!round.canManage && !context.auth.isAdmin) {
-      throw redirect({ to: "/projects/$slug/$n", params });
-    }
-  },
+  beforeLoad: ({ context, params }) => requireRoundManager(context, params),
   loader: async ({ context, params }) => {
     const round = await loadRound(context, params);
     return { title: round.title };

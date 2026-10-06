@@ -1,7 +1,7 @@
 import { infiniteQueryOptions, type QueryClient, queryOptions } from "@tanstack/react-query";
 import type { ApiClient } from "@/app";
 
-export type FeedbackPage = Awaited<ReturnType<ApiClient["listFeedback"]>>;
+type FeedbackPage = Awaited<ReturnType<ApiClient["listFeedback"]>>;
 export type FeedbackEntry = FeedbackPage["items"][number];
 export type FeedbackStatus = FeedbackEntry["status"];
 

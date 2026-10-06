@@ -1,4 +1,16 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, ne, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  ne,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -205,13 +217,13 @@ export interface RoundsService {
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string, page?: FeedbackPageInput): Promise<FeedbackPage>;
   getFeedback(roundId: string, feedbackId: string): Promise<RoundFeedbackRecord | null>;
-  /** Returns only the feedback whose status actually changed. */
   setFeedbackStatus(
     roundId: string,
     feedbackIds: string[],
     status: RoundFeedbackStatus,
+    note?: Pick<FeedbackNoteRecord, "authorAccountId" | "body">,
   ): Promise<RoundFeedbackRecord[]>;
-  addFeedbackNotes(notes: NewFeedbackNote[]): Promise<FeedbackNoteRecord[]>;
+  addFeedbackNote(note: NewFeedbackNote): Promise<FeedbackNoteRecord>;
   listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
   /** Accepted (resolved) feedback per author, optionally only accepted on or after `since`. */
@@ -523,11 +535,16 @@ export const RoundsLive = Layer.effect(
       listFeedback: async (roundId, page = {}) => {
         try {
           const limit = page.limit ?? DEFAULT_FEEDBACK_PAGE_SIZE;
-          const afterCursor = page.cursor
-            ? sql`(${roundFeedbackTable.createdAt}, ${roundFeedbackTable.id}) < (select created_at, id from round_feedback where id = ${page.cursor})`
-            : undefined;
+          const [cursorAt, cursorId] = page.cursor?.split("|") ?? [];
+          const afterCursor =
+            cursorAt && cursorId
+              ? sql`(${roundFeedbackTable.createdAt}, ${roundFeedbackTable.id}) < (${cursorAt}::timestamptz, ${cursorId}::uuid)`
+              : undefined;
           const rows = await db
-            .select()
+            .select({
+              ...getTableColumns(roundFeedbackTable),
+              cursor: sql<string>`${roundFeedbackTable.createdAt}::text || '|' || ${roundFeedbackTable.id}`,
+            })
             .from(roundFeedbackTable)
             .where(
               and(
@@ -539,8 +556,11 @@ export const RoundsLive = Layer.effect(
             )
             .orderBy(desc(roundFeedbackTable.createdAt), desc(roundFeedbackTable.id))
             .limit(limit + 1);
-          const items = rows.slice(0, limit).map(toFeedbackRecord);
-          return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null };
+          const pageRows = rows.slice(0, limit);
+          return {
+            items: pageRows.map(toFeedbackRecord),
+            nextCursor: rows.length > limit ? (pageRows.at(-1)?.cursor ?? null) : null,
+          };
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -561,31 +581,40 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      setFeedbackStatus: async (roundId, feedbackIds, status) => {
+      setFeedbackStatus: async (roundId, feedbackIds, status, note) => {
         try {
           if (feedbackIds.length === 0) return [];
-          const rows = await db
-            .update(roundFeedbackTable)
-            .set({ status, statusChangedAt: sql`now()` })
-            .where(
-              and(
-                eq(roundFeedbackTable.roundId, roundId),
-                inArray(roundFeedbackTable.id, feedbackIds),
-                ne(roundFeedbackTable.status, status),
-              ),
-            )
-            .returning();
-          return rows.map(toFeedbackRecord);
+          return await db.transaction(async (tx) => {
+            const rows = await tx
+              .update(roundFeedbackTable)
+              .set({ status, statusChangedAt: sql`now()` })
+              .where(
+                and(
+                  eq(roundFeedbackTable.roundId, roundId),
+                  inArray(roundFeedbackTable.id, feedbackIds),
+                  ne(roundFeedbackTable.status, status),
+                ),
+              )
+              .returning();
+            if (note && rows.length > 0) {
+              await tx
+                .insert(feedbackNotesTable)
+                .values(
+                  rows.map((row) => ({ ...note, feedbackId: row.id, role: "owner" as const })),
+                );
+            }
+            return rows.map(toFeedbackRecord);
+          });
         } catch (error) {
           throw toOrpcError(error);
         }
       },
 
-      addFeedbackNotes: async (notes) => {
+      addFeedbackNote: async (note) => {
         try {
-          if (notes.length === 0) return [];
-          const rows = await db.insert(feedbackNotesTable).values(notes).returning();
-          return rows.map(toNoteRecord);
+          const [row] = await db.insert(feedbackNotesTable).values(note).returning();
+          if (!row) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Note not saved" });
+          return toNoteRecord(row);
         } catch (error) {
           throw toOrpcError(error);
         }

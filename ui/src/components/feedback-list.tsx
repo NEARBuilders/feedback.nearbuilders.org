@@ -48,7 +48,11 @@ export function FeedbackList<T extends FeedbackEntry & { points?: number }>({
         {entries.map((entry) => {
           const isOwn = entry.authorAccountId === currentAccountId;
           return (
-            <li key={entry.id} className="space-y-2 px-4 py-3">
+            <li
+              key={entry.id}
+              id={`feedback-${entry.id}`}
+              className="scroll-mt-20 space-y-2 px-4 py-3"
+            >
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0 truncate text-xs text-muted-foreground">
                   <span className="font-mono">{entry.authorAccountId}</span>

@@ -30,6 +30,14 @@ Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs
 | `GET` | `/api/v1/rounds` | List rounds, filtered by status (open rounds are public and need no sign-in). |
 | `GET` | `/api/v1/rounds/{id}` | Read one round. Pending and rejected rounds are visible only to the owning organization and admins. |
 | `PATCH` | `/api/v1/rounds/{id}` | Owning organization: change round settings, the markdown readme for testers and the feedback formats. |
+| `GET` | `/api/v1/projects/{slug}/rounds/{number}` | Read a round by its readable address, e.g. `/projects/near-wallet/rounds/3`. |
+| `GET` | `/api/v1/rounds/{id}/feedback` | Feedback for a round, newest first, cursor-paged and filterable by `status` and `author`. |
+| `GET` | `/api/v1/rounds/{id}/feedback/{feedbackId}` | One feedback item; owner notes are included for its author and the round's managers. |
+| `POST` | `/api/v1/rounds/{id}/feedback/{feedbackId}/notes` | Owner note on feedback, or the author's reply to one. |
+| `GET` | `/api/v1/rounds/{id}/my-feedback` | Tester: your feedback in a round, with status, points and notes. |
+| `POST` | `/api/v1/rounds/{id}/invite` | Owner: notify the testers of an earlier round of the same project. |
+| `GET` | `/api/v1/projects/approved` | Public: approved projects with their rounds. |
+| `GET` | `/api/v1/projects/{slug}/detail` | Public: a project, its rounds and its nearbuilders.org metadata. |
 | `GET` | `/api/v1/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
 | `GET` | `/api/v1/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
 | `POST` | `/api/v1/projects/{id}/approve` | Admin: approve a project; its pending rounds go live for signups. |

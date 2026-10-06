@@ -112,6 +112,7 @@ export function NotificationBell() {
                       <Link
                         to={notificationTarget(item.kind)}
                         params={roundParams(item)}
+                        hash={item.feedbackId ? `feedback-${item.feedbackId}` : undefined}
                         className="flex cursor-pointer gap-2.5 rounded-none px-3 py-2.5"
                       >
                         <span

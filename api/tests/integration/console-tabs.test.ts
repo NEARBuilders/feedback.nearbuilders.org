@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createOpenRound, joinWithFeedback } from "../fixtures";
+import { adminContext, getPluginClient } from "../setup";
 
 describe("updateRound settings (#116)", () => {
   it("changes the feedback formats and the readme", async () => {
@@ -33,5 +34,16 @@ describe("listParticipants feedback counts (#116)", () => {
       ["tabs-a3.near", 2],
       ["tabs-b3.near", 0],
     ]);
+  });
+});
+
+describe("site admins in the console (#116)", () => {
+  it("can change round settings", async () => {
+    const { round } = await createOpenRound("tabs-owner4.near");
+    const admin = await getPluginClient(adminContext("tabs-admin4"));
+
+    await expect(admin.updateRound({ id: round.id, readme: "From admin" })).resolves.toMatchObject({
+      readme: "From admin",
+    });
   });
 });

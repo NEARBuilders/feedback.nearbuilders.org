@@ -55,7 +55,6 @@ export function canManageRound(
   return !!actor.accountId && actor.accountId === round.ownerAccountId;
 }
 
-/** A project is managed by whoever can manage its rounds. */
 export function canManageProject(
   project: ProjectAccessSubject & { rounds: RoundAccessSubject[] },
   actor: RoundActor,

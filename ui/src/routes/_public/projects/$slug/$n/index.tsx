@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, GitBranch, PenLine, Users } from "lucide-react";
+import { ExternalLink, PenLine, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Badge, Button } from "@/components";
@@ -9,9 +9,14 @@ import { EndorsementCount } from "@/components/endorsement-count";
 import { RoundCredits } from "@/components/round-credits";
 import { RoundParticipants } from "@/components/round-participants";
 import { RoundReadme } from "@/components/round-readme";
+import { RoundRepoLinks } from "@/components/round-repo-links";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
-import { invalidateRoundQueries, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
+import {
+  invalidateRoundQueries,
+  roundEndorsementsQueryOptions,
+  roundParticipantsQueryOptions,
+} from "@/lib/queries/rounds";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { roundParams } from "@/lib/round-links";
 import { type RoundDetail, useRound } from "@/lib/round-route";
@@ -26,11 +31,7 @@ function RoundOverviewPage() {
   const apiClient = useApiClient();
   const viewer = useRoundViewer(round);
 
-  const { data: endorsements } = useQuery({
-    queryKey: ["activity", "endorsements", [round.id]],
-    queryFn: () => apiClient.getRoundEndorsements({ roundIds: [round.id] }),
-    staleTime: 60_000,
-  });
+  const { data: endorsements } = useQuery(roundEndorsementsQueryOptions(apiClient, [round.id]));
   const endorsement = endorsements?.[round.id];
 
   return (
@@ -58,14 +59,7 @@ function RoundOverviewPage() {
             {FORMAT_LABELS[format] ?? format}
           </Badge>
         ))}
-        {round.repoUrl && (
-          <Button asChild variant="ghost" size="sm">
-            <a href={round.repoUrl} target="_blank" rel="noopener noreferrer">
-              <GitBranch className="h-3.5 w-3.5" />
-              repository
-            </a>
-          </Button>
-        )}
+        <RoundRepoLinks round={round} />
       </div>
 
       <TestersRow round={round} viewer={viewer} />

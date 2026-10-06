@@ -15,13 +15,13 @@ import { RoundsTable } from "@/components/rounds-table";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { TopTesters } from "@/components/top-testers";
 import { pageHead } from "@/lib/page-title";
-import { roundsQueryOptions } from "@/lib/queries/rounds";
-import { oneOf } from "@/lib/search";
+import { roundEndorsementsQueryOptions, roundsQueryOptions } from "@/lib/queries/rounds";
+import { oneOf, positiveInt } from "@/lib/search";
 
 const STATUS_FILTERS = ["open", "closed"] as const;
 type RoundStatusFilter = (typeof STATUS_FILTERS)[number];
 
-export interface RoundsSearch {
+interface RoundsSearch {
   status: RoundStatusFilter;
   q: string;
   page: number;
@@ -30,11 +30,10 @@ export interface RoundsSearch {
 export function validateRoundsSearch(
   search: Partial<RoundsSearch> & SearchSchemaInput,
 ): RoundsSearch {
-  const page = Number(search.page);
   return {
     status: oneOf(search.status, STATUS_FILTERS, "open"),
     q: typeof search.q === "string" ? search.q : "",
-    page: Number.isInteger(page) && page > 0 ? page : 1,
+    page: positiveInt(search.page) ?? 1,
   };
 }
 
@@ -49,10 +48,10 @@ export const Route = createFileRoute("/_public/rounds/")({
   head: () => pageHead("Rounds", "Browse feedback rounds and join one."),
   pendingComponent: RoutePending,
   errorComponent: RouteError,
-  component: FeedPage,
+  component: RoundsPage,
 });
 
-function FeedPage() {
+function RoundsPage() {
   const apiClient = useApiClient();
   const { status, q: query, page } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -62,12 +61,7 @@ function FeedPage() {
   const { data: rounds } = useSuspenseQuery(roundsQueryOptions(apiClient, status));
 
   const roundIds = useMemo(() => rounds.map((round) => round.id).slice(0, 100), [rounds]);
-  const { data: endorsements } = useQuery({
-    queryKey: ["activity", "endorsements", roundIds],
-    queryFn: () => apiClient.getRoundEndorsements({ roundIds }),
-    enabled: roundIds.length > 0,
-    staleTime: 60_000,
-  });
+  const { data: endorsements } = useQuery(roundEndorsementsQueryOptions(apiClient, roundIds));
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

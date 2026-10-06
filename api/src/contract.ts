@@ -145,7 +145,6 @@ const MAX_NOTE_LENGTH = 1000;
 
 const NoteBodySchema = z.string().trim().min(1, "Write a note").max(MAX_NOTE_LENGTH);
 
-/** Notes are only filled in for the feedback's author, the round's managers and site admins. */
 export const FeedbackDetailSchema = RoundFeedbackSchema.extend({
   notes: z.array(FeedbackNoteSchema),
 });
@@ -197,6 +196,7 @@ export const NotificationSchema = z.object({
   roundTitle: z.string(),
   projectSlug: z.string(),
   projectRoundNumber: z.number().int().positive(),
+  feedbackId: z.string().nullable(),
   kind: NotificationKindSchema,
   title: z.string(),
   body: z.string(),
@@ -635,7 +635,7 @@ export const contract = oc.router({
     .input(
       z.object({
         id: z.string(),
-        cursor: z.uuid().optional(),
+        cursor: z.string().max(100).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         status: RoundFeedbackStatusSchema.optional(),
         author: z.string().min(1).optional(),
@@ -781,7 +781,7 @@ export const contract = oc.router({
     .output(z.array(ProjectWithRoundsSchema)),
 
   getProjectBySlug: oc
-    .route({ method: "GET", path: "/projects/by-slug/{slug}" })
+    .route({ method: "GET", path: "/projects/{slug}/detail" })
     .input(z.object({ slug: z.string().min(1) }))
     .output(ProjectDetailSchema)
     .errors({ NOT_FOUND }),

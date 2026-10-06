@@ -11,18 +11,15 @@ import { Inbox, X } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, EmptyState, SegmentedToggle } from "@/components";
 import { FeedbackInbox } from "@/components/feedback-inbox";
-import {
-  type FeedbackFilters,
-  type FeedbackStatus,
-  roundFeedbackQueryOptions,
-} from "@/lib/queries/feedback";
+import { LoadMoreButton } from "@/components/load-more-button";
+import { type FeedbackFilters, roundFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { loadRound, useRound } from "@/lib/round-route";
 import { oneOf } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
 const STATUS_FILTERS = ["unresolved", "resolved", "dismissed", "all"] as const;
 
-export interface InboxSearch {
+interface InboxSearch {
   status: (typeof STATUS_FILTERS)[number];
   author?: string;
 }
@@ -35,7 +32,7 @@ export function validateInboxSearch(search: Partial<InboxSearch> & SearchSchemaI
 }
 
 export function inboxFilters({ status, author }: InboxSearch): FeedbackFilters {
-  return { status: status === "all" ? undefined : (status as FeedbackStatus), author };
+  return { status: status === "all" ? undefined : status, author };
 }
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n/_inbox")({
@@ -97,18 +94,7 @@ function InboxLayout() {
             params={params}
             entries={entries}
             openId={feedbackId}
-            footer={
-              feedbackQuery.hasNextPage && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void feedbackQuery.fetchNextPage()}
-                  disabled={feedbackQuery.isFetchingNextPage}
-                >
-                  {feedbackQuery.isFetchingNextPage ? "loading..." : "load more"}
-                </Button>
-              )
-            }
+            footer={<LoadMoreButton query={feedbackQuery} />}
           />
         )}
       </section>

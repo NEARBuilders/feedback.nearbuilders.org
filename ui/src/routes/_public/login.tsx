@@ -6,6 +6,7 @@ import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, PageContainer } from "@/components";
 import { UnderConstruction } from "@/components/under-construction";
 import { pageHead } from "@/lib/page-title";
+import { resetViewerQueries } from "@/lib/queries/viewer";
 
 type SearchParams = {
   redirect?: string;
@@ -66,6 +67,7 @@ function LoginPage() {
       query: { disableCookieCache: true },
     });
     queryClient.setQueryData(sessionQueryOptions(auth, undefined).queryKey, freshSession ?? null);
+    resetViewerQueries(queryClient);
     navigate({ to: redirectTo, replace: true, search: {} });
   };
 

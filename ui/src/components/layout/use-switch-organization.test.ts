@@ -12,6 +12,7 @@ const harness = vi.hoisted(() => ({
   getSession: vi.fn(),
   setQueryData: vi.fn(),
   invalidateQueries: vi.fn(),
+  removeQueries: vi.fn(),
   invalidateRouter: vi.fn(),
   success: vi.fn(),
 }));
@@ -24,6 +25,7 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({
     setQueryData: harness.setQueryData,
     invalidateQueries: harness.invalidateQueries,
+    removeQueries: harness.removeQueries,
   }),
 }));
 
@@ -70,6 +72,7 @@ describe("organization switching", () => {
       query: { disableCookieCache: true },
     });
     expect(harness.setQueryData).toHaveBeenCalledWith(["session"], freshSession);
+    expect(harness.removeQueries).toHaveBeenCalledWith({ queryKey: ["rounds"] });
     expect(harness.invalidateRouter).toHaveBeenCalledOnce();
   });
 });

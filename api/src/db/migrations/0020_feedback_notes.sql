@@ -10,5 +10,7 @@ CREATE TABLE "feedback_notes" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "notifications" ADD COLUMN "feedback_id" uuid;--> statement-breakpoint
 ALTER TABLE "feedback_notes" ADD CONSTRAINT "feedback_notes_feedback_id_round_feedback_id_fk" FOREIGN KEY ("feedback_id") REFERENCES "public"."round_feedback"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "feedback_notes_feedback_created_idx" ON "feedback_notes" USING btree ("feedback_id","created_at");
+CREATE INDEX "feedback_notes_feedback_created_idx" ON "feedback_notes" USING btree ("feedback_id","created_at");--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_feedback_id_round_feedback_id_fk" FOREIGN KEY ("feedback_id") REFERENCES "public"."round_feedback"("id") ON DELETE set null ON UPDATE no action;

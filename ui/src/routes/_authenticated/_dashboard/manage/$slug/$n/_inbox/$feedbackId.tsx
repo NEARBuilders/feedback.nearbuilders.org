@@ -1,14 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, Check, Filter, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Filter } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
 import { FeedbackContent } from "@/components/feedback-content";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
+import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { RouteNotFound } from "@/components/route-states";
-import { type FeedbackStatus, feedbackItemQueryOptions } from "@/lib/queries/feedback";
+import { feedbackItemQueryOptions } from "@/lib/queries/feedback";
 import { orNotFound } from "@/lib/queries/not-found";
 import { loadRound, useRound } from "@/lib/round-route";
 import { useSetFeedbackStatus } from "@/lib/use-feedback-status";
@@ -90,51 +91,18 @@ function FeedbackDetailPane() {
           feedbackId={feedback.id}
           placeholder="Note to the tester (optional)"
           submitLabel="Send note"
-          extraActions={(note, clear) => {
-            const setStatus = (status: FeedbackStatus) =>
-              statusMutation.mutate(
-                { feedbackIds: [feedback.id], status, note: note || undefined },
-                { onSuccess: clear },
-              );
-            return (
-              <>
-                {feedback.status !== "resolved" && (
-                  <Button
-                    size="sm"
-                    onClick={() => setStatus("resolved")}
-                    disabled={statusMutation.isPending}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    resolve
-                    <kbd className="text-[10px] opacity-60">r</kbd>
-                  </Button>
-                )}
-                {feedback.status !== "dismissed" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setStatus("dismissed")}
-                    disabled={statusMutation.isPending}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    dismiss
-                    <kbd className="text-[10px] opacity-60">d</kbd>
-                  </Button>
-                )}
-                {feedback.status !== "unresolved" && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setStatus("unresolved")}
-                    disabled={statusMutation.isPending}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    reopen
-                  </Button>
-                )}
-              </>
-            );
-          }}
+          extraActions={(note, clear) => (
+            <FeedbackStatusActions
+              current={feedback.status}
+              disabled={statusMutation.isPending}
+              onChange={(status) =>
+                statusMutation.mutate(
+                  { feedbackIds: [feedback.id], status, note: note || undefined },
+                  { onSuccess: clear },
+                )
+              }
+            />
+          )}
         />
       </div>
     </Card>

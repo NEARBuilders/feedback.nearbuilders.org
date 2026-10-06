@@ -1,5 +1,5 @@
 {
-  "id": "4878f704-d35a-4ef0-b7e8-2a88ed7722da",
+  "id": "3582b91c-b814-40c3-92c3-9506a8ce5def",
   "prevId": "16e48c24-fc32-4cfa-b271-88aa29a33f40",
   "version": "7",
   "dialect": "postgresql",
@@ -118,6 +118,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "feedback_id": {
+          "name": "feedback_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "title": {
           "name": "title",
           "type": "text",
@@ -212,6 +218,15 @@
           "columnsFrom": ["round_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notifications_feedback_id_round_feedback_id_fk": {
+          "name": "notifications_feedback_id_round_feedback_id_fk",
+          "tableFrom": "notifications",
+          "tableTo": "round_feedback",
+          "columnsFrom": ["feedback_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

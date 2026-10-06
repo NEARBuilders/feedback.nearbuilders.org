@@ -11,13 +11,20 @@ function csvCell(value: string): string {
   return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
-function contentOf(entry: ExportableFeedback): string {
+export function feedbackText(entry: Pick<ExportableFeedback, "format" | "body" | "url">): string {
   return (entry.format === "written" ? entry.body : entry.url) ?? "";
 }
 
 export function feedbackToCsv(entries: ExportableFeedback[]): string {
   const rows = entries.map((entry) =>
-    [entry.id, entry.authorAccountId, entry.format, contentOf(entry), entry.status, entry.createdAt]
+    [
+      entry.id,
+      entry.authorAccountId,
+      entry.format,
+      feedbackText(entry),
+      entry.status,
+      entry.createdAt,
+    ]
       .map(csvCell)
       .join(","),
   );
@@ -30,7 +37,7 @@ export function feedbackToJson(entries: ExportableFeedback[]): string {
       id: entry.id,
       author: entry.authorAccountId,
       format: entry.format,
-      content: contentOf(entry),
+      content: feedbackText(entry),
       status: entry.status,
       createdAt: entry.createdAt,
     })),

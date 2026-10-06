@@ -5,6 +5,7 @@ import type { Organization } from "@/app";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { getNearInitials, resolveNearImageUrl } from "@/lib/near-profile";
 import { nearProfileQueryOptions } from "@/lib/queries/profiles";
+import { resetViewerQueries } from "@/lib/queries/viewer";
 import { useNearAccount } from "@/lib/use-near-account";
 
 export function useIdentity() {
@@ -45,6 +46,7 @@ export function useIdentity() {
     onSuccess: async () => {
       queryClient.setQueryData(["session"], null);
       queryClient.removeQueries({ queryKey: ["organizations"] });
+      resetViewerQueries(queryClient);
       await queryClient.invalidateQueries({ queryKey: ["session"] });
       await router.invalidate();
       await navigate({ to: "/", replace: true });

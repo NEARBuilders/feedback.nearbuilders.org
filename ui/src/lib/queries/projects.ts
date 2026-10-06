@@ -1,7 +1,7 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import type { ApiClient } from "@/app";
 
-export type ProjectStatus = NonNullable<Parameters<ApiClient["listProjects"]>[0]>["status"];
+type ProjectStatus = NonNullable<Parameters<ApiClient["listProjects"]>[0]>["status"];
 
 export const projectKeys = {
   all: ["projects"] as const,

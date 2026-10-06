@@ -29,6 +29,10 @@ export function issuesUrl(repoUrl: string | null): string | null {
   return repoUrl ? `${repoUrl.replace(/\/+$/, "")}/issues` : null;
 }
 
+export function roundIssuesUrl(round: { formats: string[]; repoUrl: string | null }) {
+  return round.formats.includes("issues") ? issuesUrl(round.repoUrl) : null;
+}
+
 export function nextAction(round: WorkspaceRound): NextAction {
   if (round.status !== "open") return { kind: "view-round", label: "View round" };
   if (collectsPostedFeedback(round)) {

@@ -231,6 +231,7 @@ export const notifications = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: "cascade" }),
     kind: notificationKind("kind").notNull(),
+    feedbackId: uuid("feedback_id").references(() => roundFeedback.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     body: text("body").default("").notNull(),
     readAt: timestamp("read_at", { mode: "date", withTimezone: true }),

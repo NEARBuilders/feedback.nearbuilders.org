@@ -39,6 +39,25 @@ describe("resolve/dismiss notifications (#118)", () => {
   });
 });
 
+describe("notification links (#118)", () => {
+  it("points at the item when the author had one change, at the round otherwise", async () => {
+    const { round, ownerClient } = await createOpenRound("note-owner6.near");
+    const a = await joinWithFeedback(round.id, "note-a6.near", ["one"]);
+    const b = await joinWithFeedback(round.id, "note-b6.near", ["two", "three"]);
+
+    await ownerClient.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [...a.feedback, ...b.feedback].map((f) => f.id),
+      status: "resolved",
+    });
+
+    const [forA] = (await (await clientFor("note-a6.near")).listNotifications({})).items;
+    const [forB] = (await (await clientFor("note-b6.near")).listNotifications({})).items;
+    expect(forA?.feedbackId).toBe(a.feedback[0]?.id);
+    expect(forB?.feedbackId).toBeNull();
+  });
+});
+
 describe("feedback notes (#118)", () => {
   it("shows the owner's note to the author, who can reply", async () => {
     const { round, ownerClient } = await createOpenRound("note-owner3.near");

@@ -96,3 +96,21 @@ describe("listFeedback pages (#114)", () => {
     expect(second.nextCursor).toBeNull();
   });
 });
+
+describe("listFeedback cursor (#114)", () => {
+  it("keeps paging when the cursor's item is deleted", async () => {
+    const { round } = await createOpenRound("url-owner8.near");
+    const { client } = await joinWithFeedback(round.id, "url-tester8.near", ["a", "b", "c"]);
+    const anon = await getPluginClient();
+
+    const first = await anon.listFeedback({ id: round.id, limit: 2 });
+    await client.deleteFeedback({ id: round.id, feedbackId: first.items[1]?.id ?? "" });
+
+    const second = await anon.listFeedback({
+      id: round.id,
+      limit: 2,
+      cursor: first.nextCursor ?? undefined,
+    });
+    expect(second.items.map((f) => f.body)).toEqual(["a"]);
+  });
+});

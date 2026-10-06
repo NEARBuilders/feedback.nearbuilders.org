@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, type SearchSchemaInput, useNavigate } from "@tanstack/react-router";
-import { PlusCircle, Send } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
@@ -10,21 +10,16 @@ import { PageHeader } from "@/components/layout/page-header";
 import { RoundFieldsEditor } from "@/components/round-fields";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
-import {
-  loadProject,
-  type ProjectDetail,
-  requireProjectManager,
-  useProject,
-} from "@/lib/project-route";
+import { loadProject, requireProjectManager } from "@/lib/project-route";
 import { invalidateProjectQueries } from "@/lib/queries/projects";
 import { invalidateRoundQueries, roundBySlugQueryOptions } from "@/lib/queries/rounds";
 import { nextRoundFields, roundFieldsComplete, toCreateRoundInput } from "@/lib/round-fields";
-import { parseRoundNumber, roundParams } from "@/lib/round-links";
-import type { RoundDetail } from "@/lib/round-route";
+import { roundParams } from "@/lib/round-links";
+import { positiveInt } from "@/lib/search";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/new")({
   validateSearch: (search: { from?: number } & SearchSchemaInput): { from?: number } => {
-    const from = parseRoundNumber(String(search.from));
+    const from = positiveInt(search.from);
     return from ? { from } : {};
   },
   beforeLoad: async ({ context, params }) => {
@@ -33,14 +28,14 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/ne
   loaderDeps: ({ search }) => ({ from: search.from }),
   loader: async ({ context, params, deps }) => {
     const project = await loadProject(context, params.slug);
-    if (deps.from) {
-      await context.queryClient.prefetchQuery(
-        roundBySlugQueryOptions(context.apiClient, params.slug, deps.from),
-      );
-    }
-    return { name: project.name };
+    const previous = deps.from
+      ? await context.queryClient
+          .ensureQueryData(roundBySlugQueryOptions(context.apiClient, params.slug, deps.from))
+          .catch(() => null)
+      : null;
+    return { project, previous };
   },
-  head: ({ loaderData }) => pageHead(loaderData && `New round · ${loaderData.name}`),
+  head: ({ loaderData }) => pageHead(loaderData && `New round · ${loaderData.project.name}`),
   pendingComponent: RoutePending,
   errorComponent: RouteError,
   notFoundComponent: () => <RouteNotFound title="Project not found." backTo="/manage" />,
@@ -48,41 +43,11 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/ne
 });
 
 function NewRoundPage() {
-  const { slug } = Route.useParams();
-  const { from } = Route.useSearch();
-  const project = useProject(slug);
-  const apiClient = useApiClient();
-  const previousQuery = useQuery({
-    ...roundBySlugQueryOptions(apiClient, slug, from ?? 0),
-    enabled: !!from,
-  });
-
-  if (from && previousQuery.isPending) return <RoutePending />;
-
-  return (
-    <NewRoundForm
-      key={previousQuery.data?.id ?? "blank"}
-      project={project}
-      previous={previousQuery.data ?? null}
-    />
-  );
-}
-
-function NewRoundForm({
-  project,
-  previous,
-}: {
-  project: ProjectDetail;
-  previous: RoundDetail | null;
-}) {
+  const { project, previous } = Route.useLoaderData();
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [fields, setFields] = useState(() => nextRoundFields(previous));
-  const [created, setCreated] = useState<{ id: string; slug: string; n: string } | null>(null);
-
-  const openConsole = (params: { slug: string; n: string }) =>
-    void navigate({ to: "/manage/$slug/$n", params });
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -94,20 +59,11 @@ function NewRoundForm({
     onSuccess: (round) => {
       void invalidateRoundQueries(queryClient);
       void invalidateProjectQueries(queryClient);
-      toast.success(`Round ${round.projectRoundNumber} opened`);
-      const params = roundParams(round);
-      if (previous && round.status === "open") setCreated({ id: round.id, ...params });
-      else openConsole(params);
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const inviteMutation = useMutation({
-    mutationFn: (round: { id: string }) =>
-      apiClient.inviteTesters({ id: round.id, fromRoundId: previous?.id ?? "" }),
-    onSuccess: ({ recipients }) => {
-      toast.success(`Invited ${recipients} ${recipients === 1 ? "tester" : "testers"}`);
-      if (created) openConsole(created);
+      toast.success(`Round ${round.projectRoundNumber} started`);
+      void navigate({
+        to: previous ? "/manage/$slug/$n/broadcast" : "/manage/$slug/$n",
+        params: roundParams(round),
+      });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -122,52 +78,27 @@ function NewRoundForm({
           description={
             previous
               ? `Prefilled from round ${previous.projectRoundNumber}. Change anything before you start.`
-              : undefined
+              : "Testers see the title, description and readme while they test."
           }
         />
-
-        {created ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createMutation.mutate();
+          }}
+          className="space-y-6"
+        >
           <Card className="p-6 space-y-4">
-            <p className="text-sm text-foreground">
-              Round {created.n} is open. Invite the testers from round{" "}
-              {previous?.projectRoundNumber}?
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() => inviteMutation.mutate(created)}
-                disabled={inviteMutation.isPending}
-              >
-                <Send className="h-4 w-4" />
-                invite previous testers
-              </Button>
-              <Button variant="outline" onClick={() => openConsole(created)}>
-                skip
-              </Button>
-            </div>
+            <RoundFieldsEditor
+              value={fields}
+              onChange={setFields}
+              disabled={createMutation.isPending}
+            />
           </Card>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              createMutation.mutate();
-            }}
-            className="space-y-6"
-          >
-            <Card className="p-6 space-y-4">
-              <RoundFieldsEditor
-                value={fields}
-                onChange={setFields}
-                disabled={createMutation.isPending}
-              />
-            </Card>
-            <Button
-              type="submit"
-              disabled={!roundFieldsComplete(fields) || createMutation.isPending}
-            >
-              {createMutation.isPending ? "starting..." : "start round"}
-            </Button>
-          </form>
-        )}
+          <Button type="submit" disabled={!roundFieldsComplete(fields) || createMutation.isPending}>
+            {createMutation.isPending ? "starting..." : "start round"}
+          </Button>
+        </form>
       </div>
     </PageContainer>
   );

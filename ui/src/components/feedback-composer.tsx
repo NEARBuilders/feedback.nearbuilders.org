@@ -29,18 +29,24 @@ type FeedbackDraft = { body: string; url: string };
 
 const EMPTY_DRAFT: FeedbackDraft = { body: "", url: "" };
 
-export function writableFormats(formats: string[]): FeedbackFormat[] {
+function writableFormats(formats: string[]): FeedbackFormat[] {
   return formats.filter((f): f is FeedbackFormat => f === "written" || f === "recorded");
 }
 
-export function FeedbackComposer({ roundId, formats }: { roundId: string; formats: string[] }) {
+interface FeedbackComposerProps {
+  roundId: string;
+  formats: string[];
+  accountId: string | null;
+}
+
+export function FeedbackComposer({ roundId, formats, accountId }: FeedbackComposerProps) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const writable = writableFormats(formats);
   const [format, setFormat] = useState<FeedbackFormat>(writable[0] ?? "written");
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
   const [mode, setMode] = useState<"write" | "preview">("write");
-  const draftKey = `feedback-draft:${roundId}`;
+  const draftKey = `feedback-draft:${accountId}:${roundId}`;
 
   useEffect(() => {
     try {

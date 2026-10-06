@@ -78,6 +78,8 @@ function validateAccountId(accountId: string): void {
 
 const MAX_FEEDBACK_PER_TESTER = 500;
 
+const MAX_NOTES_PER_FEEDBACK = 20;
+
 const isPublic = (round: { status: string }) =>
   round.status === "open" || round.status === "closed";
 
@@ -230,15 +232,29 @@ export default createPlugin.withPlugins<PluginsClient>()({
      */
     const assertCanManageRound = async (
       round: { ownerAccountId: string; projectRecordId: string },
-      context: ActorContext,
+      context: ViewerContext,
       message: string,
     ) => {
+      if (isSiteAdmin(context)) return;
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
       if (!allowed) throw new ORPCError("FORBIDDEN", { message });
     };
 
     type ViewerContext = ActorContext & { user?: { role?: string | null } | null };
+
+    const isSiteAdmin = (context: ViewerContext) => context.user?.role === "admin";
+
+    const managesRound = (round: { canManage: boolean }, context: ViewerContext) =>
+      round.canManage || isSiteAdmin(context);
+
+    const nearAccountForNotes = (context: ViewerContext) => {
+      const accountId = context.near?.primaryAccountId;
+      if (!accountId) {
+        throw new ORPCError("BAD_REQUEST", { message: "Link a NEAR account to add a note" });
+      }
+      return accountId;
+    };
 
     const roundNotFound = (resourceId: string) =>
       new ORPCError("NOT_FOUND", {
@@ -255,7 +271,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const canManage = canManageRound(round, project, await resolveActor(project, context));
       const hidden = round.status === "pending" || round.status === "rejected";
-      if (hidden && !canManage && context.user?.role !== "admin") throw roundNotFound(resourceId);
+      if (hidden && !managesRound({ canManage }, context)) throw roundNotFound(resourceId);
       return { ...round, canManage };
     };
 
@@ -270,16 +286,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
     const notifyAuthors = async (
       round: { id: string; title: string },
-      feedback: Array<{ authorAccountId: string }>,
+      feedback: Array<{ id: string; authorAccountId: string }>,
       kind: FeedbackStatusKind,
       note?: string,
     ) => {
+      const byAuthor = new Map<string, string[]>();
+      for (const item of feedback) {
+        byAuthor.set(item.authorAccountId, [
+          ...(byAuthor.get(item.authorAccountId) ?? []),
+          item.id,
+        ]);
+      }
       try {
         await services.notifications.notifyAccounts({
           roundId: round.id,
           kind,
           ...notificationText(kind, round.title, note),
-          accountIds: feedback.map((item) => item.authorAccountId),
+          recipients: [...byAuthor].map(([accountId, ids]) => ({
+            accountId,
+            feedbackId: ids.length === 1 ? (ids[0] ?? null) : null,
+          })),
         });
       } catch (error) {
         console.warn(`[notifications] ${kind} for round ${round.id} failed`, error);
@@ -806,8 +832,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
         if (!feedback) throw feedbackNotFound(input.feedbackId);
         const canSeeNotes =
-          round.canManage ||
-          context.user?.role === "admin" ||
+          managesRound(round, context) ||
           feedback.authorAccountId === context.near?.primaryAccountId;
         const notes = canSeeNotes ? await services.rounds.listFeedbackNotes([feedback.id]) : [];
         return { ...feedback, notes };
@@ -816,37 +841,31 @@ export default createPlugin.withPlugins<PluginsClient>()({
       addFeedbackNote: builder.addFeedbackNote
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) {
-            throw new ORPCError("BAD_REQUEST", { message: "Link a NEAR account to add a note" });
-          }
+          const accountId = nearAccountForNotes(context);
           const round = await visibleRound(input.id, context);
           const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
-          const isManager = round.canManage || context.user?.role === "admin";
+          const isManager = managesRound(round, context);
           if (!isManager && feedback.authorAccountId !== accountId) {
             throw new ORPCError("FORBIDDEN", {
               message: "Only the author or the round owner can add a note",
             });
           }
-          if (!isManager) {
-            const notes = await services.rounds.listFeedbackNotes([feedback.id]);
-            if (!notes.some((note) => note.role === "owner")) {
-              throw new ORPCError("BAD_REQUEST", {
-                message: "You can reply once the round owner leaves a note",
-              });
-            }
+          const notes = await services.rounds.listFeedbackNotes([feedback.id]);
+          if (notes.length >= MAX_NOTES_PER_FEEDBACK) {
+            throw new ORPCError("BAD_REQUEST", { message: "This thread is full" });
           }
-          const [note] = await services.rounds.addFeedbackNotes([
-            {
-              feedbackId: feedback.id,
-              authorAccountId: accountId,
-              role: isManager ? "owner" : "tester",
-              body: input.body,
-            },
-          ]);
-          if (!note) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Note not saved" });
-          return note;
+          if (!isManager && !notes.some((note) => note.role === "owner")) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "You can reply once the round owner leaves a note",
+            });
+          }
+          return await services.rounds.addFeedbackNote({
+            feedbackId: feedback.id,
+            authorAccountId: accountId,
+            role: isManager ? "owner" : "tester",
+            body: input.body,
+          });
         }),
 
       deleteFeedback: builder.deleteFeedback
@@ -897,32 +916,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuth)
         .handler(async ({ input, context }) => {
           const round = await requireRound(input.id);
-          if (context.user?.role !== "admin") {
-            await assertCanManageRound(
-              round,
-              context,
-              "Only the round owner can resolve or dismiss feedback",
-            );
-          }
-          const accountId = context.near?.primaryAccountId;
-          if (input.note && !accountId) {
-            throw new ORPCError("BAD_REQUEST", { message: "Link a NEAR account to add a note" });
-          }
+          await assertCanManageRound(
+            round,
+            context,
+            "Only the round owner can resolve or dismiss feedback",
+          );
+          const note = input.note
+            ? { authorAccountId: nearAccountForNotes(context), body: input.note }
+            : undefined;
           const changed = await services.rounds.setFeedbackStatus(
             round.id,
             input.feedbackIds,
             input.status,
+            note,
           );
-          if (input.note && accountId) {
-            await services.rounds.addFeedbackNotes(
-              changed.map((feedback) => ({
-                feedbackId: feedback.id,
-                authorAccountId: accountId,
-                role: "owner" as const,
-                body: input.note ?? "",
-              })),
-            );
-          }
           if (input.status !== "unresolved") {
             await notifyAuthors(round, changed, `feedback_${input.status}`, input.note);
           }
@@ -943,7 +950,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const isParticipant = accountId
             ? await services.rounds.hasParticipant(round.id, accountId)
             : false;
-          if (!isParticipant && context.user?.role !== "admin") {
+          if (!isParticipant) {
             await assertCanManageRound(
               round,
               context,
@@ -963,9 +970,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          if (context.user?.role !== "admin") {
-            await assertCanManageRound(round, context, "Only the round owner can send a broadcast");
-          }
+          await assertCanManageRound(round, context, "Only the round owner can send a broadcast");
           if (round.status !== "open") {
             throw new ORPCError("BAD_REQUEST", {
               message: "Broadcasts can only be sent while the round is open",
@@ -1164,7 +1169,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const project = record && (await services.projectRecords.getProjectWithRounds(record.id));
         if (!project) throw projectNotFound(input.slug);
         const canManage = canManageProject(project, await resolveActor(project, context));
-        const canSeeAll = canManage || context.user?.role === "admin";
+        const canSeeAll = managesRound({ canManage }, context);
         if (project.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
         return {
           ...project,
@@ -1195,9 +1200,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           roundId: round.id,
           kind: "round_opened",
           ...notificationText("round_opened", round.title),
-          accountIds: previous
-            .map((participant) => participant.accountId)
-            .filter((accountId) => !joined.has(accountId)),
+          recipients: previous.filter((participant) => !joined.has(participant.accountId)),
         });
         return { recipients };
       }),

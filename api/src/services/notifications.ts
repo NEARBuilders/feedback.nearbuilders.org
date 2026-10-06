@@ -17,6 +17,7 @@ export interface NotificationRecord {
   roundTitle: string;
   projectSlug: string;
   projectRoundNumber: number;
+  feedbackId: string | null;
   kind: NotificationKindValue;
   title: string;
   body: string;
@@ -37,7 +38,7 @@ export interface NotifyParticipantsInput {
 }
 
 export interface NotifyAccountsInput extends NotifyParticipantsInput {
-  accountIds: string[];
+  recipients: Array<{ accountId: string; feedbackId?: string | null }>;
 }
 
 export interface NotificationsService {
@@ -81,6 +82,7 @@ const recordColumns = {
   roundTitle: roundsTable.title,
   projectSlug: roundsTable.projectSlug,
   projectRoundNumber: roundsTable.projectRoundNumber,
+  feedbackId: notificationsTable.feedbackId,
   kind: notificationsTable.kind,
   title: notificationsTable.title,
   body: notificationsTable.body,
@@ -180,20 +182,20 @@ export const NotificationsLive = Layer.effect(
             .select({ accountId: roundParticipantsTable.accountId })
             .from(roundParticipantsTable)
             .where(eq(roundParticipantsTable.roundId, input.roundId));
-          return await service.notifyAccounts({
-            ...input,
-            accountIds: participants.map((participant) => participant.accountId),
-          });
+          return await service.notifyAccounts({ ...input, recipients: participants });
         } catch (error) {
           throw toOrpcError(error);
         }
       },
 
-      notifyAccounts: async ({ accountIds, ...input }) => {
+      notifyAccounts: async ({ recipients, ...input }) => {
         try {
-          const recipients = [...new Set(accountIds)];
           if (recipients.length === 0) return 0;
-          const rows = recipients.map((recipientAccountId) => ({ ...input, recipientAccountId }));
+          const rows = recipients.map(({ accountId, feedbackId }) => ({
+            ...input,
+            recipientAccountId: accountId,
+            feedbackId: feedbackId ?? null,
+          }));
           await db.transaction(async (tx) => {
             for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
               await tx.insert(notificationsTable).values(batch);
