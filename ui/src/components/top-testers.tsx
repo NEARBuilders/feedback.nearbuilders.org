@@ -1,16 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Trophy } from "lucide-react";
 import { useState } from "react";
 import { useApiClient } from "@/app";
 import { Badge, Card } from "@/components";
-
-type LeaderboardPeriod = "weekly" | "monthly" | "all-time";
-
-const PERIODS: Array<{ value: LeaderboardPeriod; label: string }> = [
-  { value: "weekly", label: "This week" },
-  { value: "monthly", label: "This month" },
-  { value: "all-time", label: "All time" },
-];
+import {
+  DEFAULT_LEADERBOARD_PERIOD,
+  LEADERBOARD_PERIODS,
+  type LeaderboardPeriod,
+  submissionsLabel,
+} from "@/lib/leaderboard";
 
 /**
  * "Top testers" leaderboard, backed by activity.nearbuilders.org's
@@ -18,7 +17,7 @@ const PERIODS: Array<{ value: LeaderboardPeriod; label: string }> = [
  */
 export function TopTesters() {
   const apiClient = useApiClient();
-  const [period, setPeriod] = useState<LeaderboardPeriod>("weekly");
+  const [period, setPeriod] = useState<LeaderboardPeriod>(DEFAULT_LEADERBOARD_PERIOD);
 
   const { data, isLoading } = useQuery({
     queryKey: ["activity", "leaderboard", period],
@@ -36,7 +35,7 @@ export function TopTesters() {
           Top testers
         </div>
         <div className="inline-flex rounded-md border border-border bg-card p-0.5">
-          {PERIODS.map(({ value, label }) => (
+          {LEADERBOARD_PERIODS.map(({ value, label }) => (
             <button
               key={value}
               type="button"
@@ -59,6 +58,12 @@ export function TopTesters() {
             <div key={n} className="h-8 w-full rounded-[8px] animate-pulse bg-muted" />
           ))}
         </div>
+      ) : !data?.configured ? (
+        <p className="text-sm text-muted-foreground">
+          The leaderboard isn't connected to activity yet.
+        </p>
+      ) : !data.available ? (
+        <p className="text-sm text-muted-foreground">The leaderboard is unavailable right now.</p>
       ) : entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No leaderboard activity yet for this period.
@@ -74,15 +79,29 @@ export function TopTesters() {
                 <Badge variant="outline" className="text-[10px] shrink-0">
                   #{entry.rank}
                 </Badge>
-                <span className="truncate text-sm font-medium text-foreground">{entry.actor}</span>
+                <Link
+                  to="/$accountId"
+                  params={{ accountId: entry.actor }}
+                  className="truncate text-sm font-medium text-foreground hover:underline"
+                >
+                  {entry.actor}
+                </Link>
               </div>
               <span className="text-xs text-muted-foreground shrink-0">
-                {entry.eventCount} {entry.eventCount === 1 ? "submission" : "submissions"}
+                {submissionsLabel(entry.eventCount)}
               </span>
             </li>
           ))}
         </ol>
       )}
+
+      <Link
+        to="/leaderboard"
+        search={{ period }}
+        className="inline-block text-xs text-muted-foreground underline hover:text-foreground"
+      >
+        View full leaderboard
+      </Link>
     </Card>
   );
 }

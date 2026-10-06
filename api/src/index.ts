@@ -845,6 +845,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return result
           ? {
               period: result.period,
+              configured: true,
+              available: true,
               data: result.data.map((entry) => ({
                 rank: entry.rank,
                 actor: entry.actor,
@@ -852,7 +854,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
                 eventCount: entry.eventCount,
               })),
             }
-          : { period: input.period, data: [] };
+          : {
+              period: input.period,
+              configured: services.activityEvents.readable,
+              available: false,
+              data: [],
+            };
       }),
 
       testError: builder.testError.handler(async ({ input }) => {
