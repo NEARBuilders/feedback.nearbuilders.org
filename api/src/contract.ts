@@ -102,6 +102,13 @@ export type RoundDetail = z.infer<typeof RoundDetailSchema>;
 
 export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 
+export const RoundParticipantSchema = z.object({
+  accountId: z.string(),
+  joinedAt: z.string(),
+});
+
+export type RoundParticipant = z.infer<typeof RoundParticipantSchema>;
+
 export const RoundFeedbackStatusSchema = z.enum(["unresolved", "resolved", "dismissed"]);
 
 export type RoundFeedbackStatus = z.infer<typeof RoundFeedbackStatusSchema>;
@@ -492,6 +499,12 @@ export const contract = oc.router({
       }),
     )
     .output(z.array(RoundFeedbackSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  listParticipants: oc
+    .route({ method: "GET", path: "/rounds/{id}/participants" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(RoundParticipantSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   getRoundGithubIssues: oc

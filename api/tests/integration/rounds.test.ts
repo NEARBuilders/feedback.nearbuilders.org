@@ -952,3 +952,34 @@ describe("feedback status", () => {
     expect(thread.find((f) => f.id === b.first.id)?.status).toBe("unresolved");
   });
 });
+
+describe("listParticipants", () => {
+  it("returns participants with joined dates to the owner and to participants", async () => {
+    const round = await createOpenRound("lp1.near", { title: "Participants" });
+    const ownerClient = await getPluginClient(nearAuthedContext("lp1.near"));
+    const builderClient = await getPluginClient(nearAuthedContext("lpb1.near"));
+    await builderClient.joinRound({ id: round.id });
+
+    const asOwner = await ownerClient.listParticipants({ id: round.id });
+    expect(asOwner).toEqual([{ accountId: "lpb1.near", joinedAt: expect.any(String) }]);
+
+    const asParticipant = await builderClient.listParticipants({ id: round.id });
+    expect(asParticipant).toEqual(asOwner);
+  });
+
+  it("returns an empty list when nobody has joined", async () => {
+    const round = await createOpenRound("lp2.near", { title: "Empty participants" });
+    const ownerClient = await getPluginClient(nearAuthedContext("lp2.near"));
+    await expect(ownerClient.listParticipants({ id: round.id })).resolves.toEqual([]);
+  });
+
+  it("hides the list from strangers and anonymous callers", async () => {
+    const round = await createOpenRound("lp3.near", { title: "Hidden participants" });
+    const stranger = await getPluginClient(nearAuthedContext("lp-stranger.near"));
+    await expect(stranger.listParticipants({ id: round.id })).rejects.toThrow("participants");
+    const anon = await getPluginClient();
+    await expect(anon.listParticipants({ id: round.id })).rejects.toThrow(
+      "Authentication required",
+    );
+  });
+});
