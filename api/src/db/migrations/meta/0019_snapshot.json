@@ -125,12 +125,8 @@
           "name": "notifications_round_id_rounds_id_fk",
           "tableFrom": "notifications",
           "tableTo": "rounds",
-          "columnsFrom": [
-            "round_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["round_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -416,12 +412,8 @@
           "name": "round_credits_round_id_rounds_id_fk",
           "tableFrom": "round_credits",
           "tableTo": "rounds",
-          "columnsFrom": [
-            "round_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["round_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -536,12 +528,8 @@
           "name": "round_feedback_round_id_rounds_id_fk",
           "tableFrom": "round_feedback",
           "tableTo": "rounds",
-          "columnsFrom": [
-            "round_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["round_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -641,12 +629,8 @@
           "name": "round_participants_round_id_rounds_id_fk",
           "tableFrom": "round_participants",
           "tableTo": "rounds",
-          "columnsFrom": [
-            "round_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["round_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -849,12 +833,8 @@
           "name": "rounds_project_record_id_projects_id_fk",
           "tableFrom": "rounds",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_record_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -967,23 +947,17 @@
         "tenants_subdomain_unique": {
           "name": "tenants_subdomain_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "subdomain"
-          ]
+          "columns": ["subdomain"]
         },
         "tenants_account_id_unique": {
           "name": "tenants_account_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "account_id"
-          ]
+          "columns": ["account_id"]
         },
         "tenants_org_id_unique": {
           "name": "tenants_org_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "org_id"
-          ]
+          "columns": ["org_id"]
         }
       },
       "policies": {},
@@ -995,58 +969,32 @@
     "public.notification_kind": {
       "name": "notification_kind",
       "schema": "public",
-      "values": [
-        "round_opened",
-        "round_closing",
-        "round_closed",
-        "custom"
-      ]
+      "values": ["round_opened", "round_closing", "round_closed", "custom"]
     },
     "public.project_status": {
       "name": "project_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "approved",
-        "rejected"
-      ]
+      "values": ["pending", "approved", "rejected"]
     },
     "public.round_feedback_format": {
       "name": "round_feedback_format",
       "schema": "public",
-      "values": [
-        "written",
-        "recorded"
-      ]
+      "values": ["written", "recorded"]
     },
     "public.round_feedback_status": {
       "name": "round_feedback_status",
       "schema": "public",
-      "values": [
-        "unresolved",
-        "resolved",
-        "dismissed"
-      ]
+      "values": ["unresolved", "resolved", "dismissed"]
     },
     "public.round_status": {
       "name": "round_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "open",
-        "closed",
-        "rejected"
-      ]
+      "values": ["pending", "open", "closed", "rejected"]
     },
     "public.tenant_status": {
       "name": "tenant_status",
       "schema": "public",
-      "values": [
-        "active",
-        "pending",
-        "suspended",
-        "pending_deletion"
-      ]
+      "values": ["active", "pending", "suspended", "pending_deletion"]
     }
   },
   "schemas": {},
