@@ -42,6 +42,7 @@ describe("dashboard navigation", () => {
     expect(getActiveItem(NAV_ITEMS, "/projects/near-wallet/3")?.label).toBe("rounds");
     expect(getActiveItem(NAV_ITEMS, "/feed/request")?.label).toBe("request a round");
     expect(getActiveItem(NAV_ITEMS, "/testing")?.label).toBe("testing");
+    expect(getActiveItem(NAV_ITEMS, "/manage/near-wallet/3")?.label).toBe("manage");
     expect(getActiveItem(NAV_ITEMS, "/leaderboard")?.label).toBe("leaderboard");
     expect(getActiveItem(NAV_ITEMS, "/orgs/acme")?.label).toBe("orgs");
     expect(getActiveItem(NAV_ITEMS, "/settings/profile")).toBeUndefined();

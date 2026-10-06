@@ -590,9 +590,17 @@ export const contract = oc.router({
         id: z.string(),
         cursor: z.uuid().optional(),
         limit: z.number().int().min(1).max(100).optional(),
+        status: RoundFeedbackStatusSchema.optional(),
+        author: z.string().min(1).optional(),
       }),
     )
     .output(FeedbackPageSchema)
+    .errors({ NOT_FOUND }),
+
+  getFeedback: oc
+    .route({ method: "GET", path: "/rounds/{id}/feedback/{feedbackId}" })
+    .input(z.object({ id: z.string(), feedbackId: z.uuid() }))
+    .output(RoundFeedbackSchema)
     .errors({ NOT_FOUND }),
 
   deleteFeedback: oc

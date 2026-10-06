@@ -1,20 +1,46 @@
-import { infiniteQueryOptions, type QueryClient } from "@tanstack/react-query";
+import { infiniteQueryOptions, type QueryClient, queryOptions } from "@tanstack/react-query";
 import type { ApiClient } from "@/app";
 
 export type FeedbackPage = Awaited<ReturnType<ApiClient["listFeedback"]>>;
 export type FeedbackEntry = FeedbackPage["items"][number];
+export type FeedbackStatus = FeedbackEntry["status"];
+
+export interface FeedbackFilters {
+  status?: FeedbackStatus;
+  author?: string;
+}
 
 export const feedbackKeys = {
   all: ["feedback"] as const,
   round: (roundId: string) => [...feedbackKeys.all, "round", roundId] as const,
+  list: (roundId: string, filters: FeedbackFilters) =>
+    [...feedbackKeys.round(roundId), "list", filters] as const,
+  item: (roundId: string, feedbackId: string) =>
+    [...feedbackKeys.round(roundId), "item", feedbackId] as const,
 };
 
-export function roundFeedbackQueryOptions(apiClient: ApiClient, roundId: string) {
+export function roundFeedbackQueryOptions(
+  apiClient: ApiClient,
+  roundId: string,
+  filters: FeedbackFilters = {},
+) {
   return infiniteQueryOptions({
-    queryKey: feedbackKeys.round(roundId),
-    queryFn: ({ pageParam }) => apiClient.listFeedback({ id: roundId, cursor: pageParam }),
+    queryKey: feedbackKeys.list(roundId, filters),
+    queryFn: ({ pageParam }) =>
+      apiClient.listFeedback({ id: roundId, cursor: pageParam, ...filters }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+}
+
+export function feedbackItemQueryOptions(
+  apiClient: ApiClient,
+  roundId: string,
+  feedbackId: string,
+) {
+  return queryOptions({
+    queryKey: feedbackKeys.item(roundId, feedbackId),
+    queryFn: () => apiClient.getFeedback({ id: roundId, feedbackId }),
   });
 }
 

@@ -82,6 +82,8 @@ export interface RoundFeedbackRecord {
 export interface FeedbackPageInput {
   cursor?: string;
   limit?: number;
+  status?: RoundFeedbackStatus;
+  author?: string;
 }
 
 export interface FeedbackPage {
@@ -496,7 +498,14 @@ export const RoundsLive = Layer.effect(
           const rows = await db
             .select()
             .from(roundFeedbackTable)
-            .where(and(eq(roundFeedbackTable.roundId, roundId), afterCursor))
+            .where(
+              and(
+                eq(roundFeedbackTable.roundId, roundId),
+                page.status ? eq(roundFeedbackTable.status, page.status) : undefined,
+                page.author ? eq(roundFeedbackTable.authorAccountId, page.author) : undefined,
+                afterCursor,
+              ),
+            )
             .orderBy(desc(roundFeedbackTable.createdAt), desc(roundFeedbackTable.id))
             .limit(limit + 1);
           const items = rows.slice(0, limit).map(toFeedbackRecord);

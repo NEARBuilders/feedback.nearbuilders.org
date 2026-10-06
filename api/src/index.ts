@@ -232,6 +232,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
       if (!allowed) throw new ORPCError("FORBIDDEN", { message });
     };
 
+    type ViewerContext = ActorContext & { user?: { role?: string | null } | null };
+
     const roundNotFound = (resourceId: string) =>
       new ORPCError("NOT_FOUND", {
         message: "Round not found",
@@ -240,7 +242,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
     const viewRoundDetail = async (
       round: RoundDetailRecord | null,
-      context: ActorContext & { user?: { role?: string | null } | null },
+      context: ViewerContext,
       resourceId: string,
     ) => {
       if (!round) throw roundNotFound(resourceId);
@@ -250,6 +252,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
       if (hidden && !canManage && context.user?.role !== "admin") throw roundNotFound(resourceId);
       return { ...round, canManage };
     };
+
+    const visibleRound = async (id: string, context: ViewerContext) =>
+      viewRoundDetail(await services.rounds.getRoundDetail(id), context, id);
+
+    const feedbackNotFound = (resourceId: string) =>
+      new ORPCError("NOT_FOUND", {
+        message: "Feedback not found",
+        data: { resource: "feedback", resourceId },
+      });
 
     return {
       ping: builder.ping.handler(async () => ({
@@ -727,15 +738,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return { ...feedback, nostrEventId: nostrEventId ?? feedback.nostrEventId };
         }),
 
-      listFeedback: builder.listFeedback.handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
-          });
-        }
+      listFeedback: builder.listFeedback.handler(async ({ input, context }) => {
+        const round = await visibleRound(input.id, context);
         return await services.rounds.listFeedback(round.id, input);
+      }),
+
+      getFeedback: builder.getFeedback.handler(async ({ input, context }) => {
+        const round = await visibleRound(input.id, context);
+        const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+        if (!feedback) throw feedbackNotFound(input.feedbackId);
+        return feedback;
       }),
 
       deleteFeedback: builder.deleteFeedback
@@ -756,12 +768,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           await assertCanManageRound(round, context, "Only the round owner can remove feedback");
           const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
-          if (!feedback) {
-            throw errors.NOT_FOUND({
-              message: "Feedback not found",
-              data: { resource: "feedback", resourceId: input.feedbackId },
-            });
-          }
+          if (!feedback) throw feedbackNotFound(input.feedbackId);
           const result = await services.rounds.deleteFeedback(input.feedbackId);
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "feedback invalidated");

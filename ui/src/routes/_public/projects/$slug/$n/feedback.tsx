@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Button, Card, ConfirmDialog } from "@/components";
 import { FeedbackComposer } from "@/components/feedback-composer";
-import { FeedbackTable } from "@/components/feedback-table";
+import { FeedbackList } from "@/components/feedback-list";
 import { SectionHeader } from "@/components/layout/section-header";
 import { invalidateFeedbackQueries, roundFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { loadRound, useRound } from "@/lib/round-route";
@@ -70,13 +70,10 @@ function RoundFeedbackPage() {
       {entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">No feedback yet.</p>
       ) : (
-        <FeedbackTable
-          roundId={round.id}
+        <FeedbackList
           entries={entries}
-          canModerate={viewer.canManage || viewer.isAdmin}
           currentAccountId={viewer.accountId}
-          canDelete={round.status === "open"}
-          onDelete={setDeleteId}
+          onDelete={round.status === "open" ? setDeleteId : undefined}
         />
       )}
 

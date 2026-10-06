@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ArrowLeft, FileText, MessageSquare } from "lucide-react";
+import { ArrowLeft, FileText, Inbox, MessageSquare } from "lucide-react";
+import { Button } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundShareActions } from "@/components/round-share-actions";
@@ -8,6 +9,7 @@ import { RouteError, RouteNotFound, RoutePending } from "@/components/route-stat
 import { RouteTab, RouteTabs } from "@/components/route-tabs";
 import { pageHead } from "@/lib/page-title";
 import { loadRound, useRound } from "@/lib/round-route";
+import { useRoundViewer } from "@/lib/round-viewer";
 
 export const Route = createFileRoute("/_public/projects/$slug/$n")({
   loader: async ({ context, params }) => {
@@ -24,6 +26,7 @@ export const Route = createFileRoute("/_public/projects/$slug/$n")({
 function RoundLayout() {
   const params = Route.useParams();
   const round = useRound(params);
+  const viewer = useRoundViewer(round);
 
   return (
     <PageContainer>
@@ -36,7 +39,17 @@ function RoundLayout() {
             <ArrowLeft className="h-3.5 w-3.5" />
             rounds
           </Link>
-          <RoundShareActions round={round} />
+          <div className="flex flex-wrap gap-2">
+            {(viewer.canManage || viewer.isAdmin) && (
+              <Button asChild size="sm">
+                <Link to="/manage/$slug/$n" params={params}>
+                  <Inbox className="h-3.5 w-3.5" />
+                  Open console
+                </Link>
+              </Button>
+            )}
+            <RoundShareActions round={round} />
+          </div>
         </div>
 
         <PageHeader
