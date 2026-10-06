@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Button, Card, Markdown, Textarea } from "@/components";
 import { SectionHeader } from "@/components/layout/section-header";
+import { invalidateRoundQueries } from "@/lib/queries/rounds";
 
 export const README_PLACEHOLDER = "The round owner hasn't written a readme for testers yet.";
 export const README_MAX_LENGTH = 20000;
@@ -28,9 +29,7 @@ export function RoundReadme({ roundId, readme, canEdit }: RoundReadmeProps) {
   const saveMutation = useMutation({
     mutationFn: () => apiClient.updateRoundReadme({ id: roundId, readme: draft }),
     onSuccess: (round) => {
-      queryClient.setQueryData(["round", roundId], (prev: Record<string, unknown> | undefined) =>
-        prev ? { ...prev, readme: round.readme } : prev,
-      );
+      void invalidateRoundQueries(queryClient, round.id);
       setEditing(false);
       toast.success("Readme saved");
     },

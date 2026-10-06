@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useApiClient } from "@/app";
 import { Badge, Card, SectionHeader } from "@/components";
+import { myProjectsQueryOptions } from "@/lib/queries/projects";
 
 const PROJECT_STATUS_LABEL = {
   pending: "Awaiting approval",
@@ -11,11 +12,7 @@ const PROJECT_STATUS_LABEL = {
 
 export function MyProjects() {
   const apiClient = useApiClient();
-  const projectsQuery = useQuery({
-    queryKey: ["projects", "mine"],
-    queryFn: () => apiClient.listMyProjects(),
-    retry: false,
-  });
+  const projectsQuery = useQuery(myProjectsQueryOptions(apiClient));
   const projects = projectsQuery.data ?? [];
   if (projects.length === 0) return null;
 

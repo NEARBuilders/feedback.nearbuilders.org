@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { ArrowLeft, ExternalLink, MessageSquare, Share2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -9,7 +9,6 @@ import {
   Button,
   Card,
   ConfirmDialog,
-  EmptyState,
   Field,
   FieldLabel,
   Input,
@@ -24,8 +23,23 @@ import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
 import { RoundReadme } from "@/components/round-readme";
+import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { pageHead } from "@/lib/page-title";
+import { invalidateFeedbackQueries, roundFeedbackQueryOptions } from "@/lib/queries/feedback";
+import { orNotFound } from "@/lib/queries/not-found";
+import {
+  invalidateParticipationQueries,
+  participationQueryOptions,
+} from "@/lib/queries/participation";
+import { invalidateProjectQueries } from "@/lib/queries/projects";
+import {
+  creditCandidatesQueryOptions,
+  invalidateRoundQueries,
+  roundCreditsQueryOptions,
+  roundParticipantsQueryOptions,
+  roundQueryOptions,
+} from "@/lib/queries/rounds";
 import { roundCta } from "@/lib/round-cta";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
@@ -41,7 +55,18 @@ type FeedbackFormat = "written" | "recorded";
 const FEEDBACK_BODY_MAX = 5000;
 
 export const Route = createFileRoute("/_public/feed/$roundId")({
-  head: ({ params }) => pageHead("Round", `Feedback round ${params.roundId}.`),
+  loader: async ({ context, params }) => {
+    const { queryClient, apiClient } = context;
+    void queryClient.prefetchQuery(roundFeedbackQueryOptions(apiClient, params.roundId));
+    const round = await orNotFound(
+      queryClient.ensureQueryData(roundQueryOptions(apiClient, params.roundId)),
+    );
+    return { title: round.title, description: round.description };
+  },
+  head: ({ loaderData }) => pageHead(loaderData?.title, loaderData?.description),
+  pendingComponent: RoutePending,
+  errorComponent: RouteError,
+  notFoundComponent: () => <RouteNotFound title="Round not found." backTo="/feed" />,
   component: RoundDetailPage,
 });
 
@@ -86,14 +111,10 @@ function RoundDetailPage() {
   const sessionQuery = useQuery(sessionQueryOptions(auth));
   const isAdmin = sessionQuery.data?.user?.role === "admin";
 
-  const roundQuery = useQuery({
-    queryKey: ["round", roundId],
-    queryFn: () => apiClient.getRound({ id: roundId }),
-  });
+  const { data: round } = useSuspenseQuery(roundQueryOptions(apiClient, roundId));
 
   const participationQuery = useQuery({
-    queryKey: ["round", roundId, "participation"],
-    queryFn: () => apiClient.getMyParticipation({ id: roundId }),
+    ...participationQueryOptions(apiClient, roundId),
     enabled: !!nearAccountId,
   });
 
@@ -104,57 +125,27 @@ function RoundDetailPage() {
   });
   const endorsement = endorsementsQuery.data?.[roundId];
 
-  const round = roundQuery.data;
   const joined = participationQuery.data?.joined ?? false;
 
   const hash = useRouterState({ select: (state) => state.location.hash });
-  const roundLoaded = !!round;
   useEffect(() => {
-    if (hash !== "feedback" || !roundLoaded) return;
+    if (hash !== "feedback") return;
     const timer = setTimeout(() => {
       document.getElementById("feedback")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
     return () => clearTimeout(timer);
-  }, [hash, roundLoaded]);
+  }, [hash]);
 
   const joinMutation = useMutation({
     mutationFn: (next: boolean) =>
       next ? apiClient.joinRound({ id: roundId }) : apiClient.leaveRound({ id: roundId }),
-    onSuccess: (detail, next) => {
-      queryClient.setQueryData(["round", roundId], detail);
-      queryClient.setQueryData(["round", roundId, "participation"], { joined: next });
-      void queryClient.invalidateQueries({ queryKey: ["myRounds"] });
-      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "participants"] });
+    onSuccess: (_detail, next) => {
+      void invalidateRoundQueries(queryClient, roundId);
+      void invalidateParticipationQueries(queryClient);
       toast.success(next ? "Joined the round" : "Left the round");
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  if (roundQuery.isLoading) {
-    return (
-      <PageContainer variant="default">
-        <div className="space-y-3">
-          <Skeleton className="h-8 w-2/3" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </PageContainer>
-    );
-  }
-
-  if (!round) {
-    return (
-      <PageContainer variant="default">
-        <EmptyState
-          title="Round not found."
-          action={
-            <Link to="/feed" className="text-sm text-muted-foreground underline">
-              back to the feed
-            </Link>
-          }
-        />
-      </PageContainer>
-    );
-  }
 
   // The project's owning org manages the round (#70). Its members don't join it as testers.
   const canManage = round.canManage ?? false;
@@ -377,10 +368,7 @@ function FeedbackThread({
     return () => clearTimeout(timer);
   }, [draft, draftKey]);
 
-  const feedbackQuery = useQuery({
-    queryKey: ["round", roundId, "feedback"],
-    queryFn: () => apiClient.listFeedback({ id: roundId }),
-  });
+  const { data: entries } = useSuspenseQuery(roundFeedbackQueryOptions(apiClient, roundId));
 
   const postMutation = useMutation({
     mutationFn: () =>
@@ -393,7 +381,7 @@ function FeedbackThread({
     onSuccess: () => {
       setDraft(EMPTY_DRAFT);
       localStorage.removeItem(draftKey);
-      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "feedback"] });
+      void invalidateFeedbackQueries(queryClient, roundId);
       toast.success("Feedback posted");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -402,13 +390,12 @@ function FeedbackThread({
   const deleteMutation = useMutation({
     mutationFn: (feedbackId: string) => apiClient.deleteFeedback({ id: roundId, feedbackId }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "feedback"] });
+      void invalidateFeedbackQueries(queryClient, roundId);
       toast.success("Feedback deleted");
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const entries = feedbackQuery.data ?? [];
   const canSubmit =
     !postMutation.isPending &&
     (format === "written" ? draft.body.trim().length > 0 : draft.url.trim().length > 0) &&
@@ -421,7 +408,7 @@ function FeedbackThread({
       <SectionHeader
         title="Feedback"
         action={
-          !feedbackQuery.isLoading && entries.length > 0 ? (
+          entries.length > 0 ? (
             <span className="text-sm text-muted-foreground">
               {entries.length} {entries.length === 1 ? "entry" : "entries"}
             </span>
@@ -495,9 +482,7 @@ function FeedbackThread({
         </Card>
       )}
 
-      {feedbackQuery.isLoading ? (
-        <Skeleton className="h-16 w-full" />
-      ) : entries.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">No feedback yet.</p>
       ) : (
         <FeedbackTable
@@ -533,10 +518,7 @@ function FeedbackThread({
 
 function ParticipantsSection({ roundId }: { roundId: string }) {
   const apiClient = useApiClient();
-  const participantsQuery = useQuery({
-    queryKey: ["round", roundId, "participants"],
-    queryFn: () => apiClient.listParticipants({ id: roundId }),
-  });
+  const participantsQuery = useQuery(roundParticipantsQueryOptions(apiClient, roundId));
   const participants = participantsQuery.data ?? [];
 
   return (
@@ -578,10 +560,7 @@ function ParticipantsSection({ roundId }: { roundId: string }) {
 
 function CreditsSection({ roundId }: { roundId: string }) {
   const apiClient = useApiClient();
-  const { data: credits = [], isLoading } = useQuery({
-    queryKey: ["round", roundId, "credits"],
-    queryFn: () => apiClient.listRoundCredits({ id: roundId }),
-  });
+  const { data: credits = [], isLoading } = useQuery(roundCreditsQueryOptions(apiClient, roundId));
 
   if (isLoading || credits.length === 0) return null;
 
@@ -624,8 +603,8 @@ function AdminReviewPanel({
   const [reason, setReason] = useState("");
 
   const onDecided = (message: string) => {
-    void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
-    void queryClient.invalidateQueries({ queryKey: ["projects"] });
+    void invalidateRoundQueries(queryClient, roundId);
+    void invalidateProjectQueries(queryClient);
     toast.success(message);
   };
 
@@ -679,8 +658,7 @@ function OwnerClosePanel({ roundId }: { roundId: string }) {
   const [marks, setMarks] = useState<Record<string, { meaningful: boolean; summary: string }>>({});
 
   const candidatesQuery = useQuery({
-    queryKey: ["round", roundId, "credit-candidates"],
-    queryFn: () => apiClient.getCreditCandidates({ id: roundId }),
+    ...creditCandidatesQueryOptions(apiClient, roundId),
     enabled: open,
   });
 
@@ -695,10 +673,9 @@ function OwnerClosePanel({ roundId }: { roundId: string }) {
         }));
       return apiClient.closeRound({ id: roundId, credits });
     },
-    onSuccess: (detail) => {
-      queryClient.setQueryData(["round", roundId], detail);
-      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "credits"] });
-      void queryClient.invalidateQueries({ queryKey: ["myRounds"] });
+    onSuccess: () => {
+      void invalidateRoundQueries(queryClient, roundId);
+      void invalidateParticipationQueries(queryClient);
       toast.success("Round closed");
     },
     onError: (err: Error) => toast.error(err.message),

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Badge, Button, Card, Input, SectionHeader, Skeleton } from "@/components";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { invalidateProjectQueries, myProjectsQueryOptions } from "@/lib/queries/projects";
 import {
   delegationOptions,
   describeDelegation,
@@ -42,10 +43,8 @@ export function OrgTeams({ orgId, orgMembers, canManage, isActiveOrg }: OrgTeams
   const teams = teamsQuery.data ?? [];
 
   const projectsQuery = useQuery({
-    queryKey: ["projects", "mine"],
-    queryFn: () => apiClient.listMyProjects(),
+    ...myProjectsQueryOptions(apiClient),
     enabled: isActiveOrg && canManage,
-    retry: false,
   });
 
   const createMutation = useMutation({
@@ -72,7 +71,7 @@ export function OrgTeams({ orgId, orgMembers, canManage, isActiveOrg }: OrgTeams
     onSuccess: () => {
       setDeleteTeam(null);
       void queryClient.invalidateQueries({ queryKey: teamsKey(orgId) });
-      void queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+      void invalidateProjectQueries(queryClient);
       toast.success("Team deleted");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -301,10 +300,8 @@ function ProjectDelegation({
   const queryClient = useQueryClient();
 
   const projectsQuery = useQuery({
-    queryKey: ["projects", "mine"],
-    queryFn: () => apiClient.listMyProjects(),
+    ...myProjectsQueryOptions(apiClient),
     enabled: isActiveOrg,
-    retry: false,
   });
   const projects = (projectsQuery.data ?? []).filter((project) => project.status === "approved");
 
@@ -312,7 +309,7 @@ function ProjectDelegation({
     mutationFn: (input: { id: string; teamId: string | null }) =>
       apiClient.setProjectManagingTeam(input),
     onSuccess: (project) => {
-      void queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+      void invalidateProjectQueries(queryClient);
       toast.success(
         project.managingTeamId
           ? `Round management delegated to ${describeDelegation(teams, project.managingTeamId)}`

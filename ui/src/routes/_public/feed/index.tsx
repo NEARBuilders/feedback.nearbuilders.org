@@ -1,32 +1,44 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, type SearchSchemaInput, useNavigate } from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApiClient } from "@/app";
-import { EmptyState, Input, SegmentedToggle, Skeleton } from "@/components";
+import { EmptyState, Input, SegmentedToggle } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundsTable } from "@/components/rounds-table";
+import { RouteError, RoutePending } from "@/components/route-states";
 import { TopTesters } from "@/components/top-testers";
 import { pageHead } from "@/lib/page-title";
+import { roundsQueryOptions } from "@/lib/queries/rounds";
+import { oneOf } from "@/lib/search";
 
-type RoundStatusFilter = "open" | "closed";
+const STATUS_FILTERS = ["open", "closed"] as const;
+type RoundStatusFilter = (typeof STATUS_FILTERS)[number];
 
 export const Route = createFileRoute("/_public/feed/")({
+  validateSearch: (
+    search: { status?: RoundStatusFilter } & SearchSchemaInput,
+  ): { status: RoundStatusFilter } => ({
+    status: oneOf(search.status, STATUS_FILTERS, "open"),
+  }),
+  loaderDeps: ({ search }) => ({ status: search.status }),
+  loader: ({ context, deps }) =>
+    context.queryClient.ensureQueryData(roundsQueryOptions(context.apiClient, deps.status)),
   head: () => pageHead("Feed", "Browse feedback rounds and join one."),
+  pendingComponent: RoutePending,
+  errorComponent: RouteError,
   component: FeedPage,
 });
 
 function FeedPage() {
   const apiClient = useApiClient();
-  const [status, setStatus] = useState<RoundStatusFilter>("open");
+  const { status } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const setStatus = (next: RoundStatusFilter) => void navigate({ search: { status: next } });
   const [query, setQuery] = useState("");
 
-  const { data: rounds = [], isLoading } = useQuery({
-    queryKey: ["rounds", status],
-    queryFn: () => apiClient.listRounds({ status }),
-    staleTime: 30_000,
-  });
+  const { data: rounds } = useSuspenseQuery(roundsQueryOptions(apiClient, status));
 
   const roundIds = useMemo(() => rounds.map((round) => round.id).slice(0, 100), [rounds]);
   const { data: endorsements } = useQuery({
@@ -56,10 +68,7 @@ function FeedPage() {
             <SegmentedToggle
               value={status}
               onValueChange={setStatus}
-              options={[
-                { value: "open", label: "open" },
-                { value: "closed", label: "closed" },
-              ]}
+              options={STATUS_FILTERS.map((value) => ({ value, label: value }))}
               ariaLabel="Round status filter"
             />
             <div className="relative max-w-sm flex-1 min-w-[12rem]">
@@ -76,13 +85,7 @@ function FeedPage() {
 
         <TopTesters />
 
-        {isLoading ? (
-          <div className="space-y-2" data-testid="rounds-loading">
-            {[1, 2, 3, 4].map((n) => (
-              <Skeleton key={n} className="h-12 w-full" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <EmptyState
             icon={MessageSquare}
             title={

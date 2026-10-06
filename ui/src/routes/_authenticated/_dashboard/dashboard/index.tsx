@@ -20,6 +20,7 @@ import {
   Skeleton,
 } from "@/components";
 import { pageHead } from "@/lib/page-title";
+import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 const ROUND_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -55,8 +56,7 @@ function Home() {
   const { accountId: nearAccountId, isDetecting } = useNearAccountStatus();
 
   const joinedRoundsQuery = useQuery({
-    queryKey: ["myRounds", "joined"],
-    queryFn: () => apiClient.listMyJoinedRounds(),
+    ...joinedRoundsQueryOptions(apiClient),
     enabled: !!nearAccountId,
   });
 

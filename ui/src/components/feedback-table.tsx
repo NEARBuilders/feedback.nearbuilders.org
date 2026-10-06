@@ -40,6 +40,7 @@ import {
   feedbackToJson,
   filterFeedbackByStatus,
 } from "@/lib/feedback-export";
+import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 
 type FeedbackEntry = Awaited<ReturnType<ApiClient["listFeedback"]>>[number];
 
@@ -107,7 +108,7 @@ export function FeedbackTable({
     mutationFn: (input: { feedbackIds: string[]; status: FeedbackStatus }) =>
       apiClient.setFeedbackStatus({ id: roundId, ...input }),
     onSuccess: (updated, { status }) => {
-      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "feedback"] });
+      void invalidateFeedbackQueries(queryClient, roundId);
       setRowSelection({});
       setPendingBulk(null);
       toast.success(

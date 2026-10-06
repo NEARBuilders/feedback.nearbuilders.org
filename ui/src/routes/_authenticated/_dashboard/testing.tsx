@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronDown, ClipboardCheck, ExternalLink } from "lucide-react";
 import { useMemo } from "react";
 import { useApiClient } from "@/app";
-import { Badge, Button, Card, EmptyState, Markdown, SectionHeader, Skeleton } from "@/components";
+import { Badge, Button, Card, EmptyState, Markdown, SectionHeader } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
+import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
+import { myProjectsQueryOptions } from "@/lib/queries/projects";
 import {
   awaitingFeedback,
   feedbackPostedLabel,
@@ -26,6 +29,12 @@ const STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" |
 };
 
 export const Route = createFileRoute("/_authenticated/_dashboard/testing")({
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(myProjectsQueryOptions(context.apiClient));
+    return context.queryClient.ensureQueryData(joinedRoundsQueryOptions(context.apiClient));
+  },
+  pendingComponent: RoutePending,
+  errorComponent: RouteError,
   head: () => pageHead("Testing", "The rounds you're testing and what needs your feedback."),
   component: TesterWorkspacePage,
 });
@@ -34,19 +43,10 @@ function TesterWorkspacePage() {
   const apiClient = useApiClient();
   const { accountId, isDetecting } = useNearAccountStatus();
 
-  const joinedQuery = useQuery({
-    queryKey: ["myRounds", "joined"],
-    queryFn: () => apiClient.listMyJoinedRounds(),
-    enabled: !!accountId,
-  });
+  const { data: joined } = useSuspenseQuery(joinedRoundsQueryOptions(apiClient));
+  const ownedQuery = useQuery(myProjectsQueryOptions(apiClient));
 
-  const ownedQuery = useQuery({
-    queryKey: ["projects", "mine"],
-    queryFn: () => apiClient.listMyProjects(),
-    retry: false,
-  });
-
-  const rounds = useMemo(() => sortWorkspaceRounds(joinedQuery.data ?? []), [joinedQuery.data]);
+  const rounds = useMemo(() => sortWorkspaceRounds(joined), [joined]);
   const summary = summarizeWorkspace(rounds);
   const ownedRounds = useMemo(
     () =>
@@ -95,15 +95,7 @@ function TesterWorkspacePage() {
                 ) : undefined
               }
             />
-            {joinedQuery.isLoading || isDetecting ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((n) => (
-                  <Skeleton key={n} className="h-24 w-full" />
-                ))}
-              </div>
-            ) : joinedQuery.isError ? (
-              <p className="text-sm text-muted-foreground">Couldn't load your rounds.</p>
-            ) : rounds.length === 0 ? (
+            {rounds.length === 0 ? (
               <EmptyState
                 title="You haven't joined any rounds yet."
                 description="Browse open rounds in the feed and join one to start testing."
