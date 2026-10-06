@@ -10,6 +10,8 @@ import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
+import { notificationText } from "./services/notification-text";
+import { NotificationsLive, NotificationsTag } from "./services/notifications";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
 import { canManageRound } from "./services/round-access";
@@ -96,6 +98,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const tenantsLayer = TenantsLive.pipe(Layer.provide(database));
       const roundsLayer = RoundsLive.pipe(Layer.provide(database));
       const projectRecordsLayer = ProjectRecordsLive.pipe(Layer.provide(database));
+      const notificationsLayer = NotificationsLive.pipe(Layer.provide(database));
 
       const tenantsService = yield* tools.buildService(TenantsTag, tenantsLayer);
       const roundsService = yield* tools.buildService(RoundsTag, roundsLayer);
@@ -103,6 +106,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ProjectRecordsTag,
         projectRecordsLayer,
       );
+
+      const notificationsService = yield* tools.buildService(NotificationsTag, notificationsLayer);
 
       const activityEvents = createActivityEmitter({
         baseUrl: config.secrets.ACTIVITY_API_BASE_URL,
@@ -131,6 +136,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         tenants: tenantsService,
         rounds: roundsService,
         projectRecords: projectRecordsService,
+        notifications: notificationsService,
         activityEvents,
         feedbackNostr,
         projectsLookup,
@@ -707,6 +713,68 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await services.rounds.listParticipants(round.id);
         }),
 
+      broadcastToRound: builder.broadcastToRound
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (context.user?.role !== "admin") {
+            await assertCanManageRound(round, context, "Only the round owner can send a broadcast");
+          }
+          if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Broadcasts can only be sent while the round is open",
+            });
+          }
+          const text = notificationText(input.kind, round.title, input.message);
+          const recipients = await services.notifications.notifyParticipants({
+            roundId: round.id,
+            kind: input.kind,
+            ...text,
+          });
+          return { recipients };
+        }),
+
+      listNotifications: builder.listNotifications
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) return { items: [], unreadCount: 0 };
+          return await services.notifications.listForAccount(accountId, input.limit);
+        }),
+
+      markNotificationRead: builder.markNotificationRead
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("UNAUTHORIZED", {
+              message: "Link a NEAR account to manage notifications",
+            });
+          }
+          const notification = await services.notifications.markRead(accountId, input.id);
+          if (!notification) {
+            throw errors.NOT_FOUND({
+              message: "Notification not found",
+              data: { resource: "notification", resourceId: input.id },
+            });
+          }
+          return notification;
+        }),
+
+      markAllNotificationsRead: builder.markAllNotificationsRead
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) return { updated: 0 };
+          return { updated: await services.notifications.markAllRead(accountId) };
+        }),
+
       getRoundGithubIssues: builder.getRoundGithubIssues.handler(async ({ input, errors }) => {
         const round = await services.rounds.resolveRoundById(input.id);
         if (!round) {
@@ -769,6 +837,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
             throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
           }
           const detail = await services.rounds.closeRound(round.id, input.credits ?? []);
+          try {
+            const text = notificationText("round_closed", round.title);
+            await services.notifications.notifyParticipants({
+              roundId: round.id,
+              kind: "round_closed",
+              ...text,
+            });
+          } catch (error) {
+            console.warn(
+              `[notifications] round ${round.id} closed, but notifying participants failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
           await services.activityEvents.emitRoundClosed(detail);
           const credits = await services.rounds.listRoundCredits(round.id);
           for (const credit of credits) {

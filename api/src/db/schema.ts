@@ -187,3 +187,37 @@ export const roundCredits = pgTable(
     builderIdx: index("round_credits_builder_idx").on(table.builderAccountId),
   }),
 );
+
+export const notificationKind = pgEnum("notification_kind", [
+  "round_opened",
+  "round_closing",
+  "round_closed",
+  "custom",
+]);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    recipientAccountId: text("recipient_account_id").notNull(),
+    roundId: uuid("round_id")
+      .notNull()
+      .references(() => rounds.id, { onDelete: "cascade" }),
+    kind: notificationKind("kind").notNull(),
+    title: text("title").notNull(),
+    body: text("body").default("").notNull(),
+    readAt: timestamp("read_at", { mode: "date", withTimezone: true }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    recipientCreatedIdx: index("notifications_recipient_created_idx").on(
+      table.recipientAccountId,
+      table.createdAt,
+    ),
+    recipientReadIdx: index("notifications_recipient_read_idx").on(
+      table.recipientAccountId,
+      table.readAt,
+    ),
+    roundIdx: index("notifications_round_idx").on(table.roundId),
+  }),
+);
