@@ -21,6 +21,12 @@ export type RoundFeedbackFormat = "written" | "recorded";
 export interface RoundParticipantRecord {
   accountId: string;
   joinedAt: string;
+  feedbackCount: number;
+}
+
+export interface RoundSettingsPatch {
+  readme?: string;
+  formats?: RoundFormat[];
 }
 export type RoundFeedbackStatus = (typeof roundFeedbackStatus)["enumValues"][number];
 
@@ -173,7 +179,7 @@ export interface RoundsService {
    * already approved, and otherwise waits as `pending` for the project decision.
    */
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
-  updateRoundReadme(roundId: string, readme: string): Promise<RoundRecord>;
+  updateRound(roundId: string, patch: RoundSettingsPatch): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
   getRoundDetailBySlug(slug: string, number: number): Promise<RoundDetailRecord | null>;
@@ -364,11 +370,11 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      updateRoundReadme: async (roundId, readme) => {
+      updateRound: async (roundId, patch) => {
         try {
           const [updated] = await db
             .update(roundsTable)
-            .set({ readme, updatedAt: new Date() })
+            .set({ ...patch, updatedAt: new Date() })
             .where(eq(roundsTable.id, roundId))
             .returning();
           if (!updated) {
@@ -558,12 +564,21 @@ export const RoundsLive = Layer.effect(
             .select({
               accountId: roundParticipantsTable.accountId,
               joinedAt: roundParticipantsTable.joinedAt,
+              feedbackCount: count(roundFeedbackTable.id),
             })
             .from(roundParticipantsTable)
+            .leftJoin(
+              roundFeedbackTable,
+              and(
+                eq(roundFeedbackTable.roundId, roundParticipantsTable.roundId),
+                eq(roundFeedbackTable.authorAccountId, roundParticipantsTable.accountId),
+              ),
+            )
             .where(eq(roundParticipantsTable.roundId, roundId))
+            .groupBy(roundParticipantsTable.accountId, roundParticipantsTable.joinedAt)
             .orderBy(asc(roundParticipantsTable.joinedAt));
           return rows.map((row) => ({
-            accountId: row.accountId,
+            ...row,
             joinedAt:
               row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
           }));

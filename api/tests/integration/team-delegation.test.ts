@@ -152,7 +152,7 @@ describe("managing rounds on a delegated project", () => {
     const round = await teamed.getRound({ id: setup.roundId });
     expect(round.canManage).toBe(true);
     await expect(
-      teamed.updateRoundReadme({ id: setup.roundId, readme: "From the team" }),
+      teamed.updateRound({ id: setup.roundId, readme: "From the team" }),
     ).resolves.toMatchObject({ readme: "From the team" });
   });
 
@@ -162,7 +162,7 @@ describe("managing rounds on a delegated project", () => {
 
     const round = await outsider.getRound({ id: setup.roundId });
     expect(round.canManage).toBe(false);
-    await expect(outsider.updateRoundReadme({ id: setup.roundId, readme: "Nope" })).rejects.toThrow(
+    await expect(outsider.updateRound({ id: setup.roundId, readme: "Nope" })).rejects.toThrow(
       "round owner",
     );
     await expect(
@@ -188,7 +188,7 @@ describe("managing rounds on a delegated project", () => {
       nearAuthedContext("teamed.near", "teamed-user", setup.orgId, "member"),
     );
     expect((await teamed.getRound({ id: setup.roundId })).canManage).toBe(false);
-    await expect(teamed.updateRoundReadme({ id: setup.roundId, readme: "Nope" })).rejects.toThrow(
+    await expect(teamed.updateRound({ id: setup.roundId, readme: "Nope" })).rejects.toThrow(
       "round owner",
     );
   });

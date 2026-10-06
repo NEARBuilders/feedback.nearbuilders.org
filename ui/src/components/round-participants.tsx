@@ -1,11 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useApiClient } from "@/app";
 import { Skeleton } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
 import { SectionHeader } from "@/components/layout/section-header";
 import { roundParticipantsQueryOptions } from "@/lib/queries/rounds";
+import type { RoundParams } from "@/lib/round-links";
 
-export function RoundParticipants({ roundId }: { roundId: string }) {
+function postsLabel(count: number) {
+  return `${count} ${count === 1 ? "post" : "posts"}`;
+}
+
+export function RoundParticipants({
+  roundId,
+  consoleParams,
+}: {
+  roundId: string;
+  consoleParams?: RoundParams;
+}) {
   const apiClient = useApiClient();
   const participantsQuery = useQuery(roundParticipantsQueryOptions(apiClient, roundId));
   const participants = participantsQuery.data ?? [];
@@ -39,8 +51,20 @@ export function RoundParticipants({ roundId }: { roundId: string }) {
                   {participant.accountId}
                 </span>
               </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                Joined {new Date(participant.joinedAt).toLocaleDateString()}
+              <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                {consoleParams && participant.feedbackCount > 0 ? (
+                  <Link
+                    to="/manage/$slug/$n"
+                    params={consoleParams}
+                    search={{ status: "all", author: participant.accountId }}
+                    className="text-foreground underline"
+                  >
+                    {postsLabel(participant.feedbackCount)}
+                  </Link>
+                ) : (
+                  postsLabel(participant.feedbackCount)
+                )}
+                <span>Joined {new Date(participant.joinedAt).toLocaleDateString()}</span>
               </span>
             </li>
           ))}

@@ -201,11 +201,13 @@ describe("RoundsService", () => {
     );
     expect(created.readme).toBe("# Steps");
 
-    const updated = await runService(layer, (svc) => svc.updateRoundReadme(created.id, "# New"));
+    const updated = await runService(layer, (svc) =>
+      svc.updateRound(created.id, { readme: "# New" }),
+    );
     expect(updated.readme).toBe("# New");
 
     await expect(
-      runService(layer, (svc) => svc.updateRoundReadme(MISSING_ID, "x")),
+      runService(layer, (svc) => svc.updateRound(MISSING_ID, { readme: "x" })),
     ).rejects.toThrow("Round not found");
   });
 

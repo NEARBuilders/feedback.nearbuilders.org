@@ -1,13 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ExternalLink, PenLine, Users } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Badge, Button, Card, Field, FieldLabel, Input } from "@/components";
+import { Badge, Button } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
-import { BroadcastPanel } from "@/components/broadcast-panel";
-import { CloseRoundPanel } from "@/components/close-round-panel";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { RoundCredits } from "@/components/round-credits";
 import { RoundParticipants } from "@/components/round-participants";
@@ -15,7 +12,6 @@ import { RoundReadme } from "@/components/round-readme";
 import { FORMAT_LABELS } from "@/components/rounds-table";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
-import { invalidateProjectQueries } from "@/lib/queries/projects";
 import { invalidateRoundQueries, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import { roundParams } from "@/lib/round-links";
 import { type RoundDetail, useRound } from "@/lib/round-route";
@@ -29,7 +25,6 @@ function RoundOverviewPage() {
   const round = useRound(Route.useParams());
   const apiClient = useApiClient();
   const viewer = useRoundViewer(round);
-  const { canManage, isAdmin } = viewer;
 
   const { data: endorsements } = useQuery({
     queryKey: ["activity", "endorsements", [round.id]],
@@ -40,7 +35,7 @@ function RoundOverviewPage() {
 
   return (
     <div className="space-y-8">
-      <RoundReadme roundId={round.id} readme={round.readme} canEdit={canManage} />
+      <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
 
       <p className="text-sm text-foreground whitespace-pre-wrap">{round.description}</p>
 
@@ -80,36 +75,6 @@ function RoundOverviewPage() {
       )}
 
       <TestersRow round={round} viewer={viewer} />
-
-      {isAdmin && round.status === "pending" && (
-        <AdminReviewPanel projectRecordId={round.projectRecordId} />
-      )}
-
-      {!isAdmin && canManage && round.status === "pending" && (
-        <Card className="p-4 space-y-1">
-          <span className="text-sm font-medium text-foreground">Awaiting project approval</span>
-          <p className="text-xs text-muted-foreground">
-            An admin will approve or reject this project before its rounds are visible to builders.
-          </p>
-        </Card>
-      )}
-
-      {(canManage || isAdmin) && round.status === "rejected" && (
-        <Card className="p-4 space-y-1">
-          <span className="text-sm font-medium text-foreground">
-            This project request was rejected
-          </span>
-          {round.rejectionReason && (
-            <p className="text-sm text-foreground">{round.rejectionReason}</p>
-          )}
-        </Card>
-      )}
-
-      {(canManage || isAdmin) && round.status === "open" && (
-        <BroadcastPanel roundId={round.id} participantCount={round.participantCount} />
-      )}
-
-      {canManage && round.status === "open" && <CloseRoundPanel roundId={round.id} />}
 
       {round.status === "closed" && <RoundCredits roundId={round.id} />}
 
@@ -194,59 +159,5 @@ function TestersRow({
         </Link>
       )}
     </div>
-  );
-}
-
-function AdminReviewPanel({ projectRecordId }: { projectRecordId: string }) {
-  const apiClient = useApiClient();
-  const queryClient = useQueryClient();
-  const [reason, setReason] = useState("");
-
-  const onDecided = (message: string) => {
-    void invalidateRoundQueries(queryClient);
-    void invalidateProjectQueries(queryClient);
-    toast.success(message);
-  };
-
-  const approveMutation = useMutation({
-    mutationFn: () => apiClient.approveProject({ id: projectRecordId }),
-    onSuccess: () => onDecided("Project approved"),
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: () => apiClient.rejectProject({ id: projectRecordId, reason: reason.trim() }),
-    onSuccess: () => onDecided("Project rejected"),
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const pending = approveMutation.isPending || rejectMutation.isPending;
-
-  return (
-    <Card className="p-4 space-y-3 border-t border-border">
-      <span className="text-sm font-medium text-foreground">Admin review</span>
-      <Field>
-        <FieldLabel htmlFor="reject-reason">rejection reason (required to reject)</FieldLabel>
-        <Input
-          id="reject-reason"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Why isn't this ready?"
-          disabled={pending}
-        />
-      </Field>
-      <div className="flex gap-2">
-        <Button onClick={() => approveMutation.mutate()} disabled={pending}>
-          {approveMutation.isPending ? "Approving..." : "Approve project"}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => rejectMutation.mutate()}
-          disabled={pending || !reason.trim()}
-        >
-          {rejectMutation.isPending ? "Rejecting..." : "Reject project"}
-        </Button>
-      </div>
-    </Card>
   );
 }

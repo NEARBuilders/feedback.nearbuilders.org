@@ -27,7 +27,7 @@ export function RoundReadme({ roundId, readme, canEdit }: RoundReadmeProps) {
   const [draft, setDraft] = useState(readme);
 
   const saveMutation = useMutation({
-    mutationFn: () => apiClient.updateRoundReadme({ id: roundId, readme: draft }),
+    mutationFn: () => apiClient.updateRound({ id: roundId, readme: draft }),
     onSuccess: () => {
       void invalidateRoundQueries(queryClient);
       setEditing(false);

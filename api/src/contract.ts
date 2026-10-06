@@ -107,6 +107,7 @@ export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 export const RoundParticipantSchema = z.object({
   accountId: z.string(),
   joinedAt: z.string(),
+  feedbackCount: z.number().int().nonnegative(),
 });
 
 export type RoundParticipant = z.infer<typeof RoundParticipantSchema>;
@@ -496,11 +497,20 @@ export const contract = oc.router({
     .output(RoundSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
-  updateRoundReadme: oc
-    .route({ method: "PATCH", path: "/rounds/{id}/readme" })
-    .input(z.object({ id: z.string(), readme: z.string().max(MAX_README_LENGTH) }))
+  updateRound: oc
+    .route({ method: "PATCH", path: "/rounds/{id}" })
+    .input(
+      z.object({
+        id: z.string(),
+        readme: z.string().max(MAX_README_LENGTH).optional(),
+        formats: z
+          .array(RoundFormatSchema)
+          .min(1, "Select at least one feedback format")
+          .optional(),
+      }),
+    )
     .output(RoundSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })

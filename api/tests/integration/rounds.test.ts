@@ -329,9 +329,9 @@ describe("rounds belong to approved projects (#70)", () => {
     await expect(sameAccountOtherOrg.closeRound({ id: round.id })).rejects.toThrow(
       "Only the round owner can close it",
     );
-    await expect(
-      sameAccountOtherOrg.updateRoundReadme({ id: round.id, readme: "x" }),
-    ).rejects.toThrow("Only the round owner");
+    await expect(sameAccountOtherOrg.updateRound({ id: round.id, readme: "x" })).rejects.toThrow(
+      "Only the round owner",
+    );
     await expect(sameAccountOtherOrg.deleteRound({ id: round.id })).rejects.toThrow(
       "Only the round owner can delete it",
     );
@@ -380,13 +380,13 @@ describe("round readme (#71)", () => {
     const round = await createOpenRound("readme-owner3.near", { title: "Editable" });
     const owner = await getPluginClient(nearAuthedContext("readme-owner3.near"));
 
-    const updated = await owner.updateRoundReadme({ id: round.id, readme: "Updated **steps**" });
+    const updated = await owner.updateRound({ id: round.id, readme: "Updated **steps**" });
     expect(updated.readme).toBe("Updated **steps**");
 
     const anon = await getPluginClient();
     expect((await anon.getRound({ id: round.id })).readme).toBe("Updated **steps**");
 
-    const cleared = await owner.updateRoundReadme({ id: round.id, readme: "" });
+    const cleared = await owner.updateRound({ id: round.id, readme: "" });
     expect(cleared.readme).toBe("");
   });
 
@@ -394,12 +394,12 @@ describe("round readme (#71)", () => {
     const round = await createOpenRound("readme-owner4.near", { title: "Locked" });
 
     const stranger = await getPluginClient(nearAuthedContext("readme-stranger.near"));
-    await expect(stranger.updateRoundReadme({ id: round.id, readme: "hijack" })).rejects.toThrow(
-      "Only the round owner can edit the readme",
+    await expect(stranger.updateRound({ id: round.id, readme: "hijack" })).rejects.toThrow(
+      "Only the round owner can change round settings",
     );
 
     const anon = await getPluginClient();
-    await expect(anon.updateRoundReadme({ id: round.id, readme: "hijack" })).rejects.toThrow(
+    await expect(anon.updateRound({ id: round.id, readme: "hijack" })).rejects.toThrow(
       "Authentication required",
     );
 
@@ -411,7 +411,7 @@ describe("round readme (#71)", () => {
     const owner = await getPluginClient(nearAuthedContext("readme-owner5.near"));
     await expect(owner.createRound({ ...fresh(), readme: "x".repeat(20001) })).rejects.toThrow();
     await expect(
-      owner.updateRoundReadme({ id: "00000000-0000-0000-0000-000000000000", readme: "x" }),
+      owner.updateRound({ id: "00000000-0000-0000-0000-000000000000", readme: "x" }),
     ).rejects.toThrow();
   });
 });
@@ -961,7 +961,7 @@ describe("listMyJoinedRounds", () => {
       repoUrl: "https://github.com/acme/app",
     });
     const owner = await getPluginClient(nearAuthedContext("jr1.near"));
-    await owner.updateRoundReadme({ id: round.id, readme: "## Try signup" });
+    await owner.updateRound({ id: round.id, readme: "## Try signup" });
 
     const tester = await getPluginClient(nearAuthedContext("jrt1.near"));
     await tester.joinRound({ id: round.id });
@@ -1014,7 +1014,9 @@ describe("listParticipants", () => {
     await builderClient.joinRound({ id: round.id });
 
     const asOwner = await ownerClient.listParticipants({ id: round.id });
-    expect(asOwner).toEqual([{ accountId: "lpb1.near", joinedAt: expect.any(String) }]);
+    expect(asOwner).toEqual([
+      { accountId: "lpb1.near", joinedAt: expect.any(String), feedbackCount: 0 },
+    ]);
 
     const asParticipant = await builderClient.listParticipants({ id: round.id });
     expect(asParticipant).toEqual(asOwner);

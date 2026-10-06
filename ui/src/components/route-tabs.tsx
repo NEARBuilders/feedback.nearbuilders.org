@@ -7,7 +7,7 @@ function TabAnchor({ className, ...props }: ComponentProps<"a">) {
     <a
       {...props}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-4 py-3 -mb-px text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground data-[status=active]:border-brand-cyan data-[status=active]:text-foreground [&>svg]:h-4 [&>svg]:w-4",
+        "inline-flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-4 py-3 -mb-px text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground data-[status=active]:border-brand-cyan data-[status=active]:text-foreground data-[current=true]:border-brand-cyan data-[current=true]:text-foreground [&>svg]:h-4 [&>svg]:w-4",
         className,
       )}
     />

@@ -1,6 +1,6 @@
-import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
-import { Eye, Inbox, LayoutDashboard } from "lucide-react";
-import { Button } from "@/components";
+import { createFileRoute, Link, Outlet, redirect, useMatch } from "@tanstack/react-router";
+import { Eye, Inbox, LayoutDashboard, Lock, Megaphone, Settings, Users } from "lucide-react";
+import { Button, Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundStatusBadge } from "@/components/round-status-badge";
@@ -30,6 +30,10 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n
 function ConsoleLayout() {
   const params = Route.useParams();
   const round = useRound(params);
+  const inboxActive = !!useMatch({
+    from: "/_authenticated/_dashboard/manage/$slug/$n/_inbox",
+    shouldThrow: false,
+  });
 
   return (
     <PageContainer variant="wide">
@@ -52,10 +56,44 @@ function ConsoleLayout() {
           }
         />
 
+        {round.status === "pending" && (
+          <Card className="p-4 text-sm text-muted-foreground">
+            Awaiting project approval. An admin approves the project before testers can see it.
+          </Card>
+        )}
+        {round.status === "rejected" && (
+          <Card className="p-4 text-sm text-foreground">
+            This project request was rejected
+            {round.rejectionReason ? `: ${round.rejectionReason}` : "."}
+          </Card>
+        )}
+
         <RouteTabs label="Console sections">
-          <RouteTab to="/manage/$slug/$n" params={params} search>
+          <RouteTab
+            to="/manage/$slug/$n"
+            params={params}
+            search
+            activeOptions={{ exact: true }}
+            data-current={inboxActive}
+          >
             <Inbox />
             Inbox
+          </RouteTab>
+          <RouteTab to="/manage/$slug/$n/participants" params={params}>
+            <Users />
+            Participants
+          </RouteTab>
+          <RouteTab to="/manage/$slug/$n/broadcast" params={params}>
+            <Megaphone />
+            Broadcast
+          </RouteTab>
+          <RouteTab to="/manage/$slug/$n/settings" params={params}>
+            <Settings />
+            Settings
+          </RouteTab>
+          <RouteTab to="/manage/$slug/$n/close" params={params}>
+            <Lock />
+            Close
           </RouteTab>
         </RouteTabs>
 

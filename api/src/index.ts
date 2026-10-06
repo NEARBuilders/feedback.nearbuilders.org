@@ -255,6 +255,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
       return { ...round, canManage };
     };
 
+    const requireRound = async (id: string) => {
+      const round = await services.rounds.resolveRoundById(id);
+      if (!round) throw roundNotFound(id);
+      return round;
+    };
+
     const visibleRound = async (id: string, context: ViewerContext) =>
       viewRoundDetail(await services.rounds.getRoundDetail(id), context, id);
 
@@ -435,19 +441,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return round;
         }),
 
-      updateRoundReadme: builder.updateRoundReadme
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const round = await services.rounds.resolveRoundById(input.id);
-          if (!round) {
-            throw errors.NOT_FOUND({
-              message: "Round not found",
-              data: { resource: "round", resourceId: input.id },
-            });
-          }
-          await assertCanManageRound(round, context, "Only the round owner can edit the readme");
-          return await services.rounds.updateRoundReadme(round.id, input.readme);
-        }),
+      updateRound: builder.updateRound.use(requireAuth).handler(async ({ input, context }) => {
+        const round = await requireRound(input.id);
+        await assertCanManageRound(
+          round,
+          context,
+          "Only the round owner can change round settings",
+        );
+        if (input.formats?.includes("issues") && !round.repoUrl) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "A repo URL is required when the issues format is selected",
+          });
+        }
+        return await services.rounds.updateRound(round.id, {
+          readme: input.readme,
+          formats: input.formats,
+        });
+      }),
 
       listRounds: builder.listRounds.handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";

@@ -29,7 +29,7 @@ Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs
 | `POST` | `/api/v1/rounds` | Request a feedback round for a project your active organization owns, with an optional markdown `readme` for testers. A new project is created `pending`; on an approved project the round opens immediately. |
 | `GET` | `/api/v1/rounds` | List rounds, filtered by status (open rounds are public and need no sign-in). |
 | `GET` | `/api/v1/rounds/{id}` | Read one round. Pending and rejected rounds are visible only to the owning organization and admins. |
-| `PATCH` | `/api/v1/rounds/{id}/readme` | Owning organization: edit the round's markdown readme for testers. |
+| `PATCH` | `/api/v1/rounds/{id}` | Owning organization: change round settings, the markdown readme for testers and the feedback formats. |
 | `GET` | `/api/v1/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
 | `GET` | `/api/v1/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
 | `POST` | `/api/v1/projects/{id}/approve` | Admin: approve a project; its pending rounds go live for signups. |
