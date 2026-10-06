@@ -48,6 +48,13 @@ export const nostrCreateComment = vi.fn().mockResolvedValue({
 
 const mockNostrClient = { createComment: nostrCreateComment };
 
+// Stand-in for the auth plugin's team procedures (`plugins.auth` in src/index.ts), which
+// the local test runtime has no registration for. Tests set what each team contains.
+export const authListTeams = vi.fn();
+export const authListTeamMembers = vi.fn();
+
+const mockAuthClient = { listTeams: authListTeams, listTeamMembers: authListTeamMembers };
+
 export const runtime = createPluginRuntime({
   registry: TEST_REGISTRY,
   secrets: {},
@@ -61,6 +68,7 @@ export async function getPluginClient(context?: Record<string, unknown>) {
   if (!server) {
     const { router } = await runtime.usePlugin(TEST_PLUGIN_ID, TEST_CONFIG, {
       nostr: () => mockNostrClient,
+      auth: () => mockAuthClient,
     });
     const rpcHandler = new RPCHandler(router);
 
@@ -144,9 +152,10 @@ export function nearAuthedContext(
   accountId = "builder.near",
   userId = "user-1",
   activeOrganizationId = `org-of-${accountId}`,
+  orgRole?: string,
 ): Record<string, unknown> {
   return {
-    ...orgContext(userId, activeOrganizationId),
+    ...orgContext(userId, activeOrganizationId, orgRole),
     near: {
       primaryAccountId: accountId,
       hasNearAccount: true,
@@ -160,11 +169,13 @@ export function nearAuthedContext(
 export function orgContext(
   userId = "user-1",
   activeOrganizationId = "org-1",
+  orgRole?: string,
 ): Record<string, unknown> {
   return {
     ...authedContext(userId),
     organization: {
       activeOrganizationId,
+      ...(orgRole ? { member: { id: `member-of-${userId}`, role: orgRole } } : {}),
       organization: {
         id: activeOrganizationId,
         slug: activeOrganizationId,

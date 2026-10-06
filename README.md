@@ -130,6 +130,35 @@ Where points show up:
 The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
 `api/src/services/points.ts`.
 
+## Teams and delegated round management
+
+Organizations can group members into teams and delegate a project's rounds to a team. Teams
+themselves live in the shared auth plugin (`createTeam`, `listTeams`, `addTeamMember`, ...);
+this app stores only which team manages which project.
+
+- **Teams:** an organization's owners and admins create and delete teams and add or remove
+  members on the organization page's **teams** tab.
+- **Delegation:** on the same tab, owners and admins choose, per approved project, who manages
+  its rounds: any organization member (the default) or one of the organization's teams.
+  `POST /projects/{id}/managing-team` sets it (`teamId: null` clears it). The team must belong
+  to the project's organization.
+- **Who can manage a delegated project's rounds:** the team's members, and the organization's
+  owners and admins. Everyone else in the organization is refused, and members of other
+  organizations never gain access through a team.
+- **Fails closed:** if the team membership lookup errors, access is denied rather than granted.
+- **Deleting a team:** the teams tab first returns the active organization's projects that
+  were delegated to it to "any organization member", then deletes the team. A delegation that
+  still points at a deleted team (for example in an organization you are not currently
+  acting in) shows as "Deleted team" and only owners and admins can manage those rounds
+  until it is changed.
+- **Unchanged:** projects with no delegation behave exactly as before, with no team lookup.
+
+Not covered yet, because the shared auth plugin does not support them:
+
+- Inviting by NEAR account, and inviting straight into a team: `inviteMember` takes only an
+  email and a role.
+- An active team per session: sessions have an active organization but no active team.
+
 ## Activity events
 
 feedback.nearbuilders.org is an [Activity Source](https://github.com/NEARBuilders/activity.nearbuilders.org)

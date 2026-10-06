@@ -18,6 +18,8 @@ export interface ProjectRecord {
   name: string;
   /** Null only for projects backfilled from rounds that predate org ownership. */
   ownerOrgId: string | null;
+  /** Team the owning org delegated round management to; null means any org member. */
+  managingTeamId: string | null;
   nearbuildersProjectId: string | null;
   status: ProjectStatus;
   approvedAt: string | null;
@@ -47,6 +49,8 @@ export interface ProjectDecisionResult {
 export interface ProjectRecordsService {
   resolveProjectById(id: string): Promise<ProjectRecord | null>;
   resolveProjectBySlug(slug: string): Promise<ProjectRecord | null>;
+  /** Delegates round management to a team, or back to every org member with null. */
+  setManagingTeam(id: string, teamId: string | null): Promise<ProjectRecord | null>;
   getProjectWithRounds(id: string): Promise<ProjectWithRounds | null>;
   listProjects(status?: ProjectStatus): Promise<ProjectWithRounds[]>;
   listProjectsByOrg(orgId: string): Promise<ProjectWithRounds[]>;
@@ -75,6 +79,7 @@ export function toProjectRecord(row: ProjectRow): ProjectRecord {
     slug: row.slug,
     name: row.name,
     ownerOrgId: row.ownerOrgId,
+    managingTeamId: row.managingTeamId,
     nearbuildersProjectId: row.nearbuildersProjectId,
     status: row.status,
     approvedAt: iso(row.approvedAt),
@@ -244,6 +249,19 @@ export const ProjectRecordsLive = Layer.effect(
             .from(projectsTable)
             .where(eq(projectsTable.id, id))
             .limit(1);
+          return row ? toProjectRecord(row) : null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setManagingTeam: async (id, teamId) => {
+        try {
+          const [row] = await db
+            .update(projectsTable)
+            .set({ managingTeamId: teamId, updatedAt: new Date() })
+            .where(eq(projectsTable.id, id))
+            .returning();
           return row ? toProjectRecord(row) : null;
         } catch (error) {
           throw toOrpcError(error);
