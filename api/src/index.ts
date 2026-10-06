@@ -75,6 +75,8 @@ function validateAccountId(accountId: string): void {
   }
 }
 
+const MAX_FEEDBACK_PER_TESTER = 500;
+
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
 
@@ -743,6 +745,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.rounds.listFeedback(round.id, input);
       }),
 
+      listMyFeedback: builder.listMyFeedback
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const round = await visibleRound(input.id, context);
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) return [];
+          const { items } = await services.rounds.listFeedback(round.id, {
+            author: accountId,
+            limit: MAX_FEEDBACK_PER_TESTER,
+          });
+          return items.map((feedback) => ({
+            ...feedback,
+            points: pointsForAccepted(feedback.status === "resolved" ? 1 : 0),
+          }));
+        }),
+
       getFeedback: builder.getFeedback.handler(async ({ input, context }) => {
         const round = await visibleRound(input.id, context);
         const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
@@ -766,9 +784,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          await assertCanManageRound(round, context, "Only the round owner can remove feedback");
           const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
+          if (feedback.authorAccountId !== accountId) {
+            await assertCanManageRound(
+              round,
+              context,
+              "Only the author or the round owner can remove feedback",
+            );
+          } else if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "This round is closed, so its feedback can no longer be deleted",
+            });
+          }
           const result = await services.rounds.deleteFeedback(input.feedbackId);
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "feedback invalidated");

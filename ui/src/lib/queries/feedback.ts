@@ -17,6 +17,7 @@ export const feedbackKeys = {
     [...feedbackKeys.round(roundId), "list", filters] as const,
   item: (roundId: string, feedbackId: string) =>
     [...feedbackKeys.round(roundId), "item", feedbackId] as const,
+  mine: (roundId: string) => [...feedbackKeys.round(roundId), "mine"] as const,
 };
 
 export function roundFeedbackQueryOptions(
@@ -41,6 +42,13 @@ export function feedbackItemQueryOptions(
   return queryOptions({
     queryKey: feedbackKeys.item(roundId, feedbackId),
     queryFn: () => apiClient.getFeedback({ id: roundId, feedbackId }),
+  });
+}
+
+export function myFeedbackQueryOptions(apiClient: ApiClient, roundId: string) {
+  return queryOptions({
+    queryKey: feedbackKeys.mine(roundId),
+    queryFn: () => apiClient.listMyFeedback({ id: roundId }),
   });
 }
 

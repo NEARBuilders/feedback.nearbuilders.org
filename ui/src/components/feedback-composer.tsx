@@ -2,7 +2,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Button, Card, Field, FieldLabel, Input, SegmentedToggle, Textarea } from "@/components";
+import {
+  Button,
+  Card,
+  Field,
+  FieldLabel,
+  Input,
+  Markdown,
+  SegmentedToggle,
+  Textarea,
+} from "@/components";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 
@@ -30,6 +39,7 @@ export function FeedbackComposer({ roundId, formats }: { roundId: string; format
   const writable = writableFormats(formats);
   const [format, setFormat] = useState<FeedbackFormat>(writable[0] ?? "written");
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
+  const [mode, setMode] = useState<"write" | "preview">("write");
   const draftKey = `feedback-draft:${roundId}`;
 
   useEffect(() => {
@@ -65,6 +75,7 @@ export function FeedbackComposer({ roundId, formats }: { roundId: string; format
       }),
     onSuccess: () => {
       setDraft(EMPTY_DRAFT);
+      setMode("write");
       localStorage.removeItem(draftKey);
       void invalidateFeedbackQueries(queryClient, roundId);
       void invalidateParticipationQueries(queryClient);
@@ -97,18 +108,37 @@ export function FeedbackComposer({ roundId, formats }: { roundId: string; format
         <Field>
           <div className="flex items-center justify-between gap-3">
             <FieldLabel htmlFor="feedback-body">your feedback</FieldLabel>
-            <span className="text-xs text-muted-foreground">
-              {draft.body.length}/{FEEDBACK_BODY_MAX}
-            </span>
+            <SegmentedToggle
+              value={mode}
+              onValueChange={setMode}
+              options={[
+                { value: "write", label: "Write" },
+                { value: "preview", label: "Preview" },
+              ]}
+              ariaLabel="Composer mode"
+            />
           </div>
-          <Textarea
-            id="feedback-body"
-            value={draft.body}
-            onChange={(e) => setDraft((prev) => ({ ...prev, body: e.target.value }))}
-            rows={5}
-            maxLength={FEEDBACK_BODY_MAX}
-            placeholder="What worked, what didn't?"
-          />
+          {mode === "write" ? (
+            <Textarea
+              id="feedback-body"
+              value={draft.body}
+              onChange={(e) => setDraft((prev) => ({ ...prev, body: e.target.value }))}
+              rows={8}
+              maxLength={FEEDBACK_BODY_MAX}
+              placeholder="What worked, what didn't? Markdown works."
+            />
+          ) : (
+            <div className="min-h-40 rounded-md border border-border p-4">
+              {draft.body.trim() ? (
+                <Markdown content={draft.body} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
+              )}
+            </div>
+          )}
+          <span className="text-right text-xs text-muted-foreground">
+            {draft.body.length}/{FEEDBACK_BODY_MAX} · draft saved on this device
+          </span>
         </Field>
       ) : (
         <Field>

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, Users } from "lucide-react";
+import { ExternalLink, PenLine, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
@@ -17,6 +17,7 @@ import { roundActivityUrl } from "@/lib/activity-events";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 import { invalidateProjectQueries } from "@/lib/queries/projects";
 import { invalidateRoundQueries, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
+import { roundParams } from "@/lib/round-links";
 import { type RoundDetail, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
 
@@ -160,13 +161,23 @@ function TestersRow({
       </span>
 
       {(cta.kind === "join" || cta.kind === "leave") && (
-        <Button
-          variant={cta.kind === "leave" ? "outline" : "default"}
-          onClick={() => joinMutation.mutate(cta.kind === "join")}
-          disabled={joinMutation.isPending || viewer.participationPending}
-        >
-          {cta.kind === "leave" ? "Leave round" : "Join round"}
-        </Button>
+        <div className="flex gap-2">
+          {viewer.canPost && (
+            <Button asChild>
+              <Link to="/testing/$slug/$n" params={roundParams(round)}>
+                <PenLine className="h-4 w-4" />
+                Write feedback
+              </Link>
+            </Button>
+          )}
+          <Button
+            variant={cta.kind === "leave" ? "outline" : "default"}
+            onClick={() => joinMutation.mutate(cta.kind === "join")}
+            disabled={joinMutation.isPending || viewer.participationPending}
+          >
+            {cta.kind === "leave" ? "Leave round" : "Join round"}
+          </Button>
+        </div>
       )}
       {cta.kind === "signin" && (
         <Link

@@ -44,32 +44,24 @@ export function awaitingFeedback(round: WorkspaceRound): boolean {
   return round.status === "open" && collectsPostedFeedback(round) && round.myFeedbackCount === 0;
 }
 
-function rank(round: WorkspaceRound): number {
-  if (awaitingFeedback(round)) return 0;
-  if (round.status === "open") return 1;
-  return 2;
+export interface WorkspaceGroups<T extends WorkspaceRound> {
+  needsFeedback: T[];
+  submitted: T[];
+  closed: T[];
 }
 
-export function sortWorkspaceRounds<T extends WorkspaceRound>(rounds: T[]): T[] {
-  return [...rounds].sort((a, b) => {
-    const byRank = rank(a) - rank(b);
-    if (byRank !== 0) return byRank;
-    return new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime();
-  });
+function newestJoinedFirst(a: WorkspaceRound, b: WorkspaceRound): number {
+  return new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime();
 }
 
-export interface WorkspaceSummary {
-  total: number;
-  open: number;
-  awaitingFeedback: number;
-}
-
-export function summarizeWorkspace(rounds: WorkspaceRound[]): WorkspaceSummary {
-  return {
-    total: rounds.length,
-    open: rounds.filter((round) => round.status === "open").length,
-    awaitingFeedback: rounds.filter(awaitingFeedback).length,
-  };
+export function groupWorkspaceRounds<T extends WorkspaceRound>(rounds: T[]): WorkspaceGroups<T> {
+  const groups: WorkspaceGroups<T> = { needsFeedback: [], submitted: [], closed: [] };
+  for (const round of [...rounds].sort(newestJoinedFirst)) {
+    if (round.status !== "open") groups.closed.push(round);
+    else if (awaitingFeedback(round)) groups.needsFeedback.push(round);
+    else groups.submitted.push(round);
+  }
+  return groups;
 }
 
 export function feedbackPostedLabel(count: number): string {

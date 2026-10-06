@@ -129,6 +129,12 @@ export const RoundFeedbackSchema = z.object({
 
 export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;
 
+export const MyFeedbackSchema = RoundFeedbackSchema.extend({
+  points: z.number().int().nonnegative(),
+});
+
+export type MyFeedback = z.infer<typeof MyFeedbackSchema>;
+
 export const FeedbackPageSchema = z.object({
   items: z.array(RoundFeedbackSchema),
   nextCursor: z.string().nullable(),
@@ -596,6 +602,12 @@ export const contract = oc.router({
     )
     .output(FeedbackPageSchema)
     .errors({ NOT_FOUND }),
+
+  listMyFeedback: oc
+    .route({ method: "GET", path: "/rounds/{id}/my-feedback" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(MyFeedbackSchema))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
 
   getFeedback: oc
     .route({ method: "GET", path: "/rounds/{id}/feedback/{feedbackId}" })

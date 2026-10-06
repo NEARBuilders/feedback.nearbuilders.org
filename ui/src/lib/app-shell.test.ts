@@ -24,6 +24,12 @@ describe("shouldUseAppShell", () => {
     expect(shouldUseAppShell(false, path)).toBe(false);
   });
 
+  it("drops the shell for the compact pop-out workspace", () => {
+    expect(shouldUseAppShell(true, "/testing/near-wallet/3", { compact: 1 })).toBe(false);
+    expect(shouldUseAppShell(true, "/testing/near-wallet/3", { compact: "1" })).toBe(false);
+    expect(shouldUseAppShell(true, "/testing/near-wallet/3", { compact: 0 })).toBe(true);
+  });
+
   it("keeps the landing page and login on the marketing shell", () => {
     expect(shouldUseAppShell(true, "/")).toBe(false);
     expect(shouldUseAppShell(true, "/login")).toBe(false);

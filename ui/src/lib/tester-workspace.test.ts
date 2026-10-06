@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   awaitingFeedback,
   feedbackPostedLabel,
+  groupWorkspaceRounds,
   issuesUrl,
   nextAction,
-  sortWorkspaceRounds,
-  summarizeWorkspace,
   type WorkspaceRound,
 } from "./tester-workspace";
 
@@ -58,42 +57,19 @@ describe("awaitingFeedback", () => {
   });
 });
 
-describe("sortWorkspaceRounds", () => {
-  it("puts rounds awaiting feedback first, then other open rounds, then the rest, newest first", () => {
-    const sorted = sortWorkspaceRounds([
-      round({ roundId: "closed-new", status: "closed", joinedAt: "2026-10-05T00:00:00.000Z" }),
-      round({ roundId: "open-posted", myFeedbackCount: 1, joinedAt: "2026-10-02T00:00:00.000Z" }),
-      round({ roundId: "await-old", joinedAt: "2026-09-01T00:00:00.000Z" }),
-      round({ roundId: "await-new", joinedAt: "2026-10-03T00:00:00.000Z" }),
-      round({ roundId: "closed-old", status: "closed", joinedAt: "2026-09-02T00:00:00.000Z" }),
+describe("groupWorkspaceRounds", () => {
+  it("splits rounds into needs feedback, submitted and closed, newest joined first", () => {
+    const groups = groupWorkspaceRounds([
+      round({ roundId: "old-todo", joinedAt: "2026-01-01T00:00:00Z" }),
+      round({ roundId: "done", myFeedbackCount: 2 }),
+      round({ roundId: "new-todo", joinedAt: "2026-03-01T00:00:00Z" }),
+      round({ roundId: "issues-only", formats: ["issues"] }),
+      round({ roundId: "closed", status: "closed" }),
     ]);
-    expect(sorted.map((r) => r.roundId)).toEqual([
-      "await-new",
-      "await-old",
-      "open-posted",
-      "closed-new",
-      "closed-old",
-    ]);
-  });
 
-  it("does not mutate its input", () => {
-    const input = [round({ roundId: "a", status: "closed" }), round({ roundId: "b" })];
-    sortWorkspaceRounds(input);
-    expect(input.map((r) => r.roundId)).toEqual(["a", "b"]);
-  });
-});
-
-describe("summarizeWorkspace", () => {
-  it("counts total, open and awaiting-feedback rounds", () => {
-    expect(
-      summarizeWorkspace([
-        round(),
-        round({ myFeedbackCount: 1 }),
-        round({ status: "closed" }),
-        round({ formats: ["issues"] }),
-      ]),
-    ).toEqual({ total: 4, open: 3, awaitingFeedback: 1 });
-    expect(summarizeWorkspace([])).toEqual({ total: 0, open: 0, awaitingFeedback: 0 });
+    expect(groups.needsFeedback.map((r) => r.roundId)).toEqual(["new-todo", "old-todo"]);
+    expect(groups.submitted.map((r) => r.roundId)).toEqual(["done", "issues-only"]);
+    expect(groups.closed.map((r) => r.roundId)).toEqual(["closed"]);
   });
 });
 

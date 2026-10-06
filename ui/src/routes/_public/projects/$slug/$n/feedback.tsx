@@ -1,14 +1,10 @@
-import { useMutation, useQueryClient, useSuspenseInfiniteQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { ExternalLink } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ExternalLink, MessageSquare, PenLine } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Button, Card, ConfirmDialog } from "@/components";
-import { FeedbackComposer } from "@/components/feedback-composer";
+import { Button, Card, EmptyState } from "@/components";
 import { FeedbackList } from "@/components/feedback-list";
-import { SectionHeader } from "@/components/layout/section-header";
-import { invalidateFeedbackQueries, roundFeedbackQueryOptions } from "@/lib/queries/feedback";
+import { roundFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { loadRound, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
 import { issuesUrl } from "@/lib/tester-workspace";
@@ -24,56 +20,52 @@ export const Route = createFileRoute("/_public/projects/$slug/$n/feedback")({
 });
 
 function RoundFeedbackPage() {
-  const round = useRound(Route.useParams());
+  const params = Route.useParams();
+  const round = useRound(params);
   const apiClient = useApiClient();
-  const queryClient = useQueryClient();
   const viewer = useRoundViewer(round);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-
   const feedbackQuery = useSuspenseInfiniteQuery(roundFeedbackQueryOptions(apiClient, round.id));
   const entries = feedbackQuery.data.pages.flatMap((page) => page.items);
-
-  const deleteMutation = useMutation({
-    mutationFn: (feedbackId: string) => apiClient.deleteFeedback({ id: round.id, feedbackId }),
-    onSuccess: () => {
-      void invalidateFeedbackQueries(queryClient, round.id);
-      toast.success("Feedback deleted");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
   const issues = round.formats.includes("issues") ? issuesUrl(round.repoUrl) : null;
 
   return (
-    <div id="feedback" className="space-y-4">
-      <SectionHeader title="Feedback" />
-
-      {issues && (
-        <Card className="p-4">
+    <div className="space-y-4">
+      {(viewer.canPost || issues) && (
+        <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
           <p className="text-sm text-muted-foreground">
-            For bugs, file an issue on the project's GitHub so it's tracked where fixes land.{" "}
-            <a
-              href={issues}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-foreground underline"
-            >
-              File an issue
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            {viewer.canPost
+              ? "Write feedback in your workspace, next to the app you're testing."
+              : "Bugs go to the project's GitHub issues."}
           </p>
+          <div className="flex gap-2">
+            {issues && (
+              <Button asChild size="sm" variant="outline">
+                <a href={issues} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  File an issue
+                </a>
+              </Button>
+            )}
+            {viewer.canPost && (
+              <Button asChild size="sm">
+                <Link to="/testing/$slug/$n" params={params}>
+                  <PenLine className="h-3.5 w-3.5" />
+                  Write feedback
+                </Link>
+              </Button>
+            )}
+          </div>
         </Card>
       )}
 
-      {viewer.canPost && <FeedbackComposer roundId={round.id} formats={round.formats} />}
-
       {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No feedback yet.</p>
+        <EmptyState icon={MessageSquare} title="No feedback yet." className="min-h-[20vh]" />
       ) : (
         <FeedbackList
+          roundId={round.id}
           entries={entries}
           currentAccountId={viewer.accountId}
-          onDelete={round.status === "open" ? setDeleteId : undefined}
+          canDelete={round.status === "open"}
         />
       )}
 
@@ -86,24 +78,6 @@ function RoundFeedbackPage() {
           {feedbackQuery.isFetchingNextPage ? "Loading..." : "Load more"}
         </Button>
       )}
-
-      <ConfirmDialog
-        open={deleteId !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteId(null);
-        }}
-        title="Delete this feedback?"
-        description="Your feedback will be removed from the round. This can't be undone."
-        confirmLabel="Delete"
-        variant="destructive"
-        isPending={deleteMutation.isPending}
-        onConfirm={() => {
-          if (deleteId) {
-            deleteMutation.mutate(deleteId);
-            setDeleteId(null);
-          }
-        }}
-      />
     </div>
   );
 }
