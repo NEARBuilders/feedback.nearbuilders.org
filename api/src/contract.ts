@@ -43,6 +43,8 @@ export const ProjectSchema = z.object({
   name: z.string(),
   /** Null only for projects backfilled from rounds that predate org ownership. */
   ownerOrgId: z.string().nullable(),
+  /** Team the owning org delegated round management to; null means any org member. */
+  managingTeamId: z.string().nullable(),
   nearbuildersProjectId: z.string().nullable(),
   status: ProjectStatusSchema,
   approvedAt: z.string().nullable(),
@@ -515,6 +517,12 @@ export const contract = oc.router({
         reason: z.string().trim().min(1, "A reason is required").max(2000),
       }),
     )
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  setProjectManagingTeam: oc
+    .route({ method: "POST", path: "/projects/{id}/managing-team" })
+    .input(z.object({ id: z.string(), teamId: z.string().min(1).nullable() }))
     .output(ProjectWithRoundsSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 

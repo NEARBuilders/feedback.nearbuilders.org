@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "managing_team_id" text;

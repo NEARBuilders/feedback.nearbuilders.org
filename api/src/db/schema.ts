@@ -56,6 +56,8 @@ export const projects = pgTable(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     ownerOrgId: text("owner_org_id"),
+    // Team (from the auth plugin) the owning org delegated round management to. Null means any org member.
+    managingTeamId: text("managing_team_id"),
     // nearbuilders.org project id, when the slug resolved to a real project (#23).
     nearbuildersProjectId: text("nearbuilders_project_id"),
     status: projectStatus("status").default("pending").notNull(),

@@ -18,10 +18,17 @@ import {
   pointsForAccepted,
   rankStandings,
 } from "./services/points";
+import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
-import { canManageRound } from "./services/round-access";
+import {
+  canManageRound,
+  isOrgAdminRole,
+  needsTeamCheck,
+  type RoundActor,
+} from "./services/round-access";
 import { RoundsLive, RoundsTag } from "./services/rounds";
+import { createTeamAccess } from "./services/team-access";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
 const SUBDOMAIN_SEGMENT_REGEX = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
@@ -130,6 +137,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         baseUrl: config.secrets.PROJECTS_API_BASE_URL,
       });
 
+      const teamAccess = createTeamAccess(plugins.auth);
+
       const githubIssuesLookup = createGithubIssuesLookup({
         token: config.secrets.GITHUB_API_TOKEN,
       });
@@ -146,6 +155,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         activityEvents,
         feedbackNostr,
         projectsLookup,
+        teamAccess,
         githubIssuesLookup,
       };
     }),
@@ -176,23 +186,49 @@ export default createPlugin.withPlugins<PluginsClient>()({
       return tenant;
     };
 
+    interface ActorContext {
+      userId?: string | null;
+      near?: { primaryAccountId?: string | null } | null;
+      organization?: {
+        activeOrganizationId?: string | null;
+        member?: { role?: string | null } | null;
+      } | null;
+    }
+
     /**
-     * Rounds are managed by the org that owns their project (#70). Throws
-     * FORBIDDEN with `message` when the caller's active org doesn't.
+     * Builds the caller's access profile for a project. A team lookup only happens when the
+     * project is delegated to a team and the caller is neither an org owner nor admin.
+     */
+    const resolveActor = async (
+      project: ProjectRecord | null,
+      context: ActorContext,
+    ): Promise<RoundActor> => {
+      const actor: RoundActor = {
+        activeOrganizationId: context.organization?.activeOrganizationId,
+        accountId: context.near?.primaryAccountId,
+        orgRole: context.organization?.member?.role,
+      };
+      if (project?.managingTeamId && context.userId && needsTeamCheck(project, actor)) {
+        actor.inManagingTeam = await services.teamAccess.isMember(
+          context as Record<string, unknown>,
+          project.managingTeamId,
+          context.userId,
+        );
+      }
+      return actor;
+    };
+
+    /**
+     * Rounds are managed by the org that owns their project (#70), or by the team the org
+     * delegated the project to (#79). Throws FORBIDDEN with `message` otherwise.
      */
     const assertCanManageRound = async (
       round: { ownerAccountId: string; projectRecordId: string },
-      context: {
-        near?: { primaryAccountId?: string | null } | null;
-        organization?: { activeOrganizationId?: string | null } | null;
-      },
+      context: ActorContext,
       message: string,
     ) => {
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
-      const allowed = canManageRound(round, project, {
-        activeOrganizationId: context.organization?.activeOrganizationId,
-        accountId: context.near?.primaryAccountId,
-      });
+      const allowed = canManageRound(round, project, await resolveActor(project, context));
       if (!allowed) throw new ORPCError("FORBIDDEN", { message });
     };
 
@@ -449,6 +485,58 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return project;
       }),
 
+      setProjectManagingTeam: builder.setProjectManagingTeam
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const project = await services.projectRecords.resolveProjectById(input.id);
+          if (!project) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.id },
+            });
+          }
+          const isSiteAdmin = context.user?.role === "admin";
+          const isOrgAdmin =
+            !!project.ownerOrgId &&
+            context.organization?.activeOrganizationId === project.ownerOrgId &&
+            isOrgAdminRole(context.organization?.member?.role);
+          if (!isSiteAdmin && !isOrgAdmin) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the organization's owners and admins can delegate a project to a team",
+            });
+          }
+          if (input.teamId !== null) {
+            if (!project.ownerOrgId) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "This project has no owning organization to take a team from",
+              });
+            }
+            const teamIds = await services.teamAccess.listOrgTeamIds(
+              context as Record<string, unknown>,
+              project.ownerOrgId,
+            );
+            if (teamIds === null) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "Couldn't verify the organization's teams right now",
+              });
+            }
+            if (!teamIds.includes(input.teamId)) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "That team doesn't belong to this project's organization",
+              });
+            }
+          }
+          await services.projectRecords.setManagingTeam(project.id, input.teamId);
+          const updated = await services.projectRecords.getProjectWithRounds(project.id);
+          if (!updated) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resourceId: input.id },
+            });
+          }
+          return updated;
+        }),
+
       deleteRound: builder.deleteRound
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
@@ -485,10 +573,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           });
         }
         const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
-        const canManage = canManageRound(round, project, {
-          activeOrganizationId: context.organization?.activeOrganizationId,
-          accountId: context.near?.primaryAccountId,
-        });
+        const canManage = canManageRound(round, project, await resolveActor(project, context));
         if (round.status === "pending" || round.status === "rejected") {
           const isAdmin = context.user?.role === "admin";
           if (!canManage && !isAdmin) {

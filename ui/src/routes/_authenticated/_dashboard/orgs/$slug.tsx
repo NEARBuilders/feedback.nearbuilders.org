@@ -36,6 +36,7 @@ import {
   TabsTrigger,
 } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
+import { OrgTeams } from "@/components/org-teams";
 import { pageHead } from "@/lib/page-title";
 
 type AuthClientType = import("@/app").AuthClient;
@@ -479,6 +480,10 @@ function OrganizationDetail() {
             <Users className="h-4 w-4 mr-1.5" />
             Members ({members.length})
           </TabsTrigger>
+          <TabsTrigger value="teams" className="shrink-0">
+            <Users className="h-3.5 w-3.5" />
+            teams
+          </TabsTrigger>
           <TabsTrigger value="invitations" className="shrink-0">
             <Mail className="h-4 w-4 mr-1.5" />
             Invitations ({pendingInvitationsCount})
@@ -505,6 +510,15 @@ function OrganizationDetail() {
           ) : (
             <EmptyState label="No members found" />
           )}
+        </TabsContent>
+
+        <TabsContent value="teams" className="space-y-6 pt-4">
+          <OrgTeams
+            orgId={orgId}
+            orgMembers={members}
+            canManage={canManageMembers}
+            isActiveOrg={isActive}
+          />
         </TabsContent>
 
         <TabsContent value="invitations" className="space-y-6 pt-4">
