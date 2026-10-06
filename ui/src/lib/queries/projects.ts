@@ -7,7 +7,25 @@ export const projectKeys = {
   all: ["projects"] as const,
   mine: () => [...projectKeys.all, "mine"] as const,
   list: (status?: ProjectStatus) => [...projectKeys.all, "list", status ?? "all"] as const,
+  public: () => [...projectKeys.all, "public"] as const,
+  detail: (slug: string) => [...projectKeys.all, "slug", slug] as const,
 };
+
+export function publicProjectsQueryOptions(apiClient: ApiClient) {
+  return queryOptions({
+    queryKey: projectKeys.public(),
+    queryFn: () => apiClient.listPublicProjects(),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function projectQueryOptions(apiClient: ApiClient, slug: string) {
+  return queryOptions({
+    queryKey: projectKeys.detail(slug),
+    queryFn: () => apiClient.getProjectBySlug({ slug }),
+    staleTime: 30 * 1000,
+  });
+}
 
 export function myProjectsQueryOptions(apiClient: ApiClient) {
   return queryOptions({

@@ -42,7 +42,11 @@ function ConsoleLayout() {
           icon={LayoutDashboard}
           label="Console"
           title={round.title}
-          subtitle={`${round.projectSlug} · round ${round.projectRoundNumber}`}
+          subtitle={
+            <Link to="/manage/$slug" params={{ slug: params.slug }} className="hover:underline">
+              {round.projectSlug} · round {round.projectRoundNumber}
+            </Link>
+          }
           actions={
             <>
               <RoundStatusBadge status={round.status} />

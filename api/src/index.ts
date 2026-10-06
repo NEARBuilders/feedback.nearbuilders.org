@@ -22,6 +22,7 @@ import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
 import {
+  canManageProject,
   canManageRound,
   isOrgAdminRole,
   needsTeamCheck,
@@ -76,6 +77,9 @@ function validateAccountId(accountId: string): void {
 }
 
 const MAX_FEEDBACK_PER_TESTER = 500;
+
+const isPublic = (round: { status: string }) =>
+  round.status === "open" || round.status === "closed";
 
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
@@ -281,6 +285,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         console.warn(`[notifications] ${kind} for round ${round.id} failed`, error);
       }
     };
+
+    const projectNotFound = (resourceId: string) =>
+      new ORPCError("NOT_FOUND", {
+        message: "Project not found",
+        data: { resource: "project", resourceId },
+      });
 
     const feedbackNotFound = (resourceId: string) =>
       new ORPCError("NOT_FOUND", {
@@ -488,7 +498,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (input.status) return rounds;
         // No filter: this is the public browse listing, so pending/rejected
         // rounds — visible only to their owning org or an admin — never appear in it.
-        return rounds.filter((r) => r.status === "open" || r.status === "closed");
+        return rounds.filter(isPublic);
       }),
 
       listProjects: builder.listProjects
@@ -1143,6 +1153,54 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getProjectSearchStatus: builder.getProjectSearchStatus.handler(async () => ({
         enabled: services.projectsLookup.enabled,
       })),
+
+      listPublicProjects: builder.listPublicProjects.handler(async () => {
+        const projects = await services.projectRecords.listProjects("approved");
+        return projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) }));
+      }),
+
+      getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, context }) => {
+        const record = await services.projectRecords.resolveProjectBySlug(input.slug);
+        const project = record && (await services.projectRecords.getProjectWithRounds(record.id));
+        if (!project) throw projectNotFound(input.slug);
+        const canManage = canManageProject(project, await resolveActor(project, context));
+        const canSeeAll = canManage || context.user?.role === "admin";
+        if (project.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
+        return {
+          ...project,
+          rounds: canSeeAll ? project.rounds : project.rounds.filter(isPublic),
+          canManage,
+          nearbuilders: await services.projectsLookup.resolveBySlug(project.slug),
+        };
+      }),
+
+      inviteTesters: builder.inviteTesters.use(requireAuth).handler(async ({ input, context }) => {
+        const round = await requireRound(input.id);
+        await assertCanManageRound(round, context, "Only the round owner can invite testers");
+        if (round.status !== "open") {
+          throw new ORPCError("BAD_REQUEST", { message: "Invite testers once the round is open" });
+        }
+        const from = await requireRound(input.fromRoundId);
+        if (from.projectRecordId !== round.projectRecordId) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Invite testers from a round of the same project",
+          });
+        }
+        const [previous, current] = await Promise.all([
+          services.rounds.listParticipants(from.id),
+          services.rounds.listParticipants(round.id),
+        ]);
+        const joined = new Set(current.map((participant) => participant.accountId));
+        const recipients = await services.notifications.notifyAccounts({
+          roundId: round.id,
+          kind: "round_opened",
+          ...notificationText("round_opened", round.title),
+          accountIds: previous
+            .map((participant) => participant.accountId)
+            .filter((accountId) => !joined.has(accountId)),
+        });
+        return { recipients };
+      }),
 
       resolveProjectBySlug: builder.resolveProjectBySlug.handler(async ({ input }) => {
         return await services.projectsLookup.resolveBySlug(input.slug);

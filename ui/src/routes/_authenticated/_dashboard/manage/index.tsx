@@ -5,10 +5,9 @@ import { useApiClient } from "@/app";
 import { Button, Card, EmptyState, Skeleton } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
-import { RoundStatusBadge } from "@/components/round-status-badge";
+import { ProjectRoundList } from "@/components/project-round-list";
 import { pageHead } from "@/lib/page-title";
 import { myProjectsQueryOptions } from "@/lib/queries/projects";
-import { roundParams } from "@/lib/round-links";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/")({
   loader: ({ context }) =>
@@ -55,26 +54,16 @@ function ManagePage() {
               <li key={project.id}>
                 <Card className="p-5 space-y-3">
                   <div>
-                    <p className="font-semibold text-foreground">{project.name}</p>
+                    <Link
+                      to="/manage/$slug"
+                      params={{ slug: project.slug }}
+                      className="font-semibold text-foreground hover:underline"
+                    >
+                      {project.name}
+                    </Link>
                     <p className="font-mono text-xs text-muted-foreground">{project.slug}</p>
                   </div>
-                  <ul className="divide-y divide-border rounded-lg border border-border">
-                    {project.rounds.map((round) => (
-                      <li
-                        key={round.id}
-                        className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"
-                      >
-                        <Link
-                          to="/manage/$slug/$n"
-                          params={roundParams({ ...round, projectSlug: project.slug })}
-                          className="text-sm font-medium text-foreground hover:underline"
-                        >
-                          #{round.projectRoundNumber} {round.title}
-                        </Link>
-                        <RoundStatusBadge status={round.status} />
-                      </li>
-                    ))}
-                  </ul>
+                  <ProjectRoundList project={project} console />
                 </Card>
               </li>
             ))}

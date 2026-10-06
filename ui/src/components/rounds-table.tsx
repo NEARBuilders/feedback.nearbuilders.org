@@ -22,15 +22,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FORMAT_LABELS } from "@/lib/round-fields";
 import { roundParams } from "@/lib/round-links";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
-
-export const FORMAT_LABELS: Record<string, string> = {
-  issues: "GitHub issues",
-  written: "Written feedback",
-  recorded: "Recorded session",
-};
 
 /** Columns that collapse on narrow screens; the title column is always visible. */
 const COLUMN_VISIBILITY: Record<string, string> = {

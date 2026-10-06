@@ -7,7 +7,7 @@ describe("dashboard navigation", () => {
     const anonymousPaths = filterSidebarByRole(NAV_ITEMS, "anon").map((item) => item.to);
 
     expect(anonymousPaths).toEqual(
-      expect.arrayContaining(["/rounds", "/leaderboard", "/how-to-integrate"]),
+      expect.arrayContaining(["/rounds", "/projects", "/leaderboard", "/how-to-integrate"]),
     );
     expect(anonymousPaths).not.toContain("/admin");
   });
@@ -39,7 +39,8 @@ describe("dashboard navigation", () => {
 
   it("highlights rounds on round pages but not on request a round", () => {
     expect(getActiveItem(NAV_ITEMS, "/rounds")?.label).toBe("rounds");
-    expect(getActiveItem(NAV_ITEMS, "/projects/near-wallet/3")?.label).toBe("rounds");
+    expect(getActiveItem(NAV_ITEMS, "/projects")?.label).toBe("projects");
+    expect(getActiveItem(NAV_ITEMS, "/projects/near-wallet/3")?.label).toBe("projects");
     expect(getActiveItem(NAV_ITEMS, "/feed/request")?.label).toBe("request a round");
     expect(getActiveItem(NAV_ITEMS, "/testing")?.label).toBe("testing");
     expect(getActiveItem(NAV_ITEMS, "/manage/near-wallet/3")?.label).toBe("manage");

@@ -56,7 +56,11 @@ function RoundLayout() {
           icon={MessageSquare}
           label={`Round ${round.projectRoundNumber}`}
           title={round.title}
-          subtitle={round.projectSlug}
+          subtitle={
+            <Link to="/projects/$slug" params={{ slug: params.slug }} className="hover:underline">
+              {round.projectSlug}
+            </Link>
+          }
           actions={<RoundStatusBadge status={round.status} />}
         />
 

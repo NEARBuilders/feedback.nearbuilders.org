@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canManageRound, isOrgAdminRole, needsTeamCheck } from "@/services/round-access";
+import {
+  canManageProject,
+  canManageRound,
+  isOrgAdminRole,
+  needsTeamCheck,
+} from "@/services/round-access";
 
 const round = { ownerAccountId: "creator.near" };
 
@@ -71,6 +76,27 @@ describe("canManageRound with a managing team", () => {
   it("treats a project with no managing team like any org-owned project", () => {
     expect(canManageRound(round, { ownerOrgId: "org-1", managingTeamId: null }, inOrg)).toBe(true);
     expect(canManageRound(round, { ownerOrgId: "org-1" }, inOrg)).toBe(true);
+  });
+});
+
+describe("canManageProject (#119)", () => {
+  const rounds = [round, { ownerAccountId: "second.near" }];
+
+  it("follows the owning org and its managing team", () => {
+    const project = { ownerOrgId: "org-1", managingTeamId: "team-1", rounds };
+    expect(canManageProject(project, { activeOrganizationId: "org-1", orgRole: "admin" })).toBe(
+      true,
+    );
+    expect(canManageProject(project, { activeOrganizationId: "org-1", inManagingTeam: true })).toBe(
+      true,
+    );
+    expect(canManageProject(project, { activeOrganizationId: "org-1" })).toBe(false);
+  });
+
+  it("falls back to the creator of any of its rounds when no org owns it yet", () => {
+    const project = { ownerOrgId: null, rounds };
+    expect(canManageProject(project, { accountId: "second.near" })).toBe(true);
+    expect(canManageProject(project, { accountId: "someone.near" })).toBe(false);
   });
 });
 

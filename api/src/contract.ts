@@ -370,6 +370,13 @@ export const NearBuildersProjectSchema = z.object({
 
 export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
 
+export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
+  canManage: z.boolean(),
+  nearbuilders: NearBuildersProjectSchema.nullable(),
+});
+
+export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;
+
 export const ProjectSearchResultSchema = z.object({
   available: z.boolean(),
   results: z.array(NearBuildersProjectSchema),
@@ -768,6 +775,22 @@ export const contract = oc.router({
   getProjectSearchStatus: oc
     .route({ method: "GET", path: "/projects/search/status" })
     .output(z.object({ enabled: z.boolean() })),
+
+  listPublicProjects: oc
+    .route({ method: "GET", path: "/projects/approved" })
+    .output(z.array(ProjectWithRoundsSchema)),
+
+  getProjectBySlug: oc
+    .route({ method: "GET", path: "/projects/by-slug/{slug}" })
+    .input(z.object({ slug: z.string().min(1) }))
+    .output(ProjectDetailSchema)
+    .errors({ NOT_FOUND }),
+
+  inviteTesters: oc
+    .route({ method: "POST", path: "/rounds/{id}/invite" })
+    .input(z.object({ id: z.string(), fromRoundId: z.string() }))
+    .output(z.object({ recipients: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   resolveProjectBySlug: oc
     .route({ method: "GET", path: "/projects/by-slug/{slug}" })
