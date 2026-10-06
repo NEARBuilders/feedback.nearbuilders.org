@@ -154,6 +154,7 @@ export const roundFeedback = pgTable(
     body: text("body"),
     url: text("url"),
     status: roundFeedbackStatus("status").default("unresolved").notNull(),
+    statusChangedAt: timestamp("status_changed_at", { mode: "date", withTimezone: true }),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     activityEventId: text("activity_event_id"),
     nostrEventId: text("nostr_event_id"),

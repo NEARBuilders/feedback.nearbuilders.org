@@ -9,24 +9,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { submissionsLabel } from "@/lib/leaderboard";
+import { type LeaderboardMetric, submissionsLabel } from "@/lib/leaderboard";
+import { acceptedLabel } from "@/lib/points";
 
 type LeaderboardEntry = Awaited<ReturnType<ApiClient["getLeaderboard"]>>["data"][number];
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentAccountId?: string | null;
+  metric?: LeaderboardMetric;
 }
 
-export function LeaderboardTable({ entries, currentAccountId }: LeaderboardTableProps) {
+export function LeaderboardTable({
+  entries,
+  currentAccountId,
+  metric = "submissions",
+}: LeaderboardTableProps) {
+  const isPoints = metric === "points";
   return (
     <Table data-testid="leaderboard-table">
       <TableHeader>
         <TableRow>
           <TableHead className="w-16">Rank</TableHead>
           <TableHead>Builder</TableHead>
-          <TableHead className="text-right">Submissions</TableHead>
-          <TableHead className="hidden sm:table-cell text-right">Score</TableHead>
+          <TableHead className="text-right">{isPoints ? "Accepted" : "Submissions"}</TableHead>
+          <TableHead className={`text-right ${isPoints ? "" : "hidden sm:table-cell"}`}>
+            {isPoints ? "Points" : "Score"}
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -48,9 +57,15 @@ export function LeaderboardTable({ entries, currentAccountId }: LeaderboardTable
               {entry.actor === currentAccountId && <Badge className="ml-2 text-[10px]">you</Badge>}
             </TableCell>
             <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
-              {submissionsLabel(entry.eventCount)}
+              {isPoints ? acceptedLabel(entry.eventCount) : submissionsLabel(entry.eventCount)}
             </TableCell>
-            <TableCell className="hidden sm:table-cell text-right text-sm text-muted-foreground tabular-nums">
+            <TableCell
+              className={`text-right text-sm tabular-nums ${
+                isPoints
+                  ? "font-semibold text-foreground"
+                  : "hidden sm:table-cell text-muted-foreground"
+              }`}
+            >
               {entry.score}
             </TableCell>
           </TableRow>

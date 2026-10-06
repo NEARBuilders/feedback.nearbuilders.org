@@ -270,6 +270,33 @@ export const LeaderboardSchema = z.object({
 
 export type Leaderboard = z.infer<typeof LeaderboardSchema>;
 
+export const PointsEntrySchema = z.object({
+  rank: z.number().int().positive(),
+  actor: z.string(),
+  points: z.number().int().nonnegative(),
+  acceptedCount: z.number().int().positive(),
+});
+
+export const PointsLeaderboardSchema = z.object({
+  period: LeaderboardPeriodSchema,
+  /** Points awarded for each feedback item the round owner accepts (marks resolved). */
+  pointsPerAcceptedFeedback: z.number().int().positive(),
+  data: z.array(PointsEntrySchema),
+});
+
+export type PointsLeaderboard = z.infer<typeof PointsLeaderboardSchema>;
+
+export const BuilderPointsSchema = z.object({
+  accountId: z.string(),
+  points: z.number().int().nonnegative(),
+  acceptedCount: z.number().int().nonnegative(),
+  submittedCount: z.number().int().nonnegative(),
+  /** All-time rank by points, or null when the builder has no points yet. */
+  rank: z.number().int().positive().nullable(),
+});
+
+export type BuilderPoints = z.infer<typeof BuilderPointsSchema>;
+
 export const RoundEndorsementSchema = z.object({
   eventId: z.string(),
   totalCount: z.number().int().nonnegative(),
@@ -655,6 +682,21 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/projects/by-slug/{slug}" })
     .input(z.object({ slug: z.string().min(1).max(100) }))
     .output(NearBuildersProjectSchema.nullable()),
+
+  getPointsLeaderboard: oc
+    .route({ method: "GET", path: "/points/leaderboard" })
+    .input(
+      z.object({
+        period: LeaderboardPeriodSchema.default("all-time"),
+        limit: z.number().int().positive().max(100).optional(),
+      }),
+    )
+    .output(PointsLeaderboardSchema),
+
+  getBuilderPoints: oc
+    .route({ method: "GET", path: "/builders/{accountId}/points" })
+    .input(z.object({ accountId: z.string() }))
+    .output(BuilderPointsSchema),
 
   getLeaderboard: oc
     .route({ method: "GET", path: "/activity/leaderboard" })

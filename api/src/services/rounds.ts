@@ -11,6 +11,7 @@ import {
   type roundStatus,
   rounds as roundsTable,
 } from "../db/schema";
+import type { AcceptedCount } from "./points";
 import { ensureProject } from "./project-records";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
@@ -172,6 +173,9 @@ export interface RoundsService {
     status: RoundFeedbackStatus,
   ): Promise<RoundFeedbackRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
+  /** Accepted (resolved) feedback per author, optionally only accepted on or after `since`. */
+  listAcceptedCounts(since: Date | null): Promise<AcceptedCount[]>;
+  getFeedbackTotals(accountId: string): Promise<{ acceptedCount: number; submittedCount: number }>;
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
@@ -479,7 +483,10 @@ export const RoundsLive = Layer.effect(
           if (feedbackIds.length === 0) return [];
           const rows = await db
             .update(roundFeedbackTable)
-            .set({ status })
+            .set({
+              status,
+              statusChangedAt: sql`case when ${roundFeedbackTable.status} = ${status} then ${roundFeedbackTable.statusChangedAt} else now() end`,
+            })
             .where(
               and(
                 eq(roundFeedbackTable.roundId, roundId),
@@ -508,6 +515,49 @@ export const RoundsLive = Layer.effect(
             joinedAt:
               row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
           }));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listAcceptedCounts: async (since) => {
+        try {
+          const acceptedAt = sql`coalesce(${roundFeedbackTable.statusChangedAt}, ${roundFeedbackTable.createdAt})`;
+          const rows = await db
+            .select({
+              accountId: roundFeedbackTable.authorAccountId,
+              acceptedCount: count(),
+            })
+            .from(roundFeedbackTable)
+            .where(
+              and(
+                eq(roundFeedbackTable.status, "resolved"),
+                since ? sql`${acceptedAt} >= ${since.toISOString()}::timestamptz` : undefined,
+              ),
+            )
+            .groupBy(roundFeedbackTable.authorAccountId);
+          return rows.map((row) => ({
+            accountId: row.accountId,
+            acceptedCount: row.acceptedCount,
+          }));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      getFeedbackTotals: async (accountId) => {
+        try {
+          const [row] = await db
+            .select({
+              submittedCount: count(),
+              acceptedCount: sql<number>`count(*) filter (where ${roundFeedbackTable.status} = 'resolved')::int`,
+            })
+            .from(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.authorAccountId, accountId));
+          return {
+            submittedCount: row?.submittedCount ?? 0,
+            acceptedCount: row?.acceptedCount ?? 0,
+          };
         } catch (error) {
           throw toOrpcError(error);
         }

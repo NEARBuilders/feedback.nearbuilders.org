@@ -8,6 +8,19 @@ export const LEADERBOARD_PERIODS: Array<{ value: LeaderboardPeriod; label: strin
 
 export const DEFAULT_LEADERBOARD_PERIOD: LeaderboardPeriod = "weekly";
 
+export type LeaderboardMetric = "submissions" | "points";
+
+export const LEADERBOARD_METRICS: Array<{ value: LeaderboardMetric; label: string }> = [
+  { value: "submissions", label: "Submissions" },
+  { value: "points", label: "Points" },
+];
+
+export const DEFAULT_LEADERBOARD_METRIC: LeaderboardMetric = "submissions";
+
+export function isLeaderboardMetric(value: unknown): value is LeaderboardMetric {
+  return LEADERBOARD_METRICS.some((metric) => metric.value === value);
+}
+
 export function isLeaderboardPeriod(value: unknown): value is LeaderboardPeriod {
   return LEADERBOARD_PERIODS.some((period) => period.value === value);
 }
