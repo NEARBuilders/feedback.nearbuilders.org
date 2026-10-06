@@ -125,7 +125,11 @@ export interface MyJoinedRoundRecord {
   projectSlug: string;
   status: RoundStatus;
   formats: RoundFormat[];
+  readme: string;
+  repoUrl: string | null;
   participantCount: number;
+  /** How many feedback items the caller has posted in this round. */
+  myFeedbackCount: number;
   joinedAt: string;
 }
 
@@ -694,6 +698,8 @@ export const RoundsLive = Layer.effect(
               projectSlug: roundsTable.projectSlug,
               status: roundsTable.status,
               formats: roundsTable.formats,
+              readme: roundsTable.readme,
+              repoUrl: roundsTable.repoUrl,
               joinedAt: roundParticipantsTable.joinedAt,
             })
             .from(roundParticipantsTable)
@@ -712,13 +718,30 @@ export const RoundsLive = Layer.effect(
             )
             .groupBy(roundParticipantsTable.roundId);
           const counts = new Map(countRows.map((row) => [row.roundId, row.value]));
+          const feedbackRows = await db
+            .select({ roundId: roundFeedbackTable.roundId, value: count() })
+            .from(roundFeedbackTable)
+            .where(
+              and(
+                eq(roundFeedbackTable.authorAccountId, accountId),
+                inArray(
+                  roundFeedbackTable.roundId,
+                  rows.map((row) => row.roundId),
+                ),
+              ),
+            )
+            .groupBy(roundFeedbackTable.roundId);
+          const feedbackCounts = new Map(feedbackRows.map((row) => [row.roundId, row.value]));
           return rows.map((row) => ({
             roundId: row.roundId,
             roundTitle: row.roundTitle,
             projectSlug: row.projectSlug,
             status: row.status,
             formats: row.formats as RoundFormat[],
+            readme: row.readme,
+            repoUrl: row.repoUrl,
             participantCount: counts.get(row.roundId) ?? 0,
+            myFeedbackCount: feedbackCounts.get(row.roundId) ?? 0,
             joinedAt:
               row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
           }));

@@ -189,8 +189,11 @@ function JoinedRounds({
         title="Rounds you're testing"
         action={
           rounds.length > 0 ? (
-            <span className="text-sm text-muted-foreground">
+            <span className="flex items-center gap-3 text-sm text-muted-foreground">
               {openCount} open · {rounds.length} total
+              <Link to="/testing" className="text-foreground underline">
+                open tester workspace
+              </Link>
             </span>
           ) : undefined
         }

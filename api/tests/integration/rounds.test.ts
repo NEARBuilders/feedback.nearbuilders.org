@@ -953,6 +953,59 @@ describe("feedback status", () => {
   });
 });
 
+describe("listMyJoinedRounds", () => {
+  it("returns the readme, repo and how much feedback the caller has posted per round", async () => {
+    const round = await createOpenRound("jr1.near", {
+      title: "Joined rounds",
+      formats: ["written", "issues"],
+      repoUrl: "https://github.com/acme/app",
+    });
+    const owner = await getPluginClient(nearAuthedContext("jr1.near"));
+    await owner.updateRoundReadme({ id: round.id, readme: "## Try signup" });
+
+    const tester = await getPluginClient(nearAuthedContext("jrt1.near"));
+    await tester.joinRound({ id: round.id });
+    await tester.postFeedback({ id: round.id, format: "written", body: "First" });
+    await tester.postFeedback({ id: round.id, format: "written", body: "Second" });
+
+    const other = await getPluginClient(nearAuthedContext("jrt1-other.near"));
+    await other.joinRound({ id: round.id });
+    await other.postFeedback({ id: round.id, format: "written", body: "Not mine" });
+
+    const joined = await tester.listMyJoinedRounds();
+    expect(joined).toHaveLength(1);
+    expect(joined[0]).toMatchObject({
+      roundId: round.id,
+      roundTitle: "Joined rounds",
+      status: "open",
+      readme: "## Try signup",
+      repoUrl: "https://github.com/acme/app",
+      participantCount: 2,
+      myFeedbackCount: 2,
+    });
+  });
+
+  it("reports zero feedback for a round the caller joined but never posted in", async () => {
+    const round = await createOpenRound("jr2.near", { title: "No feedback yet" });
+    const tester = await getPluginClient(nearAuthedContext("jrt2.near"));
+    await tester.joinRound({ id: round.id });
+
+    const joined = await tester.listMyJoinedRounds();
+    expect(joined[0]?.myFeedbackCount).toBe(0);
+    expect(joined[0]?.readme).toBe("");
+    expect(joined[0]?.repoUrl).toBeNull();
+  });
+
+  it("only lists rounds the caller joined", async () => {
+    const round = await createOpenRound("jr3.near", { title: "Not joined" });
+    const stranger = await getPluginClient(nearAuthedContext("jr3-stranger.near"));
+    await expect(stranger.listMyJoinedRounds()).resolves.toEqual([]);
+    const owner = await getPluginClient(nearAuthedContext("jr3.near"));
+    await expect(owner.listMyJoinedRounds()).resolves.toEqual([]);
+    expect(round.id).toEqual(expect.any(String));
+  });
+});
+
 describe("listParticipants", () => {
   it("returns participants with joined dates to the owner and to participants", async () => {
     const round = await createOpenRound("lp1.near", { title: "Participants" });
