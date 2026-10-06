@@ -51,7 +51,7 @@ function TestingPage() {
             <Button asChild variant="outline">
               <Link to="/rounds">
                 <Search className="h-4 w-4" />
-                Browse rounds
+                browse rounds
               </Link>
             </Button>
           }

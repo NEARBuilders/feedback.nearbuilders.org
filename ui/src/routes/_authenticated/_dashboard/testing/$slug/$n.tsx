@@ -3,6 +3,7 @@ import { createFileRoute, Link, type SearchSchemaInput } from "@tanstack/react-r
 import {
   ArrowLeft,
   CalendarClock,
+  ClipboardCheck,
   ExternalLink,
   Eye,
   GitBranch,
@@ -10,10 +11,12 @@ import {
 } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card, EmptyState, Markdown, SectionHeader } from "@/components";
+import { ActionCard } from "@/components/action-card";
 import { FeedbackComposer } from "@/components/feedback-composer";
 import { FeedbackList } from "@/components/feedback-list";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
 import { PageContainer } from "@/components/layout/page-container";
+import { PageHeader } from "@/components/layout/page-header";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { isCompact } from "@/lib/app-shell";
@@ -56,40 +59,42 @@ function TesterRoundWorkspace() {
   return (
     <PageContainer variant={compact ? "narrow" : "wide"} className={cn(compact && "py-4 sm:py-4")}>
       <div className="space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {!compact && (
-              <Link
-                to="/testing"
-                aria-label="Back to testing"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            )}
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-bold text-foreground">{round.title}</h1>
-              <p className="font-mono text-xs text-muted-foreground">
-                {round.projectSlug} · round {round.projectRoundNumber}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <RoundStatusBadge status={round.status} />
-            {!compact && (
-              <Button variant="outline" size="sm" onClick={popOut}>
-                <PictureInPicture2 className="h-3.5 w-3.5" />
-                Pop out
+        {!compact && (
+          <Link
+            to="/testing"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            testing
+          </Link>
+        )}
+        <PageHeader
+          icon={ClipboardCheck}
+          label={`${round.projectSlug} · round ${round.projectRoundNumber}`}
+          title={round.title}
+          description={compact ? undefined : round.description}
+          actions={
+            <>
+              <RoundStatusBadge status={round.status} />
+              {!compact && (
+                <Button variant="outline" size="sm" onClick={popOut}>
+                  <PictureInPicture2 className="h-3.5 w-3.5" />
+                  pop out
+                </Button>
+              )}
+              <Button asChild variant="ghost" size="sm">
+                <Link
+                  to="/projects/$slug/$n"
+                  params={params}
+                  target={compact ? "_blank" : undefined}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  public page
+                </Link>
               </Button>
-            )}
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/projects/$slug/$n" params={params} target={compact ? "_blank" : undefined}>
-                <Eye className="h-3.5 w-3.5" />
-                Public page
-              </Link>
-            </Button>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         <div className={cn("grid gap-6", !compact && "lg:grid-cols-2")}>
           <RoundBrief round={round} collapsed={!!compact} />
@@ -99,14 +104,14 @@ function TesterRoundWorkspace() {
             ) : (
               !viewer.participationPending &&
               !viewer.joined && (
-                <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <ActionCard>
                   <p className="text-sm text-muted-foreground">Join this round to give feedback.</p>
                   <Button asChild size="sm">
                     <Link to="/projects/$slug/$n" params={params}>
-                      Open round
+                      open round
                     </Link>
                   </Button>
-                </Card>
+                </ActionCard>
               )
             )}
             <MySubmissions round={round} accountId={viewer.accountId} />
@@ -132,7 +137,7 @@ function RoundBrief({ round, collapsed }: { round: RoundDetail; collapsed: boole
           <Button asChild variant="outline" size="sm">
             <a href={round.repoUrl} target="_blank" rel="noopener noreferrer">
               <GitBranch className="h-3.5 w-3.5" />
-              Repository
+              repository
             </a>
           </Button>
         )}
@@ -140,7 +145,7 @@ function RoundBrief({ round, collapsed }: { round: RoundDetail; collapsed: boole
           <Button asChild variant="outline" size="sm">
             <a href={issues} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3.5 w-3.5" />
-              Issues
+              issues
             </a>
           </Button>
         )}

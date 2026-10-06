@@ -2,7 +2,8 @@ import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ExternalLink, MessageSquare, PenLine } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Button, Card, EmptyState } from "@/components";
+import { Button, EmptyState } from "@/components";
+import { ActionCard } from "@/components/action-card";
 import { FeedbackList } from "@/components/feedback-list";
 import { roundFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { loadRound, useRound } from "@/lib/round-route";
@@ -31,7 +32,7 @@ function RoundFeedbackPage() {
   return (
     <div className="space-y-4">
       {(viewer.canPost || issues) && (
-        <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <ActionCard>
           <p className="text-sm text-muted-foreground">
             {viewer.canPost
               ? "Write feedback in your workspace, next to the app you're testing."
@@ -42,7 +43,7 @@ function RoundFeedbackPage() {
               <Button asChild size="sm" variant="outline">
                 <a href={issues} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-3.5 w-3.5" />
-                  File an issue
+                  file an issue
                 </a>
               </Button>
             )}
@@ -50,12 +51,12 @@ function RoundFeedbackPage() {
               <Button asChild size="sm">
                 <Link to="/testing/$slug/$n" params={params}>
                   <PenLine className="h-3.5 w-3.5" />
-                  Write feedback
+                  write feedback
                 </Link>
               </Button>
             )}
           </div>
-        </Card>
+        </ActionCard>
       )}
 
       {entries.length === 0 ? (
@@ -75,7 +76,7 @@ function RoundFeedbackPage() {
           onClick={() => void feedbackQuery.fetchNextPage()}
           disabled={feedbackQuery.isFetchingNextPage}
         >
-          {feedbackQuery.isFetchingNextPage ? "Loading..." : "Load more"}
+          {feedbackQuery.isFetchingNextPage ? "loading..." : "load more"}
         </Button>
       )}
     </div>

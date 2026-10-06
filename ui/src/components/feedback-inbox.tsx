@@ -81,11 +81,11 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
             <span className="text-sm text-muted-foreground">{selection.length} selected</span>
             <Button variant="outline" size="sm" onClick={() => setPendingBulk("resolved")}>
               <Check className="h-3.5 w-3.5" />
-              Resolve
+              resolve
             </Button>
             <Button variant="outline" size="sm" onClick={() => setPendingBulk("dismissed")}>
               <X className="h-3.5 w-3.5" />
-              Dismiss
+              dismiss
             </Button>
             <Button variant="ghost" size="sm" onClick={() => exportSelection("csv")}>
               <Download className="h-3.5 w-3.5" />

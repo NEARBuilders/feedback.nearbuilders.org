@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useApiClient } from "@/app";
 import { Skeleton } from "@/components";
-import { AccountAvatar } from "@/components/account-avatar";
 import { SectionHeader } from "@/components/layout/section-header";
 import { roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import type { RoundParams } from "@/lib/round-links";
@@ -45,11 +44,8 @@ export function RoundParticipants({
               key={participant.accountId}
               className="flex items-center justify-between gap-3 px-4 py-2.5"
             >
-              <span className="flex min-w-0 items-center gap-2">
-                <AccountAvatar accountId={participant.accountId} />
-                <span className="font-mono text-sm text-foreground break-all">
-                  {participant.accountId}
-                </span>
+              <span className="font-mono text-sm text-foreground break-all">
+                {participant.accountId}
               </span>
               <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
                 {consoleParams && participant.feedbackCount > 0 ? (

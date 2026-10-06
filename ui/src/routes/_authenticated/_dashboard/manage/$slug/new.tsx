@@ -138,10 +138,10 @@ function NewRoundForm({
                 disabled={inviteMutation.isPending}
               >
                 <Send className="h-4 w-4" />
-                Invite previous testers
+                invite previous testers
               </Button>
               <Button variant="outline" onClick={() => openConsole(created)}>
-                Skip
+                skip
               </Button>
             </div>
           </Card>
@@ -164,7 +164,7 @@ function NewRoundForm({
               type="submit"
               disabled={!roundFieldsComplete(fields) || createMutation.isPending}
             >
-              {createMutation.isPending ? "Starting..." : "Start round"}
+              {createMutation.isPending ? "starting..." : "start round"}
             </Button>
           </form>
         )}

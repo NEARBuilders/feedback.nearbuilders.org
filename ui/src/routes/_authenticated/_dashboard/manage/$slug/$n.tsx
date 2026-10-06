@@ -40,20 +40,20 @@ function ConsoleLayout() {
       <div className="space-y-6">
         <PageHeader
           icon={LayoutDashboard}
-          label="Console"
-          title={round.title}
-          subtitle={
+          label={
             <Link to="/manage/$slug" params={{ slug: params.slug }} className="hover:underline">
-              {round.projectSlug} · round {round.projectRoundNumber}
+              console · {round.projectSlug} · round {round.projectRoundNumber}
             </Link>
           }
+          title={round.title}
+          description="Review feedback, talk to testers and run the round."
           actions={
             <>
               <RoundStatusBadge status={round.status} />
               <Button asChild variant="outline" size="sm">
                 <Link to="/projects/$slug/$n" params={params}>
                   <Eye className="h-3.5 w-3.5" />
-                  Public page
+                  public page
                 </Link>
               </Button>
             </>
@@ -81,23 +81,23 @@ function ConsoleLayout() {
             data-current={inboxActive}
           >
             <Inbox />
-            Inbox
+            inbox
           </RouteTab>
           <RouteTab to="/manage/$slug/$n/participants" params={params}>
             <Users />
-            Participants
+            participants
           </RouteTab>
           <RouteTab to="/manage/$slug/$n/broadcast" params={params}>
             <Megaphone />
-            Broadcast
+            broadcast
           </RouteTab>
           <RouteTab to="/manage/$slug/$n/settings" params={params}>
             <Settings />
-            Settings
+            settings
           </RouteTab>
           <RouteTab to="/manage/$slug/$n/close" params={params}>
             <Lock />
-            Close
+            close
           </RouteTab>
         </RouteTabs>
 

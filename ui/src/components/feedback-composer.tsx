@@ -153,7 +153,7 @@ export function FeedbackComposer({ roundId, formats }: { roundId: string; format
         </Field>
       )}
       <Button onClick={() => postMutation.mutate()} disabled={!canSubmit}>
-        {postMutation.isPending ? "Posting..." : "Post feedback"}
+        {postMutation.isPending ? "posting..." : "post feedback"}
       </Button>
     </Card>
   );

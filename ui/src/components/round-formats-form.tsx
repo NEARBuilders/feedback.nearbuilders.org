@@ -37,7 +37,7 @@ export function RoundFormatsForm({ round }: { round: RoundDetail }) {
         onClick={() => saveMutation.mutate()}
         disabled={unchanged || formats.length === 0 || saveMutation.isPending}
       >
-        {saveMutation.isPending ? "Saving..." : "Save formats"}
+        {saveMutation.isPending ? "saving..." : "save formats"}
       </Button>
     </Card>
   );

@@ -25,6 +25,8 @@ describe("getBreadcrumbs", () => {
       "round 3",
       "feedback",
     ]);
+    expect(getBreadcrumbs("/manage/near-wallet/3")[2].label).toBe("round 3");
+    expect(getBreadcrumbs("/testing/near-wallet/3")[2].label).toBe("round 3");
   });
 
   it("looks up organization names and falls back to the slug", () => {

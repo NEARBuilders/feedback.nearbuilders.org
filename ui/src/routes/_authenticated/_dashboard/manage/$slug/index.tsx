@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Eye, FolderKanban, PlusCircle, Users } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Button, Card, SectionHeader } from "@/components";
+import { Button, SectionHeader } from "@/components";
+import { ActionCard } from "@/components/action-card";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectRoundList } from "@/components/project-round-list";
+import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { loadProject, requireProjectManager, useProject } from "@/lib/project-route";
@@ -41,13 +42,13 @@ function ProjectConsolePage() {
           icon={FolderKanban}
           label="Project console"
           title={project.name}
-          subtitle={project.slug}
+          description="Start rounds and see who manages this project."
           actions={
             <>
               <Button asChild variant="outline" size="sm">
                 <Link to="/projects/$slug" params={{ slug }}>
                   <Eye className="h-3.5 w-3.5" />
-                  Public page
+                  public page
                 </Link>
               </Button>
               {project.status === "approved" && (
@@ -58,7 +59,7 @@ function ProjectConsolePage() {
                     search={latest ? { from: latest.projectRoundNumber } : {}}
                   >
                     <PlusCircle className="h-3.5 w-3.5" />
-                    Start round
+                    start round
                   </Link>
                 </Button>
               )}
@@ -67,7 +68,7 @@ function ProjectConsolePage() {
         />
 
         {project.ownerOrgId && (
-          <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <ActionCard>
             <span className="flex items-center gap-2 text-sm text-foreground">
               <Users className="h-4 w-4 text-muted-foreground" />
               Managed by: {describeDelegation(teamsQuery.data ?? [], project.managingTeamId)}
@@ -75,12 +76,12 @@ function ProjectConsolePage() {
             <Link to="/orgs" className="text-sm text-muted-foreground underline">
               Change in organizations
             </Link>
-          </Card>
+          </ActionCard>
         )}
 
         <section className="space-y-3">
           <SectionHeader title="Rounds" />
-          <ProjectRoundList project={project} console />
+          <ProjectRoundsTable projects={[project]} console />
         </section>
       </div>
     </PageContainer>

@@ -26,7 +26,7 @@ export function RouteError({ error }: ErrorComponentProps) {
         className="min-h-[30vh]"
         action={
           <Button variant="outline" size="sm" onClick={() => void router.invalidate()}>
-            Try again
+            try again
           </Button>
         }
       />

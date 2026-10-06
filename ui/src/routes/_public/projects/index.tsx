@@ -1,11 +1,11 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { FolderKanban } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Card, EmptyState } from "@/components";
+import { EmptyState } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectRoundList } from "@/components/project-round-list";
+import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { publicProjectsQueryOptions } from "@/lib/queries/projects";
@@ -26,26 +26,16 @@ function ProjectsPage() {
   return (
     <PageContainer>
       <div className="space-y-8">
-        <PageHeader icon={FolderKanban} label="Feedback Rounds" title="Projects" />
+        <PageHeader
+          icon={FolderKanban}
+          label="Feedback Rounds"
+          title="Projects"
+          description="Projects running feedback rounds, newest round first."
+        />
         {projects.length === 0 ? (
           <EmptyState icon={FolderKanban} title="No projects yet." className="min-h-[30vh]" />
         ) : (
-          <ul className="space-y-4">
-            {projects.map((project) => (
-              <li key={project.id}>
-                <Card className="p-5 space-y-3">
-                  <Link
-                    to="/projects/$slug"
-                    params={{ slug: project.slug }}
-                    className="block font-semibold text-foreground hover:underline"
-                  >
-                    {project.name}
-                  </Link>
-                  <ProjectRoundList project={project} />
-                </Card>
-              </li>
-            ))}
-          </ul>
+          <ProjectRoundsTable projects={projects} grouped />
         )}
       </div>
     </PageContainer>

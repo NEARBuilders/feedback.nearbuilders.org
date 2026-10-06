@@ -26,11 +26,11 @@ export function RoundShareActions({ round }: { round: RoundRef & { title: string
     <div className="flex gap-2">
       <Button variant="outline" size="sm" onClick={() => void share(round)}>
         <Share2 className="h-3.5 w-3.5" />
-        Share
+        share
       </Button>
       <Button variant="outline" size="sm" onClick={() => void copyLink(round)}>
         <Link2 className="h-3.5 w-3.5" />
-        Copy link
+        copy link
       </Button>
     </div>
   );

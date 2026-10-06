@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ExternalLink, FolderKanban, LayoutDashboard, PlayCircle } from "lucide-react";
-import { Button, Card } from "@/components";
+import { Button } from "@/components";
+import { ActionCard } from "@/components/action-card";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
-import { ProjectRoundList } from "@/components/project-round-list";
+import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { loadProject, useProject } from "@/lib/project-route";
@@ -36,7 +37,7 @@ function ProjectPage() {
           label="Project"
           title={project.name}
           subtitle={project.slug}
-          description={nearbuilders?.description}
+          description={nearbuilders?.description ?? `Feedback rounds for ${project.name}.`}
           actions={
             <>
               {nearbuilders && (
@@ -55,7 +56,7 @@ function ProjectPage() {
                 <Button asChild size="sm">
                   <Link to="/manage/$slug" params={{ slug }}>
                     <LayoutDashboard className="h-3.5 w-3.5" />
-                    Manage
+                    manage
                   </Link>
                 </Button>
               )}
@@ -64,7 +65,7 @@ function ProjectPage() {
         />
 
         {current && (
-          <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <ActionCard className="p-5">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Current round
@@ -74,15 +75,15 @@ function ProjectPage() {
             <Button asChild>
               <Link to="/projects/$slug/$n" params={roundParams({ ...current, projectSlug: slug })}>
                 <PlayCircle className="h-4 w-4" />
-                Join round {current.projectRoundNumber}
+                join round {current.projectRoundNumber}
               </Link>
             </Button>
-          </Card>
+          </ActionCard>
         )}
 
         <section className="space-y-3">
           <SectionHeader title="Rounds" />
-          <ProjectRoundList project={project} />
+          <ProjectRoundsTable projects={[project]} />
         </section>
       </div>
     </PageContainer>

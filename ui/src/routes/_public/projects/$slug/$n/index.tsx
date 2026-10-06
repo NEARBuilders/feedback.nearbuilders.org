@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, PenLine, Users } from "lucide-react";
+import { ExternalLink, GitBranch, PenLine, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Badge, Button } from "@/components";
@@ -37,8 +37,6 @@ function RoundOverviewPage() {
     <div className="space-y-8">
       <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
 
-      <p className="text-sm text-foreground whitespace-pre-wrap">{round.description}</p>
-
       {endorsement && (
         <div className="flex flex-wrap items-center gap-3">
           <EndorsementCount count={endorsement.totalCount} />
@@ -54,25 +52,21 @@ function RoundOverviewPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {round.formats.map((format) => (
-          <Badge key={format} variant="outline" className="text-xs">
+          <Badge key={format} variant="outline">
             {FORMAT_LABELS[format] ?? format}
           </Badge>
         ))}
+        {round.repoUrl && (
+          <Button asChild variant="ghost" size="sm">
+            <a href={round.repoUrl} target="_blank" rel="noopener noreferrer">
+              <GitBranch className="h-3.5 w-3.5" />
+              repository
+            </a>
+          </Button>
+        )}
       </div>
-
-      {round.repoUrl && (
-        <a
-          href={round.repoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm text-foreground underline break-all"
-        >
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          {round.repoUrl}
-        </a>
-      )}
 
       <TestersRow round={round} viewer={viewer} />
 
@@ -131,7 +125,7 @@ function TestersRow({
             <Button asChild>
               <Link to="/testing/$slug/$n" params={roundParams(round)}>
                 <PenLine className="h-4 w-4" />
-                Write feedback
+                write feedback
               </Link>
             </Button>
           )}
@@ -140,7 +134,7 @@ function TestersRow({
             onClick={() => joinMutation.mutate(cta.kind === "join")}
             disabled={joinMutation.isPending || viewer.participationPending}
           >
-            {cta.kind === "leave" ? "Leave round" : "Join round"}
+            {cta.kind === "leave" ? "leave round" : "join round"}
           </Button>
         </div>
       )}
@@ -150,12 +144,12 @@ function TestersRow({
           search={cta.loginTo.search}
           className="text-sm text-foreground underline"
         >
-          Sign in to join
+          sign in to join
         </Link>
       )}
       {cta.kind === "link-account" && (
         <Link to="/settings/auth-methods" className="text-sm text-foreground underline">
-          Link a NEAR account to join
+          link a NEAR account to join
         </Link>
       )}
     </div>

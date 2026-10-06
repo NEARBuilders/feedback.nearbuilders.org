@@ -3,6 +3,7 @@ import {
   createFileRoute,
   Outlet,
   type SearchSchemaInput,
+  stripSearchParams,
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
@@ -39,6 +40,7 @@ export function inboxFilters({ status, author }: InboxSearch): FeedbackFilters {
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n/_inbox")({
   validateSearch: validateInboxSearch,
+  search: { middlewares: [stripSearchParams({ status: "unresolved" })] },
   loaderDeps: ({ search }) => search,
   loader: async ({ context, params, deps }) => {
     const round = await loadRound(context, params);
@@ -103,7 +105,7 @@ function InboxLayout() {
                   onClick={() => void feedbackQuery.fetchNextPage()}
                   disabled={feedbackQuery.isFetchingNextPage}
                 >
-                  {feedbackQuery.isFetchingNextPage ? "Loading..." : "Load more"}
+                  {feedbackQuery.isFetchingNextPage ? "loading..." : "load more"}
                 </Button>
               )
             }

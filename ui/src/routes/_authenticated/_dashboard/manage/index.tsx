@@ -2,10 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FolderKanban, LayoutDashboard, PlusCircle } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Button, Card, EmptyState, Skeleton } from "@/components";
+import { Button, EmptyState, Skeleton } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectRoundList } from "@/components/project-round-list";
+import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { pageHead } from "@/lib/page-title";
 import { myProjectsQueryOptions } from "@/lib/queries/projects";
 
@@ -33,7 +33,7 @@ function ManagePage() {
             <Button asChild variant="outline">
               <Link to="/feed/request">
                 <PlusCircle className="h-4 w-4" />
-                Request a round
+                request a round
               </Link>
             </Button>
           }
@@ -49,25 +49,7 @@ function ManagePage() {
             className="min-h-[30vh]"
           />
         ) : (
-          <ul className="space-y-4">
-            {projects.map((project) => (
-              <li key={project.id}>
-                <Card className="p-5 space-y-3">
-                  <div>
-                    <Link
-                      to="/manage/$slug"
-                      params={{ slug: project.slug }}
-                      className="font-semibold text-foreground hover:underline"
-                    >
-                      {project.name}
-                    </Link>
-                    <p className="font-mono text-xs text-muted-foreground">{project.slug}</p>
-                  </div>
-                  <ProjectRoundList project={project} console />
-                </Card>
-              </li>
-            ))}
-          </ul>
+          <ProjectRoundsTable projects={projects} console grouped />
         )}
       </div>
     </PageContainer>

@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, Trophy } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Badge, Button, ConfirmDialog } from "@/components";
-import { AccountAvatar } from "@/components/account-avatar";
+import { Button, ConfirmDialog } from "@/components";
 import { FeedbackContent } from "@/components/feedback-content";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
@@ -42,30 +41,22 @@ export function FeedbackList<T extends FeedbackEntry & { points?: number }>({
 
   return (
     <>
-      <ul className="space-y-3" data-testid="feedback-list">
+      <ul
+        className="divide-y divide-border rounded-lg border border-border bg-card"
+        data-testid="feedback-list"
+      >
         {entries.map((entry) => {
           const isOwn = entry.authorAccountId === currentAccountId;
           return (
-            <li key={entry.id} className="rounded-lg border border-border bg-card p-4 space-y-3">
+            <li key={entry.id} className="space-y-2 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-2">
-                  <AccountAvatar accountId={entry.authorAccountId} />
-                  <span className="truncate font-mono text-xs text-muted-foreground">
-                    {entry.authorAccountId}
-                    {isOwn && " (you)"}
-                  </span>
+                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                  <span className="font-mono">{entry.authorAccountId}</span>
+                  {isOwn && " (you)"} · {new Date(entry.createdAt).toLocaleDateString()}
+                  {entry.points !== undefined && ` · ${entry.points} pts`}
                 </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(entry.createdAt).toLocaleDateString()}
-                  </span>
+                <span className="flex shrink-0 items-center gap-1">
                   <FeedbackStatusBadge status={entry.status} />
-                  {entry.points !== undefined && (
-                    <Badge variant="outline">
-                      <Trophy />
-                      {entry.points} pts
-                    </Badge>
-                  )}
                   {isOwn && canDelete && (
                     <Button
                       variant="ghost"

@@ -73,7 +73,7 @@ function FeedbackDetailPane() {
               search={{ ...inboxSearch, author: feedback.authorAccountId }}
             >
               <Filter className="h-3.5 w-3.5" />
-              More from this tester
+              more from this tester
             </Link>
           </Button>
           <FeedbackStatusBadge status={feedback.status} />
@@ -105,7 +105,7 @@ function FeedbackDetailPane() {
                     disabled={statusMutation.isPending}
                   >
                     <Check className="h-3.5 w-3.5" />
-                    Resolve
+                    resolve
                     <kbd className="text-[10px] opacity-60">r</kbd>
                   </Button>
                 )}
@@ -117,7 +117,7 @@ function FeedbackDetailPane() {
                     disabled={statusMutation.isPending}
                   >
                     <X className="h-3.5 w-3.5" />
-                    Dismiss
+                    dismiss
                     <kbd className="text-[10px] opacity-60">d</kbd>
                   </Button>
                 )}
@@ -129,7 +129,7 @@ function FeedbackDetailPane() {
                     disabled={statusMutation.isPending}
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    Reopen
+                    reopen
                   </Button>
                 )}
               </>

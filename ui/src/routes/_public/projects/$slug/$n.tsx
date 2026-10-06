@@ -44,7 +44,7 @@ function RoundLayout() {
               <Button asChild size="sm">
                 <Link to="/manage/$slug/$n" params={params}>
                   <Inbox className="h-3.5 w-3.5" />
-                  Open console
+                  open console
                 </Link>
               </Button>
             )}
@@ -54,24 +54,24 @@ function RoundLayout() {
 
         <PageHeader
           icon={MessageSquare}
-          label={`Round ${round.projectRoundNumber}`}
-          title={round.title}
-          subtitle={
+          label={
             <Link to="/projects/$slug" params={{ slug: params.slug }} className="hover:underline">
-              {round.projectSlug}
+              {round.projectSlug} · round {round.projectRoundNumber}
             </Link>
           }
+          title={round.title}
+          description={round.description}
           actions={<RoundStatusBadge status={round.status} />}
         />
 
         <RouteTabs label="Round sections">
           <RouteTab to="/projects/$slug/$n" params={params} activeOptions={{ exact: true }}>
             <FileText />
-            Overview
+            overview
           </RouteTab>
           <RouteTab to="/projects/$slug/$n/feedback" params={params}>
             <MessageSquare />
-            Feedback
+            feedback
           </RouteTab>
         </RouteTabs>
 

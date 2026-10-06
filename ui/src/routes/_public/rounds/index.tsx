@@ -1,5 +1,10 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, type SearchSchemaInput, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  type SearchSchemaInput,
+  stripSearchParams,
+  useNavigate,
+} from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
 import { useMemo } from "react";
 import { useApiClient } from "@/app";
@@ -33,8 +38,11 @@ export function validateRoundsSearch(
   };
 }
 
+const DEFAULT_SEARCH: RoundsSearch = { status: "open", q: "", page: 1 };
+
 export const Route = createFileRoute("/_public/rounds/")({
   validateSearch: validateRoundsSearch,
+  search: { middlewares: [stripSearchParams(DEFAULT_SEARCH)] },
   loaderDeps: ({ search }) => ({ status: search.status }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(roundsQueryOptions(context.apiClient, deps.status)),
