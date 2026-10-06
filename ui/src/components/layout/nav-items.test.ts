@@ -3,10 +3,12 @@ import { shouldUseAppShell } from "../../lib/app-shell";
 import { filterSidebarByRole, getActiveItem, groupSidebarItems, NAV_ITEMS } from "./nav-items";
 
 describe("dashboard navigation", () => {
-  it("shows the feed and how-it-works links to everyone", () => {
+  it("shows the feed, leaderboard and how-it-works links to everyone", () => {
     const anonymousPaths = filterSidebarByRole(NAV_ITEMS, "anon").map((item) => item.to);
 
-    expect(anonymousPaths).toEqual(expect.arrayContaining(["/feed", "/how-to-integrate"]));
+    expect(anonymousPaths).toEqual(
+      expect.arrayContaining(["/feed", "/leaderboard", "/how-to-integrate"]),
+    );
     expect(anonymousPaths).not.toContain("/admin");
   });
 
@@ -40,6 +42,7 @@ describe("dashboard navigation", () => {
     expect(getActiveItem(NAV_ITEMS, "/feed/round_1")?.label).toBe("feed");
     expect(getActiveItem(NAV_ITEMS, "/feed/request")?.label).toBe("request a round");
     expect(getActiveItem(NAV_ITEMS, "/testing")?.label).toBe("testing");
+    expect(getActiveItem(NAV_ITEMS, "/leaderboard")?.label).toBe("leaderboard");
     expect(getActiveItem(NAV_ITEMS, "/orgs/acme")?.label).toBe("orgs");
     expect(getActiveItem(NAV_ITEMS, "/settings/profile")).toBeUndefined();
   });

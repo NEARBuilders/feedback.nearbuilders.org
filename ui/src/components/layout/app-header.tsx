@@ -12,6 +12,7 @@ import {
   Separator,
   SidebarTrigger,
 } from "@/components";
+import { NotificationBell } from "@/components/notification-bell";
 import { getBreadcrumbs } from "@/lib/breadcrumbs";
 import { useIdentity } from "./use-identity";
 
@@ -73,6 +74,10 @@ export function AppHeader({ runtimeConfig }: AppHeaderProps) {
             )}
           </BreadcrumbList>
         </Breadcrumb>
+
+        <div className="ml-auto flex items-center gap-1">
+          <NotificationBell />
+        </div>
       </div>
     </header>
   );

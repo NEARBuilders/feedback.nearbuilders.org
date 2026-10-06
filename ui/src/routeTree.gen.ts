@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as PublicSkillRouteImport } from './routes/_public/skill'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as PublicLeaderboardRouteImport } from './routes/_public/leaderboard'
 import { Route as PublicHowToIntegrateRouteImport } from './routes/_public/how-to-integrate'
 import { Route as PublicAboutRouteImport } from './routes/_public/about'
 import { Route as PublicAccountIdRouteImport } from './routes/_public/$accountId'
@@ -67,6 +68,11 @@ const PublicSkillRoute = PublicSkillRouteImport.update({
 const PublicLoginRoute = PublicLoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicLeaderboardRoute = PublicLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicHowToIntegrateRoute = PublicHowToIntegrateRouteImport.update({
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/$accountId': typeof PublicAccountIdRouteWithChildren
   '/about': typeof PublicAboutRoute
   '/how-to-integrate': typeof PublicHowToIntegrateRoute
+  '/leaderboard': typeof PublicLeaderboardRoute
   '/login': typeof PublicLoginRoute
   '/skill': typeof PublicSkillRoute
   '/admin': typeof AdminDashboardAdminRouteWithChildren
@@ -248,6 +255,7 @@ export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/about': typeof PublicAboutRoute
   '/how-to-integrate': typeof PublicHowToIntegrateRoute
+  '/leaderboard': typeof PublicLeaderboardRoute
   '/login': typeof PublicLoginRoute
   '/skill': typeof PublicSkillRoute
   '/testing': typeof AuthenticatedDashboardTestingRoute
@@ -278,6 +286,7 @@ export interface FileRoutesById {
   '/_public/$accountId': typeof PublicAccountIdRouteWithChildren
   '/_public/about': typeof PublicAboutRoute
   '/_public/how-to-integrate': typeof PublicHowToIntegrateRoute
+  '/_public/leaderboard': typeof PublicLeaderboardRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/skill': typeof PublicSkillRoute
   '/_public/': typeof PublicIndexRoute
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
     | '/$accountId'
     | '/about'
     | '/how-to-integrate'
+    | '/leaderboard'
     | '/login'
     | '/skill'
     | '/admin'
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/how-to-integrate'
+    | '/leaderboard'
     | '/login'
     | '/skill'
     | '/testing'
@@ -367,6 +378,7 @@ export interface FileRouteTypes {
     | '/_public/$accountId'
     | '/_public/about'
     | '/_public/how-to-integrate'
+    | '/_public/leaderboard'
     | '/_public/login'
     | '/_public/skill'
     | '/_public/'
@@ -441,6 +453,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/leaderboard': {
+      id: '/_public/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof PublicLeaderboardRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/how-to-integrate': {
@@ -780,6 +799,7 @@ interface PublicRouteChildren {
   PublicAccountIdRoute: typeof PublicAccountIdRouteWithChildren
   PublicAboutRoute: typeof PublicAboutRoute
   PublicHowToIntegrateRoute: typeof PublicHowToIntegrateRoute
+  PublicLeaderboardRoute: typeof PublicLeaderboardRoute
   PublicLoginRoute: typeof PublicLoginRoute
   PublicSkillRoute: typeof PublicSkillRoute
   PublicIndexRoute: typeof PublicIndexRoute
@@ -791,6 +811,7 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicAccountIdRoute: PublicAccountIdRouteWithChildren,
   PublicAboutRoute: PublicAboutRoute,
   PublicHowToIntegrateRoute: PublicHowToIntegrateRoute,
+  PublicLeaderboardRoute: PublicLeaderboardRoute,
   PublicLoginRoute: PublicLoginRoute,
   PublicSkillRoute: PublicSkillRoute,
   PublicIndexRoute: PublicIndexRoute,

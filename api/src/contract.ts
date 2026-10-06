@@ -102,6 +102,13 @@ export type RoundDetail = z.infer<typeof RoundDetailSchema>;
 
 export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 
+export const RoundParticipantSchema = z.object({
+  accountId: z.string(),
+  joinedAt: z.string(),
+});
+
+export type RoundParticipant = z.infer<typeof RoundParticipantSchema>;
+
 export const RoundFeedbackStatusSchema = z.enum(["unresolved", "resolved", "dismissed"]);
 
 export type RoundFeedbackStatus = z.infer<typeof RoundFeedbackStatusSchema>;
@@ -134,6 +141,52 @@ export const RoundCreditSchema = z.object({
 });
 
 export type RoundCredit = z.infer<typeof RoundCreditSchema>;
+
+export const NotificationKindSchema = z.enum([
+  "round_opened",
+  "round_closing",
+  "round_closed",
+  "custom",
+]);
+
+export type NotificationKind = z.infer<typeof NotificationKindSchema>;
+
+export const NotificationSchema = z.object({
+  id: z.string(),
+  roundId: z.string(),
+  roundTitle: z.string(),
+  kind: NotificationKindSchema,
+  title: z.string(),
+  body: z.string(),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type Notification = z.infer<typeof NotificationSchema>;
+
+export const NotificationListSchema = z.object({
+  items: z.array(NotificationSchema),
+  unreadCount: z.number().int().nonnegative(),
+});
+
+export type NotificationList = z.infer<typeof NotificationListSchema>;
+
+export const BroadcastKindSchema = z.enum(["round_opened", "round_closing", "custom"]);
+
+export type BroadcastKind = z.infer<typeof BroadcastKindSchema>;
+
+const MAX_BROADCAST_LENGTH = 1000;
+
+const BroadcastInputSchema = z
+  .object({
+    id: z.string(),
+    kind: BroadcastKindSchema,
+    message: z.string().trim().max(MAX_BROADCAST_LENGTH).optional(),
+  })
+  .refine((v) => v.kind !== "custom" || !!v.message, {
+    message: "A custom broadcast needs a message",
+    path: ["message"],
+  });
 
 export const GithubIssueSchema = z.object({
   number: z.number().int().positive(),
@@ -208,6 +261,10 @@ export const LeaderboardEntrySchema = z.object({
 
 export const LeaderboardSchema = z.object({
   period: LeaderboardPeriodSchema,
+  /** False when no activity gateway URL is configured. */
+  configured: z.boolean(),
+  /** False when the gateway is unconfigured or the request to it failed. */
+  available: z.boolean(),
   data: z.array(LeaderboardEntrySchema),
 });
 
@@ -498,6 +555,35 @@ export const contract = oc.router({
     )
     .output(z.array(RoundFeedbackSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  listParticipants: oc
+    .route({ method: "GET", path: "/rounds/{id}/participants" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(RoundParticipantSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  broadcastToRound: oc
+    .route({ method: "POST", path: "/rounds/{id}/broadcast" })
+    .input(BroadcastInputSchema)
+    .output(z.object({ recipients: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  listNotifications: oc
+    .route({ method: "GET", path: "/notifications" })
+    .input(z.object({ limit: z.number().int().positive().max(100).default(30) }))
+    .output(NotificationListSchema)
+    .errors({ UNAUTHORIZED }),
+
+  markNotificationRead: oc
+    .route({ method: "POST", path: "/notifications/{id}/read" })
+    .input(z.object({ id: z.string() }))
+    .output(NotificationSchema)
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
+
+  markAllNotificationsRead: oc
+    .route({ method: "POST", path: "/notifications/read-all" })
+    .output(z.object({ updated: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED }),
 
   getRoundGithubIssues: oc
     .route({ method: "GET", path: "/rounds/{id}/github-issues" })

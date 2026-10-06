@@ -16,6 +16,11 @@ import { ensureProject } from "./project-records";
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
 export type RoundFormat = "issues" | "written" | "recorded";
 export type RoundFeedbackFormat = "written" | "recorded";
+
+export interface RoundParticipantRecord {
+  accountId: string;
+  joinedAt: string;
+}
 export type RoundFeedbackStatus = (typeof roundFeedbackStatus)["enumValues"][number];
 
 export interface RoundRecord {
@@ -166,6 +171,7 @@ export interface RoundsService {
     feedbackIds: string[],
     status: RoundFeedbackStatus,
   ): Promise<RoundFeedbackRecord[]>;
+  listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
@@ -482,6 +488,26 @@ export const RoundsLive = Layer.effect(
             )
             .returning();
           return rows.map(toFeedbackRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listParticipants: async (roundId) => {
+        try {
+          const rows = await db
+            .select({
+              accountId: roundParticipantsTable.accountId,
+              joinedAt: roundParticipantsTable.joinedAt,
+            })
+            .from(roundParticipantsTable)
+            .where(eq(roundParticipantsTable.roundId, roundId))
+            .orderBy(asc(roundParticipantsTable.joinedAt));
+          return rows.map((row) => ({
+            accountId: row.accountId,
+            joinedAt:
+              row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
+          }));
         } catch (error) {
           throw toOrpcError(error);
         }
