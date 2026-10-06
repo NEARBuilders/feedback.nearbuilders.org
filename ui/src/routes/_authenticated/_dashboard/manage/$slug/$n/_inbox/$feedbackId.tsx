@@ -1,12 +1,14 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, Check, ExternalLink, Filter, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Check, Filter, RotateCcw, X } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Button, Card, Markdown } from "@/components";
+import { Button, Card } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
+import { FeedbackContent } from "@/components/feedback-content";
+import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { RouteNotFound } from "@/components/route-states";
-import { feedbackItemQueryOptions } from "@/lib/queries/feedback";
+import { type FeedbackStatus, feedbackItemQueryOptions } from "@/lib/queries/feedback";
 import { orNotFound } from "@/lib/queries/not-found";
 import { loadRound, useRound } from "@/lib/round-route";
 import { useSetFeedbackStatus } from "@/lib/use-feedback-status";
@@ -35,8 +37,6 @@ function FeedbackDetailPane() {
     feedbackItemQueryOptions(apiClient, round.id, feedbackId),
   );
   const statusMutation = useSetFeedbackStatus(round.id);
-  const setStatus = (status: "unresolved" | "resolved" | "dismissed") =>
-    statusMutation.mutate({ feedbackIds: [feedback.id], status });
 
   return (
     <Card className="p-5 space-y-5" data-testid="feedback-detail">
@@ -65,70 +65,77 @@ function FeedbackDetailPane() {
             </p>
           </div>
         </div>
-        <FeedbackStatusBadge status={feedback.status} />
+        <div className="flex items-center gap-2">
+          <Button asChild size="sm" variant="ghost">
+            <Link
+              to="/manage/$slug/$n"
+              params={params}
+              search={{ ...inboxSearch, author: feedback.authorAccountId }}
+            >
+              <Filter className="h-3.5 w-3.5" />
+              More from this tester
+            </Link>
+          </Button>
+          <FeedbackStatusBadge status={feedback.status} />
+        </div>
       </div>
 
-      {feedback.format === "written" ? (
-        <Markdown content={feedback.body ?? ""} />
-      ) : (
-        feedback.url && (
-          <a
-            href={feedback.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-foreground underline break-all"
-          >
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            {feedback.url}
-          </a>
-        )
-      )}
+      <FeedbackContent entry={feedback} />
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-        {feedback.status !== "resolved" && (
-          <Button
-            size="sm"
-            onClick={() => setStatus("resolved")}
-            disabled={statusMutation.isPending}
-          >
-            <Check className="h-3.5 w-3.5" />
-            Resolve
-            <kbd className="text-[10px] opacity-60">r</kbd>
-          </Button>
-        )}
-        {feedback.status !== "dismissed" && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setStatus("dismissed")}
-            disabled={statusMutation.isPending}
-          >
-            <X className="h-3.5 w-3.5" />
-            Dismiss
-            <kbd className="text-[10px] opacity-60">d</kbd>
-          </Button>
-        )}
-        {feedback.status !== "unresolved" && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setStatus("unresolved")}
-            disabled={statusMutation.isPending}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reopen
-          </Button>
-        )}
-        <Button asChild size="sm" variant="ghost" className="ml-auto">
-          <Link
-            to="/manage/$slug/$n"
-            params={params}
-            search={{ ...inboxSearch, author: feedback.authorAccountId }}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            More from this tester
-          </Link>
-        </Button>
+      <div className="space-y-3 border-t border-border pt-4">
+        <FeedbackNoteThread notes={feedback.notes} />
+        <FeedbackNoteForm
+          key={feedback.id}
+          roundId={round.id}
+          feedbackId={feedback.id}
+          placeholder="Note to the tester (optional)"
+          submitLabel="Send note"
+          extraActions={(note, clear) => {
+            const setStatus = (status: FeedbackStatus) =>
+              statusMutation.mutate(
+                { feedbackIds: [feedback.id], status, note: note || undefined },
+                { onSuccess: clear },
+              );
+            return (
+              <>
+                {feedback.status !== "resolved" && (
+                  <Button
+                    size="sm"
+                    onClick={() => setStatus("resolved")}
+                    disabled={statusMutation.isPending}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Resolve
+                    <kbd className="text-[10px] opacity-60">r</kbd>
+                  </Button>
+                )}
+                {feedback.status !== "dismissed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setStatus("dismissed")}
+                    disabled={statusMutation.isPending}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Dismiss
+                    <kbd className="text-[10px] opacity-60">d</kbd>
+                  </Button>
+                )}
+                {feedback.status !== "unresolved" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setStatus("unresolved")}
+                    disabled={statusMutation.isPending}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reopen
+                  </Button>
+                )}
+              </>
+            );
+          }}
+        />
       </div>
     </Card>
   );

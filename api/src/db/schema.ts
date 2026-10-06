@@ -166,6 +166,28 @@ export const roundFeedback = pgTable(
   }),
 );
 
+export const feedbackNoteRole = pgEnum("feedback_note_role", ["owner", "tester"]);
+
+export const feedbackNotes = pgTable(
+  "feedback_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    feedbackId: uuid("feedback_id")
+      .notNull()
+      .references(() => roundFeedback.id, { onDelete: "cascade" }),
+    authorAccountId: text("author_account_id").notNull(),
+    role: feedbackNoteRole("role").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    feedbackCreatedIdx: index("feedback_notes_feedback_created_idx").on(
+      table.feedbackId,
+      table.createdAt,
+    ),
+  }),
+);
+
 export const roundCredits = pgTable(
   "round_credits",
   {
@@ -196,6 +218,8 @@ export const notificationKind = pgEnum("notification_kind", [
   "round_closing",
   "round_closed",
   "custom",
+  "feedback_resolved",
+  "feedback_dismissed",
 ]);
 
 export const notifications = pgTable(

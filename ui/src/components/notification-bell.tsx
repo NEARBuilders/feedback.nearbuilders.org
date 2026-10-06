@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   Skeleton,
 } from "@/components";
-import { formatRelativeTime, formatUnreadCount } from "@/lib/notifications";
+import { formatRelativeTime, formatUnreadCount, notificationTarget } from "@/lib/notifications";
 import { roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
@@ -110,7 +110,7 @@ export function NotificationBell() {
                       }}
                     >
                       <Link
-                        to="/projects/$slug/$n"
+                        to={notificationTarget(item.kind)}
                         params={roundParams(item)}
                         className="flex cursor-pointer gap-2.5 rounded-none px-3 py-2.5"
                       >

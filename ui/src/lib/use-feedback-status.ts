@@ -7,7 +7,7 @@ export function useSetFeedbackStatus(roundId: string) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { feedbackIds: string[]; status: FeedbackStatus }) =>
+    mutationFn: (input: { feedbackIds: string[]; status: FeedbackStatus; note?: string }) =>
       apiClient.setFeedbackStatus({ id: roundId, ...input }),
     onSuccess: (updated, { status }) => {
       void invalidateFeedbackQueries(queryClient, roundId);

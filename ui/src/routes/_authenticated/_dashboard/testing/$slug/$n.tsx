@@ -12,6 +12,7 @@ import { useApiClient } from "@/app";
 import { Button, Card, EmptyState, Markdown, SectionHeader } from "@/components";
 import { FeedbackComposer } from "@/components/feedback-composer";
 import { FeedbackList } from "@/components/feedback-list";
+import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
 import { PageContainer } from "@/components/layout/page-container";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
@@ -180,6 +181,19 @@ function MySubmissions({ round, accountId }: { round: RoundDetail; accountId: st
           entries={mine}
           currentAccountId={accountId}
           canDelete={round.status === "open"}
+          renderFooter={(entry) => (
+            <>
+              <FeedbackNoteThread notes={entry.notes} />
+              {entry.notes.some((note) => note.role === "owner") && (
+                <FeedbackNoteForm
+                  roundId={round.id}
+                  feedbackId={entry.id}
+                  placeholder="Reply to the round owner"
+                  submitLabel="Reply"
+                />
+              )}
+            </>
+          )}
         />
       )}
     </div>

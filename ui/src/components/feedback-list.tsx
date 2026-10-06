@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Trash2, Trophy } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Badge, Button, ConfirmDialog } from "@/components";
@@ -10,14 +10,21 @@ import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 
-interface FeedbackListProps {
+interface FeedbackListProps<T extends FeedbackEntry & { points?: number }> {
   roundId: string;
-  entries: Array<FeedbackEntry & { points?: number }>;
+  entries: T[];
   currentAccountId: string | null;
   canDelete: boolean;
+  renderFooter?: (entry: T) => ReactNode;
 }
 
-export function FeedbackList({ roundId, entries, currentAccountId, canDelete }: FeedbackListProps) {
+export function FeedbackList<T extends FeedbackEntry & { points?: number }>({
+  roundId,
+  entries,
+  currentAccountId,
+  canDelete,
+  renderFooter,
+}: FeedbackListProps<T>) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -72,6 +79,7 @@ export function FeedbackList({ roundId, entries, currentAccountId, canDelete }: 
                 </span>
               </div>
               <FeedbackContent entry={entry} />
+              {renderFooter?.(entry)}
             </li>
           );
         })}

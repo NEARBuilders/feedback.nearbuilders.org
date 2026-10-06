@@ -130,7 +130,29 @@ export const RoundFeedbackSchema = z.object({
 
 export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;
 
-export const MyFeedbackSchema = RoundFeedbackSchema.extend({
+export const FeedbackNoteSchema = z.object({
+  id: z.string(),
+  feedbackId: z.string(),
+  authorAccountId: z.string(),
+  role: z.enum(["owner", "tester"]),
+  body: z.string(),
+  createdAt: z.string(),
+});
+
+export type FeedbackNote = z.infer<typeof FeedbackNoteSchema>;
+
+const MAX_NOTE_LENGTH = 1000;
+
+const NoteBodySchema = z.string().trim().min(1, "Write a note").max(MAX_NOTE_LENGTH);
+
+/** Notes are only filled in for the feedback's author, the round's managers and site admins. */
+export const FeedbackDetailSchema = RoundFeedbackSchema.extend({
+  notes: z.array(FeedbackNoteSchema),
+});
+
+export type FeedbackDetail = z.infer<typeof FeedbackDetailSchema>;
+
+export const MyFeedbackSchema = FeedbackDetailSchema.extend({
   points: z.number().int().nonnegative(),
 });
 
@@ -163,6 +185,8 @@ export const NotificationKindSchema = z.enum([
   "round_closing",
   "round_closed",
   "custom",
+  "feedback_resolved",
+  "feedback_dismissed",
 ]);
 
 export type NotificationKind = z.infer<typeof NotificationKindSchema>;
@@ -622,8 +646,14 @@ export const contract = oc.router({
   getFeedback: oc
     .route({ method: "GET", path: "/rounds/{id}/feedback/{feedbackId}" })
     .input(z.object({ id: z.string(), feedbackId: z.uuid() }))
-    .output(RoundFeedbackSchema)
+    .output(FeedbackDetailSchema)
     .errors({ NOT_FOUND }),
+
+  addFeedbackNote: oc
+    .route({ method: "POST", path: "/rounds/{id}/feedback/{feedbackId}/notes" })
+    .input(z.object({ id: z.string(), feedbackId: z.uuid(), body: NoteBodySchema }))
+    .output(FeedbackNoteSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   deleteFeedback: oc
     .route({ method: "DELETE", path: "/rounds/{id}/feedback/{feedbackId}" })
@@ -638,10 +668,11 @@ export const contract = oc.router({
         id: z.string(),
         feedbackIds: z.array(z.string()).min(1).max(500),
         status: RoundFeedbackStatusSchema,
+        note: NoteBodySchema.optional(),
       }),
     )
     .output(z.array(RoundFeedbackSchema))
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   listParticipants: oc
     .route({ method: "GET", path: "/rounds/{id}/participants" })

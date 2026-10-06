@@ -36,11 +36,16 @@ export interface NotifyParticipantsInput {
   body: string;
 }
 
+export interface NotifyAccountsInput extends NotifyParticipantsInput {
+  accountIds: string[];
+}
+
 export interface NotificationsService {
   listForAccount(accountId: string, limit: number): Promise<NotificationList>;
   markRead(accountId: string, notificationId: string): Promise<NotificationRecord | null>;
   markAllRead(accountId: string): Promise<number>;
   notifyParticipants(input: NotifyParticipantsInput): Promise<number>;
+  notifyAccounts(input: NotifyAccountsInput): Promise<number>;
 }
 
 export class NotificationsTag extends Context.Tag("api/Notifications")<
@@ -175,20 +180,26 @@ export const NotificationsLive = Layer.effect(
             .select({ accountId: roundParticipantsTable.accountId })
             .from(roundParticipantsTable)
             .where(eq(roundParticipantsTable.roundId, input.roundId));
-          if (participants.length === 0) return 0;
-          const rows = participants.map((participant) => ({
-            recipientAccountId: participant.accountId,
-            roundId: input.roundId,
-            kind: input.kind,
-            title: input.title,
-            body: input.body,
-          }));
+          return await service.notifyAccounts({
+            ...input,
+            accountIds: participants.map((participant) => participant.accountId),
+          });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      notifyAccounts: async ({ accountIds, ...input }) => {
+        try {
+          const recipients = [...new Set(accountIds)];
+          if (recipients.length === 0) return 0;
+          const rows = recipients.map((recipientAccountId) => ({ ...input, recipientAccountId }));
           await db.transaction(async (tx) => {
             for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
               await tx.insert(notificationsTable).values(batch);
             }
           });
-          return participants.length;
+          return recipients.length;
         } catch (error) {
           throw toOrpcError(error);
         }

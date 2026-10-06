@@ -1,8 +1,9 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, ne, type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import {
+  feedbackNotes as feedbackNotesTable,
   projectRoundCounters as projectRoundCountersTable,
   roundCredits as roundCreditsTable,
   type roundFeedbackStatus,
@@ -84,6 +85,20 @@ export interface RoundFeedbackRecord {
   activityEventId: string | null;
   nostrEventId: string | null;
 }
+
+export interface FeedbackNoteRecord {
+  id: string;
+  feedbackId: string;
+  authorAccountId: string;
+  role: "owner" | "tester";
+  body: string;
+  createdAt: string;
+}
+
+export type NewFeedbackNote = Pick<
+  FeedbackNoteRecord,
+  "feedbackId" | "authorAccountId" | "role" | "body"
+>;
 
 export interface FeedbackPageInput {
   cursor?: string;
@@ -190,11 +205,14 @@ export interface RoundsService {
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string, page?: FeedbackPageInput): Promise<FeedbackPage>;
   getFeedback(roundId: string, feedbackId: string): Promise<RoundFeedbackRecord | null>;
+  /** Returns only the feedback whose status actually changed. */
   setFeedbackStatus(
     roundId: string,
     feedbackIds: string[],
     status: RoundFeedbackStatus,
   ): Promise<RoundFeedbackRecord[]>;
+  addFeedbackNotes(notes: NewFeedbackNote[]): Promise<FeedbackNoteRecord[]>;
+  listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
   /** Accepted (resolved) feedback per author, optionally only accepted on or after `since`. */
   listAcceptedCounts(since: Date | null): Promise<AcceptedCount[]>;
@@ -261,6 +279,13 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
 }
 
 type RoundCreditRow = typeof roundCreditsTable.$inferSelect;
+
+function toNoteRecord(row: typeof feedbackNotesTable.$inferSelect): FeedbackNoteRecord {
+  return {
+    ...row,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+  };
+}
 
 function toCreditRecord(row: RoundCreditRow): RoundCreditRecord {
   return {
@@ -541,18 +566,40 @@ export const RoundsLive = Layer.effect(
           if (feedbackIds.length === 0) return [];
           const rows = await db
             .update(roundFeedbackTable)
-            .set({
-              status,
-              statusChangedAt: sql`case when ${roundFeedbackTable.status} = ${status} then ${roundFeedbackTable.statusChangedAt} else now() end`,
-            })
+            .set({ status, statusChangedAt: sql`now()` })
             .where(
               and(
                 eq(roundFeedbackTable.roundId, roundId),
                 inArray(roundFeedbackTable.id, feedbackIds),
+                ne(roundFeedbackTable.status, status),
               ),
             )
             .returning();
           return rows.map(toFeedbackRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      addFeedbackNotes: async (notes) => {
+        try {
+          if (notes.length === 0) return [];
+          const rows = await db.insert(feedbackNotesTable).values(notes).returning();
+          return rows.map(toNoteRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listFeedbackNotes: async (feedbackIds) => {
+        try {
+          if (feedbackIds.length === 0) return [];
+          const rows = await db
+            .select()
+            .from(feedbackNotesTable)
+            .where(inArray(feedbackNotesTable.feedbackId, feedbackIds))
+            .orderBy(asc(feedbackNotesTable.createdAt));
+          return rows.map(toNoteRecord);
         } catch (error) {
           throw toOrpcError(error);
         }

@@ -5,6 +5,7 @@ import {
   canSendBroadcast,
   formatRelativeTime,
   formatUnreadCount,
+  notificationTarget,
 } from "./notifications";
 
 describe("formatUnreadCount", () => {
@@ -62,5 +63,17 @@ describe("broadcastConfirmation", () => {
   it("pluralises the recipient count", () => {
     expect(broadcastConfirmation(1)).toContain("1 participant.");
     expect(broadcastConfirmation(4)).toContain("4 participants.");
+  });
+});
+
+describe("notificationTarget", () => {
+  it("sends feedback status updates to the tester workspace", () => {
+    expect(notificationTarget("feedback_resolved")).toBe("/testing/$slug/$n");
+    expect(notificationTarget("feedback_dismissed")).toBe("/testing/$slug/$n");
+  });
+
+  it("sends round updates to the public round page", () => {
+    expect(notificationTarget("round_opened")).toBe("/projects/$slug/$n");
+    expect(notificationTarget("custom")).toBe("/projects/$slug/$n");
   });
 });

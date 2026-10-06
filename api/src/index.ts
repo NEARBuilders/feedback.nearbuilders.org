@@ -10,7 +10,7 @@ import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
-import { notificationText } from "./services/notification-text";
+import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
 import {
   POINTS_PER_ACCEPTED_FEEDBACK,
@@ -263,6 +263,24 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
     const visibleRound = async (id: string, context: ViewerContext) =>
       viewRoundDetail(await services.rounds.getRoundDetail(id), context, id);
+
+    const notifyAuthors = async (
+      round: { id: string; title: string },
+      feedback: Array<{ authorAccountId: string }>,
+      kind: FeedbackStatusKind,
+      note?: string,
+    ) => {
+      try {
+        await services.notifications.notifyAccounts({
+          roundId: round.id,
+          kind,
+          ...notificationText(kind, round.title, note),
+          accountIds: feedback.map((item) => item.authorAccountId),
+        });
+      } catch (error) {
+        console.warn(`[notifications] ${kind} for round ${round.id} failed`, error);
+      }
+    };
 
     const feedbackNotFound = (resourceId: string) =>
       new ORPCError("NOT_FOUND", {
@@ -765,8 +783,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             author: accountId,
             limit: MAX_FEEDBACK_PER_TESTER,
           });
+          const notes = await services.rounds.listFeedbackNotes(items.map((item) => item.id));
           return items.map((feedback) => ({
             ...feedback,
+            notes: notes.filter((note) => note.feedbackId === feedback.id),
             points: pointsForAccepted(feedback.status === "resolved" ? 1 : 0),
           }));
         }),
@@ -775,8 +795,49 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const round = await visibleRound(input.id, context);
         const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
         if (!feedback) throw feedbackNotFound(input.feedbackId);
-        return feedback;
+        const canSeeNotes =
+          round.canManage ||
+          context.user?.role === "admin" ||
+          feedback.authorAccountId === context.near?.primaryAccountId;
+        const notes = canSeeNotes ? await services.rounds.listFeedbackNotes([feedback.id]) : [];
+        return { ...feedback, notes };
       }),
+
+      addFeedbackNote: builder.addFeedbackNote
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("BAD_REQUEST", { message: "Link a NEAR account to add a note" });
+          }
+          const round = await visibleRound(input.id, context);
+          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+          if (!feedback) throw feedbackNotFound(input.feedbackId);
+          const isManager = round.canManage || context.user?.role === "admin";
+          if (!isManager && feedback.authorAccountId !== accountId) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the author or the round owner can add a note",
+            });
+          }
+          if (!isManager) {
+            const notes = await services.rounds.listFeedbackNotes([feedback.id]);
+            if (!notes.some((note) => note.role === "owner")) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "You can reply once the round owner leaves a note",
+              });
+            }
+          }
+          const [note] = await services.rounds.addFeedbackNotes([
+            {
+              feedbackId: feedback.id,
+              authorAccountId: accountId,
+              role: isManager ? "owner" : "tester",
+              body: input.body,
+            },
+          ]);
+          if (!note) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Note not saved" });
+          return note;
+        }),
 
       deleteFeedback: builder.deleteFeedback
         .use(requireAuth)
@@ -824,14 +885,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       setFeedbackStatus: builder.setFeedbackStatus
         .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const round = await services.rounds.resolveRoundById(input.id);
-          if (!round) {
-            throw errors.NOT_FOUND({
-              message: "Round not found",
-              data: { resource: "round", resourceId: input.id },
-            });
-          }
+        .handler(async ({ input, context }) => {
+          const round = await requireRound(input.id);
           if (context.user?.role !== "admin") {
             await assertCanManageRound(
               round,
@@ -839,7 +894,29 @@ export default createPlugin.withPlugins<PluginsClient>()({
               "Only the round owner can resolve or dismiss feedback",
             );
           }
-          return await services.rounds.setFeedbackStatus(round.id, input.feedbackIds, input.status);
+          const accountId = context.near?.primaryAccountId;
+          if (input.note && !accountId) {
+            throw new ORPCError("BAD_REQUEST", { message: "Link a NEAR account to add a note" });
+          }
+          const changed = await services.rounds.setFeedbackStatus(
+            round.id,
+            input.feedbackIds,
+            input.status,
+          );
+          if (input.note && accountId) {
+            await services.rounds.addFeedbackNotes(
+              changed.map((feedback) => ({
+                feedbackId: feedback.id,
+                authorAccountId: accountId,
+                role: "owner" as const,
+                body: input.note ?? "",
+              })),
+            );
+          }
+          if (input.status !== "unresolved") {
+            await notifyAuthors(round, changed, `feedback_${input.status}`, input.note);
+          }
+          return changed;
         }),
 
       listParticipants: builder.listParticipants
