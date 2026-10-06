@@ -27,6 +27,8 @@ describe("getBreadcrumbs", () => {
     ]);
     expect(getBreadcrumbs("/manage/near-wallet/3")[2].label).toBe("round 3");
     expect(getBreadcrumbs("/testing/near-wallet/3")[2].label).toBe("round 3");
+    expect(getBreadcrumbs("/manage/near-wallet/3/0b5c-uuid")[3].label).toBe("feedback");
+    expect(getBreadcrumbs("/manage/near-wallet/3/settings")[3].label).toBe("settings");
   });
 
   it("looks up organization names and falls back to the slug", () => {

@@ -174,7 +174,7 @@ function MySubmissions({ round, accountId }: { round: RoundDetail; accountId: st
                   roundId={round.id}
                   feedbackId={entry.id}
                   placeholder="Reply to the round owner"
-                  submitLabel="Reply"
+                  submitLabel="reply"
                 />
               )}
             </>

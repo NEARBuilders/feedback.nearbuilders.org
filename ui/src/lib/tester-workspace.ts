@@ -34,14 +34,14 @@ export function roundIssuesUrl(round: { formats: string[]; repoUrl: string | nul
 }
 
 export function nextAction(round: WorkspaceRound): NextAction {
-  if (round.status !== "open") return { kind: "view-round", label: "View round" };
+  if (round.status !== "open") return { kind: "view-round", label: "view round" };
   if (collectsPostedFeedback(round)) {
     return round.myFeedbackCount === 0
-      ? { kind: "give-feedback", label: "Give feedback" }
-      : { kind: "add-feedback", label: "Add more feedback" };
+      ? { kind: "give-feedback", label: "give feedback" }
+      : { kind: "add-feedback", label: "add more feedback" };
   }
-  if (issuesUrl(round.repoUrl)) return { kind: "file-issues", label: "File an issue" };
-  return { kind: "view-round", label: "View round" };
+  if (issuesUrl(round.repoUrl)) return { kind: "file-issues", label: "file an issue" };
+  return { kind: "view-round", label: "view round" };
 }
 
 export function awaitingFeedback(round: WorkspaceRound): boolean {

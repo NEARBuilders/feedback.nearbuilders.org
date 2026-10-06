@@ -27,7 +27,7 @@ function round(overrides: Partial<WorkspaceRound> = {}): WorkspaceRound {
 
 describe("nextAction", () => {
   it("asks for feedback on an open round the tester has not posted in", () => {
-    expect(nextAction(round())).toEqual({ kind: "give-feedback", label: "Give feedback" });
+    expect(nextAction(round())).toEqual({ kind: "give-feedback", label: "give feedback" });
   });
 
   it("offers more feedback once the tester has posted", () => {

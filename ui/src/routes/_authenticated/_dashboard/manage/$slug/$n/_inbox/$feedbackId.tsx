@@ -90,7 +90,7 @@ function FeedbackDetailPane() {
           roundId={round.id}
           feedbackId={feedback.id}
           placeholder="Note to the tester (optional)"
-          submitLabel="Send note"
+          submitLabel="send note"
           extraActions={(note, clear) => (
             <FeedbackStatusActions
               current={feedback.status}
