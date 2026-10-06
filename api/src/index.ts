@@ -689,6 +689,30 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await services.rounds.setFeedbackStatus(round.id, input.feedbackIds, input.status);
         }),
 
+      listParticipants: builder.listParticipants
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          const accountId = context.near?.primaryAccountId;
+          const isParticipant = accountId
+            ? await services.rounds.hasParticipant(round.id, accountId)
+            : false;
+          if (!isParticipant && context.user?.role !== "admin") {
+            await assertCanManageRound(
+              round,
+              context,
+              "Only the round owner and its participants can see who joined",
+            );
+          }
+          return await services.rounds.listParticipants(round.id);
+        }),
+
       broadcastToRound: builder.broadcastToRound
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
@@ -903,6 +927,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return result
           ? {
               period: result.period,
+              configured: true,
+              available: true,
               data: result.data.map((entry) => ({
                 rank: entry.rank,
                 actor: entry.actor,
@@ -910,7 +936,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
                 eventCount: entry.eventCount,
               })),
             }
-          : { period: input.period, data: [] };
+          : {
+              period: input.period,
+              configured: services.activityEvents.readable,
+              available: false,
+              data: [],
+            };
       }),
 
       testError: builder.testError.handler(async ({ input }) => {

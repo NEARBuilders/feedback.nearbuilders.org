@@ -114,6 +114,7 @@ function RoundDetailPage() {
       queryClient.setQueryData(["round", roundId], detail);
       queryClient.setQueryData(["round", roundId, "participation"], { joined: next });
       void queryClient.invalidateQueries({ queryKey: ["myRounds"] });
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "participants"] });
       toast.success(next ? "Joined the round" : "Left the round");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -298,6 +299,8 @@ function RoundDetailPage() {
         {canManage && round.status === "open" && <OwnerClosePanel roundId={roundId} />}
 
         {round.status === "closed" && <CreditsSection roundId={roundId} />}
+
+        {(canManage || isAdmin || joined) && <ParticipantsSection roundId={roundId} />}
 
         <FeedbackThread
           roundId={roundId}
@@ -514,6 +517,51 @@ function FeedbackThread({
           }
         }}
       />
+    </div>
+  );
+}
+
+function ParticipantsSection({ roundId }: { roundId: string }) {
+  const apiClient = useApiClient();
+  const participantsQuery = useQuery({
+    queryKey: ["round", roundId, "participants"],
+    queryFn: () => apiClient.listParticipants({ id: roundId }),
+  });
+  const participants = participantsQuery.data ?? [];
+
+  return (
+    <div className="space-y-3 border-t border-border pt-8">
+      <SectionHeader
+        title="Participants"
+        action={
+          participants.length > 0 ? (
+            <span className="text-sm text-muted-foreground">{participants.length}</span>
+          ) : undefined
+        }
+      />
+      {participantsQuery.isLoading ? (
+        <Skeleton className="h-12 w-full" />
+      ) : participantsQuery.isError ? (
+        <p className="text-sm text-muted-foreground">Couldn't load participants.</p>
+      ) : participants.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nobody has joined this round yet.</p>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {participants.map((participant) => (
+            <li
+              key={participant.accountId}
+              className="flex items-center justify-between gap-3 px-4 py-2.5"
+            >
+              <span className="font-mono text-sm text-foreground break-all">
+                {participant.accountId}
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                Joined {new Date(participant.joinedAt).toLocaleDateString()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

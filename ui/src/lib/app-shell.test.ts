@@ -5,6 +5,7 @@ describe("shouldUseAppShell", () => {
   it.each([
     "/feed",
     "/feed/round_1",
+    "/leaderboard",
     "/how-to-integrate",
     "/admin",
     "/dashboard",
@@ -16,6 +17,7 @@ describe("shouldUseAppShell", () => {
   it.each([
     "/feed",
     "/feed/round_1",
+    "/leaderboard",
     "/how-to-integrate",
     "/admin",
   ])("gives anonymous visitors the marketing shell on %s", (path) => {
