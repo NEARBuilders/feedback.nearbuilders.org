@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Button, ConfirmDialog } from "@/components";
 import { FeedbackContent } from "@/components/feedback-content";
+import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
@@ -60,6 +61,7 @@ export function FeedbackList<T extends FeedbackEntry & { points?: number }>({
                   {entry.points !== undefined && ` · ${entry.points} pts`}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
+                  {entry.starredAt && <StarBadge data-testid="star-badge" />}
                   <FeedbackStatusBadge status={entry.status} />
                   {isOwn && canDelete && (
                     <Button

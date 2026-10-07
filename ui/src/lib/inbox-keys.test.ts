@@ -24,8 +24,15 @@ describe("inboxKeyAction", () => {
     expect(inboxKeyAction("d", IDS, "b")).toEqual({ type: "status", id: "b", status: "dismissed" });
   });
 
+  it("stars with s and unstars with u the open item (#104)", () => {
+    expect(inboxKeyAction("s", IDS, "b")).toEqual({ type: "star", id: "b", starred: true });
+    expect(inboxKeyAction("u", IDS, "b")).toEqual({ type: "star", id: "b", starred: false });
+  });
+
   it("ignores triage keys with nothing open, and unknown keys", () => {
     expect(inboxKeyAction("r", IDS, undefined)).toBeNull();
+    expect(inboxKeyAction("s", IDS, undefined)).toBeNull();
+    expect(inboxKeyAction("u", IDS, undefined)).toBeNull();
     expect(inboxKeyAction("x", IDS, "a")).toBeNull();
     expect(inboxKeyAction("j", [], undefined)).toBeNull();
   });

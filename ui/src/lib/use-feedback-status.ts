@@ -18,3 +18,23 @@ export function useSetFeedbackStatus(roundId: string) {
     onError: (err: Error) => toast.error(err.message),
   });
 }
+
+export function useSetFeedbackStarred(roundId: string) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { feedbackIds: string[]; starred: boolean }) =>
+      apiClient.setFeedbackStarred({ id: roundId, ...input }),
+    onSuccess: (updated, { starred }) => {
+      void invalidateFeedbackQueries(queryClient, roundId);
+      toast.success(
+        updated.length === 1
+          ? starred
+            ? "Starred"
+            : "Star removed"
+          : `${starred ? "Starred" : "Unstarred"} ${updated.length} items`,
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}

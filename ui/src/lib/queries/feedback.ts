@@ -8,6 +8,8 @@ export type FeedbackStatus = FeedbackEntry["status"];
 export interface FeedbackFilters {
   status?: FeedbackStatus;
   author?: string;
+  /** Only submissions a round manager starred (#104). */
+  starred?: boolean;
 }
 
 export const feedbackKeys = {

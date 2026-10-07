@@ -2,10 +2,13 @@ import type { FeedbackStatus } from "@/lib/queries/feedback";
 
 export type InboxKeyAction =
   | { type: "open"; id: string }
-  | { type: "status"; id: string; status: FeedbackStatus };
+  | { type: "status"; id: string; status: FeedbackStatus }
+  | { type: "star"; id: string; starred: boolean };
 
 const STEPS: Record<string, number> = { j: 1, k: -1 };
 const STATUSES: Record<string, FeedbackStatus> = { r: "resolved", d: "dismissed" };
+/** s stars the open item, u removes the star (#104). */
+const STARS: Record<string, boolean> = { s: true, u: false };
 
 export function inboxKeyAction(
   key: string,
@@ -18,6 +21,7 @@ export function inboxKeyAction(
     const id = ids[Math.max(index, 0)];
     return id && id !== openId ? { type: "open", id } : null;
   }
+  if (openId && key in STARS) return { type: "star", id: openId, starred: STARS[key]! };
   const status = STATUSES[key];
   return status && openId ? { type: "status", id: openId, status } : null;
 }

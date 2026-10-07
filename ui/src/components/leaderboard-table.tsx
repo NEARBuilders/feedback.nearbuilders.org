@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Star } from "lucide-react";
 import type { ApiClient } from "@/app";
 import { Badge } from "@/components";
 import {
@@ -12,7 +13,10 @@ import {
 import { type LeaderboardMetric, submissionsLabel } from "@/lib/leaderboard";
 import { acceptedLabel } from "@/lib/points";
 
-type LeaderboardEntry = Awaited<ReturnType<ApiClient["getLeaderboard"]>>["data"][number];
+type LeaderboardEntry = Awaited<ReturnType<ApiClient["getLeaderboard"]>>["data"][number] & {
+  /** Accepted submissions a round manager starred (points board only, #104). */
+  starredCount?: number;
+};
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
@@ -58,6 +62,12 @@ export function LeaderboardTable({
             </TableCell>
             <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
               {isPoints ? acceptedLabel(entry.eventCount) : submissionsLabel(entry.eventCount)}
+              {isPoints && (entry.starredCount ?? 0) > 0 && (
+                <span className="ml-2 inline-flex items-center gap-0.5" data-testid="starred-count">
+                  <Star className="h-3 w-3 fill-current" />
+                  {entry.starredCount}
+                </span>
+              )}
             </TableCell>
             <TableCell
               className={`text-right text-sm tabular-nums ${

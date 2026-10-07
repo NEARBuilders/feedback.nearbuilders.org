@@ -15,10 +15,12 @@ import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
 import {
+  BONUS_POINTS_PER_STARRED_FEEDBACK,
+  bonusPointsForStarred,
   POINTS_PER_ACCEPTED_FEEDBACK,
   periodStart,
-  pointsForAccepted,
   rankStandings,
+  totalPoints,
 } from "./services/points";
 import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
@@ -928,7 +930,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return items.map((feedback) => ({
             ...feedback,
             notes: notes.filter((note) => note.feedbackId === feedback.id),
-            points: pointsForAccepted(feedback.status === "resolved" ? 1 : 0),
+            // Points include the star bonus (#104): 10 per accepted item, +5 if a manager
+            // starred it, so a tester's own view matches their builder-profile total.
+            points: totalPoints(
+              feedback.status === "resolved" ? 1 : 0,
+              feedback.status === "resolved" && feedback.starredAt ? 1 : 0,
+            ),
           }));
         }),
 
@@ -1039,6 +1046,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
             await notifyAuthors(round, changed, `feedback_${input.status}`, input.note);
           }
           return changed;
+        }),
+
+      setFeedbackStarred: builder.setFeedbackStarred
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (context.user?.role !== "admin") {
+            await assertCanManageRound(round, context, "Only the round owner can star feedback");
+          }
+          const starredBy = context.near?.primaryAccountId ?? context.user?.id ?? "admin";
+          return await services.rounds.setFeedbackStarred(
+            round.id,
+            input.feedbackIds,
+            input.starred,
+            starredBy,
+          );
         }),
 
       listParticipants: builder.listParticipants
@@ -1337,11 +1366,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return {
           period: input.period,
           pointsPerAcceptedFeedback: POINTS_PER_ACCEPTED_FEEDBACK,
+          bonusPointsPerStarredFeedback: BONUS_POINTS_PER_STARRED_FEEDBACK,
           data: standings.map((entry) => ({
             rank: entry.rank,
             actor: entry.accountId,
             points: entry.points,
             acceptedCount: entry.acceptedCount,
+            starredCount: entry.starredCount,
+            bonusPoints: entry.bonusPoints,
           })),
         };
       }),
@@ -1352,8 +1384,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const rank = standings.find((entry) => entry.accountId === input.accountId)?.rank ?? null;
         return {
           accountId: input.accountId,
-          points: pointsForAccepted(totals.acceptedCount),
+          points: totalPoints(totals.acceptedCount, totals.starredCount),
           acceptedCount: totals.acceptedCount,
+          starredCount: Math.min(totals.starredCount, totals.acceptedCount),
+          bonusPoints: bonusPointsForStarred(totals.starredCount, totals.acceptedCount),
           submittedCount: totals.submittedCount,
           rank,
         };

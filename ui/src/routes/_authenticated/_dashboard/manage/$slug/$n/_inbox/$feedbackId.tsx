@@ -1,11 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, Filter } from "lucide-react";
+import { ArrowLeft, Filter, Star } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
 import { FeedbackContent } from "@/components/feedback-content";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
+import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { RouteNotFound } from "@/components/route-states";
@@ -13,7 +14,7 @@ import { TelegramHandle, TipButtons } from "@/components/tip-tester";
 import { feedbackItemQueryOptions } from "@/lib/queries/feedback";
 import { orNotFound } from "@/lib/queries/not-found";
 import { loadRound, useRound } from "@/lib/round-route";
-import { useSetFeedbackStatus } from "@/lib/use-feedback-status";
+import { useSetFeedbackStarred, useSetFeedbackStatus } from "@/lib/use-feedback-status";
 
 export const Route = createFileRoute(
   "/_authenticated/_dashboard/manage/$slug/$n/_inbox/$feedbackId",
@@ -39,6 +40,7 @@ function FeedbackDetailPane() {
     feedbackItemQueryOptions(apiClient, round.id, feedbackId),
   );
   const statusMutation = useSetFeedbackStatus(round.id);
+  const { mutate: setStarred, isPending: isStarPending } = useSetFeedbackStarred(round.id);
 
   return (
     <Card className="p-5 space-y-5" data-testid="feedback-detail">
@@ -70,6 +72,18 @@ function FeedbackDetailPane() {
         </div>
         <div className="flex items-center gap-2">
           <TipButtons accountId={feedback.authorAccountId} />
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={feedback.starredAt ? "Remove star" : "Star as standout"}
+            aria-pressed={!!feedback.starredAt}
+            data-testid="star-toggle"
+            disabled={isStarPending}
+            onClick={() => setStarred({ feedbackIds: [feedback.id], starred: !feedback.starredAt })}
+          >
+            <Star className={`h-3.5 w-3.5 ${feedback.starredAt ? "fill-current" : ""}`} />
+            {feedback.starredAt ? "starred" : "star"}
+          </Button>
           <Button asChild size="sm" variant="ghost">
             <Link
               to="/manage/$slug/$n"
@@ -80,6 +94,7 @@ function FeedbackDetailPane() {
               more from this tester
             </Link>
           </Button>
+          {feedback.starredAt && <StarBadge />}
           <FeedbackStatusBadge status={feedback.status} />
         </div>
       </div>

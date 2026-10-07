@@ -3,9 +3,20 @@ import type { FeedbackEntry } from "@/lib/queries/feedback";
 export type ExportableFeedback = Pick<
   FeedbackEntry,
   "id" | "authorAccountId" | "format" | "body" | "url" | "status" | "createdAt"
->;
+> & {
+  /** Set when a round manager starred the submission (#104). */
+  starredAt?: string | null;
+};
 
-const CSV_COLUMNS = ["id", "author", "format", "content", "status", "createdAt"] as const;
+const CSV_COLUMNS = [
+  "id",
+  "author",
+  "format",
+  "content",
+  "status",
+  "starred",
+  "createdAt",
+] as const;
 
 function csvCell(value: string): string {
   return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -23,6 +34,7 @@ export function feedbackToCsv(entries: ExportableFeedback[]): string {
       entry.format,
       feedbackText(entry),
       entry.status,
+      entry.starredAt ? "yes" : "no",
       entry.createdAt,
     ]
       .map(csvCell)
@@ -39,6 +51,7 @@ export function feedbackToJson(entries: ExportableFeedback[]): string {
       format: entry.format,
       content: feedbackText(entry),
       status: entry.status,
+      starred: !!entry.starredAt,
       createdAt: entry.createdAt,
     })),
     null,

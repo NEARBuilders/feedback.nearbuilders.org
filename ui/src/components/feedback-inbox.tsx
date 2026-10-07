@@ -1,14 +1,15 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Download } from "lucide-react";
+import { Download, Star } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Button, Checkbox, ConfirmDialog } from "@/components";
+import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { exportFeedback, feedbackText } from "@/lib/feedback-export";
 import { inboxKeyAction, isTypingTarget } from "@/lib/inbox-keys";
 import type { FeedbackEntry, FeedbackStatus } from "@/lib/queries/feedback";
 import type { RoundParams } from "@/lib/round-links";
-import { useSetFeedbackStatus } from "@/lib/use-feedback-status";
+import { useSetFeedbackStarred, useSetFeedbackStatus } from "@/lib/use-feedback-status";
 import { cn } from "@/lib/utils";
 
 type BulkStatus = Exclude<FeedbackStatus, "unresolved">;
@@ -29,6 +30,8 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
   const [pendingBulk, setPendingBulk] = useState<BulkStatus | null>(null);
   const statusMutation = useSetFeedbackStatus(roundId);
   const { mutate: setStatus } = statusMutation;
+  const starMutation = useSetFeedbackStarred(roundId);
+  const { mutate: setStarred } = starMutation;
 
   useEffect(() => {
     const ids = entries.map((entry) => entry.id);
@@ -43,11 +46,13 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
           params: { ...params, feedbackId: action.id },
           search: true,
         });
+      } else if (action.type === "star") {
+        setStarred({ feedbackIds: [action.id], starred: action.starred });
       } else setStatus({ feedbackIds: [action.id], status: action.status });
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [entries, openId, navigate, params, setStatus]);
+  }, [entries, openId, navigate, params, setStatus, setStarred]);
 
   const selection = entries.filter((entry) => selected.has(entry.id));
   const allSelected = entries.length > 0 && selection.length === entries.length;
@@ -80,6 +85,37 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
               current="unresolved"
               onChange={(status) => status !== "unresolved" && setPendingBulk(status)}
             />
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Star selected feedback"
+              data-testid="bulk-star"
+              disabled={starMutation.isPending}
+              onClick={() =>
+                setStarred(
+                  { feedbackIds: selection.map((entry) => entry.id), starred: true },
+                  { onSuccess: () => setSelected(new Set()) },
+                )
+              }
+            >
+              <Star className="h-3.5 w-3.5" />
+              star
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Remove star from selected feedback"
+              data-testid="bulk-unstar"
+              disabled={starMutation.isPending}
+              onClick={() =>
+                setStarred(
+                  { feedbackIds: selection.map((entry) => entry.id), starred: false },
+                  { onSuccess: () => setSelected(new Set()) },
+                )
+              }
+            >
+              unstar
+            </Button>
             {(["csv", "json"] as const).map((kind) => (
               <Button key={kind} variant="ghost" size="sm" onClick={() => exportSelection(kind)}>
                 <Download className="h-3.5 w-3.5" />
@@ -88,7 +124,9 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
             ))}
           </>
         ) : (
-          <span className="text-xs text-muted-foreground">j/k to move · r resolve · d dismiss</span>
+          <span className="text-xs text-muted-foreground">
+            j/k to move · r resolve · d dismiss · s star
+          </span>
         )}
       </div>
 
@@ -104,6 +142,18 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
               checked={selected.has(entry.id)}
               onCheckedChange={(checked) => toggle(entry.id, checked === true)}
             />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="mt-0.5 shrink-0"
+              aria-label={entry.starredAt ? "Remove star" : "Star as standout"}
+              aria-pressed={!!entry.starredAt}
+              data-testid={`star-toggle-${entry.starredAt ? "on" : "off"}`}
+              disabled={starMutation.isPending}
+              onClick={() => setStarred({ feedbackIds: [entry.id], starred: !entry.starredAt })}
+            >
+              <Star className={`h-3.5 w-3.5 ${entry.starredAt ? "fill-current" : ""}`} />
+            </Button>
             <Link
               to="/manage/$slug/$n/$feedbackId"
               params={{ ...params, feedbackId: entry.id }}
@@ -114,7 +164,10 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
                 <span className="truncate font-mono text-xs text-muted-foreground">
                   {entry.authorAccountId}
                 </span>
-                <FeedbackStatusBadge status={entry.status} />
+                <span className="flex shrink-0 items-center gap-1">
+                  {entry.starredAt && <StarBadge data-testid="star-badge" />}
+                  <FeedbackStatusBadge status={entry.status} />
+                </span>
               </span>
               <span className="line-clamp-2 text-sm text-foreground break-words">
                 {feedbackText(entry)}

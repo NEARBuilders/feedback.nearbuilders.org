@@ -17,7 +17,7 @@ import { loadRound, useRound } from "@/lib/round-route";
 import { oneOf } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
-const STATUS_FILTERS = ["unresolved", "resolved", "dismissed", "all"] as const;
+const STATUS_FILTERS = ["unresolved", "resolved", "dismissed", "starred", "all"] as const;
 
 interface InboxSearch {
   status: (typeof STATUS_FILTERS)[number];
@@ -32,7 +32,11 @@ export function validateInboxSearch(search: Partial<InboxSearch> & SearchSchemaI
 }
 
 export function inboxFilters({ status, author }: InboxSearch): FeedbackFilters {
-  return { status: status === "all" ? undefined : status, author };
+  return {
+    status: status === "all" || status === "starred" ? undefined : status,
+    starred: status === "starred" || undefined,
+    author,
+  };
 }
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n/_inbox")({

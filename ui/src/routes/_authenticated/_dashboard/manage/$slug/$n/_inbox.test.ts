@@ -23,4 +23,16 @@ describe("inbox search params", () => {
       author: "a.near",
     });
   });
+
+  it("maps the starred filter onto the starred API flag (#104)", () => {
+    expect(inboxFilters({ status: "starred", author: undefined })).toEqual({
+      status: undefined,
+      starred: true,
+      author: undefined,
+    });
+    expect(validateInboxSearch({ status: "starred" } as never)).toEqual({
+      status: "starred",
+      author: undefined,
+    });
+  });
 });

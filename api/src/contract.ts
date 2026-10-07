@@ -132,6 +132,8 @@ export const RoundFeedbackSchema = z.object({
   body: z.string().nullable(),
   url: z.string().nullable(),
   status: RoundFeedbackStatusSchema,
+  /** When a round manager starred it (#104); independent of status. */
+  starredAt: z.string().nullable(),
   createdAt: z.string(),
   nostrEventId: z.string().nullable(),
 });
@@ -326,12 +328,18 @@ export const PointsEntrySchema = z.object({
   actor: z.string(),
   points: z.number().int().nonnegative(),
   acceptedCount: z.number().int().positive(),
+  /** Accepted submissions a round manager also starred (#104). */
+  starredCount: z.number().int().nonnegative(),
+  /** The part of `points` that came from stars. */
+  bonusPoints: z.number().int().nonnegative(),
 });
 
 export const PointsLeaderboardSchema = z.object({
   period: LeaderboardPeriodSchema,
   /** Points awarded for each feedback item the round owner accepts (marks resolved). */
   pointsPerAcceptedFeedback: z.number().int().positive(),
+  /** Extra points when a round manager stars an accepted item (#104). */
+  bonusPointsPerStarredFeedback: z.number().int().positive(),
   data: z.array(PointsEntrySchema),
 });
 
@@ -341,6 +349,8 @@ export const BuilderPointsSchema = z.object({
   accountId: z.string(),
   points: z.number().int().nonnegative(),
   acceptedCount: z.number().int().nonnegative(),
+  starredCount: z.number().int().nonnegative(),
+  bonusPoints: z.number().int().nonnegative(),
   submittedCount: z.number().int().nonnegative(),
   /** All-time rank by points, or null when the builder has no points yet. */
   rank: z.number().int().positive().nullable(),
@@ -697,6 +707,8 @@ export const contract = oc.router({
         limit: z.number().int().min(1).max(100).optional(),
         status: RoundFeedbackStatusSchema.optional(),
         author: z.string().min(1).optional(),
+        /** Only starred submissions (#104). */
+        starred: z.boolean().optional(),
       }),
     )
     .output(FeedbackPageSchema)
@@ -740,6 +752,22 @@ export const contract = oc.router({
     )
     .output(z.array(RoundFeedbackSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  setFeedbackStarred: oc
+    .route({
+      method: "PATCH",
+      path: "/rounds/{id}/feedback/star",
+      summary: "Star or unstar feedback submissions",
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        feedbackIds: z.array(z.string()).min(1).max(500),
+        starred: z.boolean(),
+      }),
+    )
+    .output(z.array(RoundFeedbackSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   listParticipants: oc
     .route({ method: "GET", path: "/rounds/{id}/participants" })
