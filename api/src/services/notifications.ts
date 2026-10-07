@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -42,9 +42,9 @@ export interface NotifyAccountsInput extends NotifyParticipantsInput {
 }
 
 export interface NotificationsService {
-  listForAccount(accountId: string, limit: number): Promise<NotificationList>;
-  markRead(accountId: string, notificationId: string): Promise<NotificationRecord | null>;
-  markAllRead(accountId: string): Promise<number>;
+  listForAccount(accountIds: string[], limit: number): Promise<NotificationList>;
+  markRead(accountIds: string[], notificationId: string): Promise<NotificationRecord | null>;
+  markAllRead(accountIds: string[]): Promise<number>;
   notifyParticipants(input: NotifyParticipantsInput): Promise<number>;
   notifyAccounts(input: NotifyAccountsInput): Promise<number>;
 }
@@ -109,13 +109,13 @@ export const NotificationsLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     const service: NotificationsService = {
-      listForAccount: async (accountId, limit) => {
+      listForAccount: async (accountIds, limit) => {
         try {
           const rows = await db
             .select(recordColumns)
             .from(notificationsTable)
             .innerJoin(roundsTable, eq(roundsTable.id, notificationsTable.roundId))
-            .where(eq(notificationsTable.recipientAccountId, accountId))
+            .where(inArray(notificationsTable.recipientAccountId, accountIds))
             .orderBy(desc(notificationsTable.createdAt))
             .limit(limit);
           const [unread] = await db
@@ -123,7 +123,7 @@ export const NotificationsLive = Layer.effect(
             .from(notificationsTable)
             .where(
               and(
-                eq(notificationsTable.recipientAccountId, accountId),
+                inArray(notificationsTable.recipientAccountId, accountIds),
                 isNull(notificationsTable.readAt),
               ),
             );
@@ -133,7 +133,7 @@ export const NotificationsLive = Layer.effect(
         }
       },
 
-      markRead: async (accountId, notificationId) => {
+      markRead: async (accountIds, notificationId) => {
         try {
           const updated = await db
             .update(notificationsTable)
@@ -141,7 +141,7 @@ export const NotificationsLive = Layer.effect(
             .where(
               and(
                 eq(notificationsTable.id, notificationId),
-                eq(notificationsTable.recipientAccountId, accountId),
+                inArray(notificationsTable.recipientAccountId, accountIds),
               ),
             )
             .returning({ id: notificationsTable.id });
@@ -158,14 +158,14 @@ export const NotificationsLive = Layer.effect(
         }
       },
 
-      markAllRead: async (accountId) => {
+      markAllRead: async (accountIds) => {
         try {
           const updated = await db
             .update(notificationsTable)
             .set({ readAt: sql`now()` })
             .where(
               and(
-                eq(notificationsTable.recipientAccountId, accountId),
+                inArray(notificationsTable.recipientAccountId, accountIds),
                 isNull(notificationsTable.readAt),
               ),
             )

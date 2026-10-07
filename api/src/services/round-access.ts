@@ -13,10 +13,17 @@ export interface RoundActor {
   activeOrganizationId?: string | null;
   /** The caller's primary linked NEAR account, if any. */
   accountId?: string | null;
+  /** Every NEAR account linked to the caller's session (#121); matched for ownership checks. */
+  accountIds?: string[];
   /** The caller's role in their active organization. */
   orgRole?: string | null;
   /** Whether the caller belongs to the project's managing team. Only needed when one is set. */
   inManagingTeam?: boolean;
+}
+
+/** Whether `accountId` is the caller's primary account or any other NEAR account they linked. */
+export function actorOwnsAccount(actor: RoundActor, accountId: string): boolean {
+  return actor.accountId === accountId || !!actor.accountIds?.includes(accountId);
 }
 
 const ORG_ADMIN_ROLES = ["owner", "admin"];
@@ -52,7 +59,7 @@ export function canManageRound(
   actor: RoundActor,
 ): boolean {
   if (project?.ownerOrgId) return canManageOwnedProject(project, actor);
-  return !!actor.accountId && actor.accountId === round.ownerAccountId;
+  return actorOwnsAccount(actor, round.ownerAccountId);
 }
 
 export function canManageProject(
