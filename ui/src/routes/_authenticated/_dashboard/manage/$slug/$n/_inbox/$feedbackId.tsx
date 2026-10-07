@@ -9,6 +9,7 @@ import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-note
 import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { RouteNotFound } from "@/components/route-states";
+import { TelegramHandle, TipButtons } from "@/components/tip-tester";
 import { feedbackItemQueryOptions } from "@/lib/queries/feedback";
 import { orNotFound } from "@/lib/queries/not-found";
 import { loadRound, useRound } from "@/lib/round-route";
@@ -61,12 +62,14 @@ function FeedbackDetailPane() {
             >
               {feedback.authorAccountId}
             </Link>
+            <TelegramHandle accountId={feedback.authorAccountId} enabled />
             <p className="text-xs text-muted-foreground">
               {new Date(feedback.createdAt).toLocaleString()} · {feedback.format}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <TipButtons accountId={feedback.authorAccountId} />
           <Button asChild size="sm" variant="ghost">
             <Link
               to="/manage/$slug/$n"

@@ -420,6 +420,20 @@ const CreateRoundInputSchema = z
     path: ["repoUrl"],
   });
 
+export const TelegramTipSchema = z.object({
+  /** Bare handle without `@`; null when none is linked. */
+  handle: z.string().nullable(),
+  source: z.enum(["nearbuilders", "near-social"]).nullable(),
+  /** False when every handle source was unreachable, so null may just mean "couldn't check". */
+  available: z.boolean(),
+  /** The tip-bot message addressed to the handle, built from the configured template. */
+  message: z.string().nullable(),
+  /** `t.me` deep link that opens Telegram with the message ready to send. */
+  shareUrl: z.string().nullable(),
+});
+
+export type TelegramTip = z.infer<typeof TelegramTipSchema>;
+
 export const contract = oc.router({
   ping: oc.route({ method: "GET", path: "/ping" }).output(
     z.object({
@@ -787,6 +801,18 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/projects/search" })
     .input(z.object({ query: z.string().trim().min(1).max(200) }))
     .output(ProjectSearchResultSchema),
+
+  getTelegramTip: oc
+    .route({
+      method: "GET",
+      path: "/builders/{accountId}/telegram",
+      summary: "Resolve a builder's Telegram handle and the tip-bot message for it",
+      description:
+        "Looks the handle up on nearbuilders.org (links.telegram) with a NEAR Social fallback (#105). Never errors on a lookup failure: `available` is false when every source was unreachable.",
+    })
+    .input(z.object({ accountId: z.string().min(1).max(128) }))
+    .output(TelegramTipSchema)
+    .errors({ UNAUTHORIZED }),
 
   getProjectSearchStatus: oc
     .route({ method: "GET", path: "/projects/search/status" })
