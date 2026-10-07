@@ -58,3 +58,37 @@ export function canManageRound(
   }
   return !!actor.accountId && actor.accountId === round.ownerAccountId;
 }
+
+export interface FeedbackVisibilitySubject {
+  isPrivate: boolean;
+}
+
+/**
+ * Whether the caller may read every submission on a round (#101). Public rounds are open to
+ * everyone. A private round is readable by platform admins and by whoever may manage it, with
+ * the same org/team rule as round management. Anyone else only ever sees their own
+ * submissions, which {@link filterVisibleFeedback} enforces.
+ */
+export function canReadAllFeedback(
+  round: RoundAccessSubject & FeedbackVisibilitySubject,
+  project: ProjectAccessSubject | null,
+  actor: RoundActor,
+  isAdmin: boolean,
+): boolean {
+  if (!round.isPrivate) return true;
+  return isAdmin || canManageRound(round, project, actor);
+}
+
+/**
+ * Applies the visibility decision to a list: everything when `canReadAll`, otherwise only the
+ * submissions authored by `accountId` (none when logged out).
+ */
+export function filterVisibleFeedback<T extends { authorAccountId: string }>(
+  feedback: T[],
+  canReadAll: boolean,
+  accountId: string | null | undefined,
+): T[] {
+  if (canReadAll) return feedback;
+  if (!accountId) return [];
+  return feedback.filter((item) => item.authorAccountId === accountId);
+}

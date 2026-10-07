@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, MessageSquare, Share2, Users } from "lucide-react";
+import { ArrowLeft, ExternalLink, Lock, MessageSquare, Share2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import {
+  Avatar,
+  AvatarFallback,
   Badge,
   Button,
   Card,
+  Checkbox,
   ConfirmDialog,
   EmptyState,
   Field,
@@ -24,6 +27,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
 import { RoundReadme } from "@/components/round-readme";
+import { useLegionAccess } from "@/hooks/use-legion-access";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { pageHead } from "@/lib/page-title";
 import { roundCta } from "@/lib/round-cta";
@@ -104,6 +108,8 @@ function RoundDetailPage() {
   });
   const endorsement = endorsementsQuery.data?.[roundId];
 
+  const { legionAccess } = useLegionAccess();
+
   const round = roundQuery.data;
   const joined = participationQuery.data?.joined ?? false;
 
@@ -160,6 +166,8 @@ function RoundDetailPage() {
   const canManage = round.canManage ?? false;
   const isOwner = !!nearAccountId && nearAccountId === round.ownerAccountId;
   const canJoin = round.status === "open" && !isOwner && !canManage;
+  const needsLegionCheck = round.legionOnly && canJoin && !!sessionQuery.data?.user;
+  const legionBlocked = needsLegionCheck && !!legionAccess && !legionAccess.hasAccess;
   const cta = roundCta({
     roundId,
     canJoin,
@@ -232,6 +240,17 @@ function RoundDetailPage() {
               {FORMAT_LABELS[format] ?? format}
             </Badge>
           ))}
+          {round.isPrivate && (
+            <Badge variant="secondary" className="gap-1 text-xs" data-testid="private-badge">
+              <Lock className="h-3 w-3" />
+              Private feedback
+            </Badge>
+          )}
+          {round.legionOnly && (
+            <Badge variant="secondary" className="text-xs" data-testid="legion-badge">
+              Legion members only
+            </Badge>
+          )}
         </div>
 
         {round.repoUrl && (
@@ -247,16 +266,31 @@ function RoundDetailPage() {
         )}
 
         <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
             {round.participantCount} {round.participantCount === 1 ? "builder" : "builders"} joined
+            {round.isPrivate && (round.participantPreview?.length ?? 0) > 0 && (
+              <span className="flex -space-x-2" data-testid="participant-avatars">
+                {round.participantPreview?.map((accountId) => (
+                  <Avatar key={accountId} className="h-6 w-6 border border-background">
+                    <AvatarFallback className="text-[10px]" title={accountId}>
+                      {accountId.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+              </span>
+            )}
           </span>
 
           {(cta.kind === "join" || cta.kind === "leave") && (
             <Button
               variant={cta.kind === "leave" ? "outline" : "default"}
               onClick={() => joinMutation.mutate(cta.kind === "join")}
-              disabled={joinMutation.isPending || participationQuery.isLoading}
+              disabled={
+                joinMutation.isPending ||
+                participationQuery.isLoading ||
+                (cta.kind === "join" && legionBlocked)
+              }
             >
               {cta.kind === "leave" ? "Leave round" : "Join round"}
             </Button>
@@ -276,6 +310,8 @@ function RoundDetailPage() {
             </Link>
           )}
         </div>
+
+        {needsLegionCheck && <LegionEligibility />}
 
         {isAdmin && round.status === "pending" && (
           <AdminReviewPanel roundId={roundId} projectRecordId={round.projectRecordId} />
@@ -306,6 +342,14 @@ function RoundDetailPage() {
           <BroadcastPanel roundId={roundId} participantCount={round.participantCount} />
         )}
 
+        {canManage && (
+          <RoundSettingsPanel
+            roundId={roundId}
+            isPrivate={round.isPrivate}
+            legionOnly={round.legionOnly}
+          />
+        )}
+
         {canManage && round.status === "open" && <OwnerClosePanel roundId={roundId} />}
 
         {round.status === "closed" && <CreditsSection roundId={roundId} />}
@@ -319,6 +363,9 @@ function RoundDetailPage() {
           canPost={joined && round.status === "open"}
           canDelete={round.status === "open"}
           canModerate={canManage || isAdmin}
+          isPrivate={round.isPrivate}
+          canReadAll={canManage || isAdmin}
+          feedbackCount={round.feedbackCount ?? 0}
         />
       </div>
     </PageContainer>
@@ -332,6 +379,9 @@ function FeedbackThread({
   canPost,
   canDelete,
   canModerate,
+  isPrivate,
+  canReadAll,
+  feedbackCount,
 }: {
   roundId: string;
   formats: string[];
@@ -339,6 +389,11 @@ function FeedbackThread({
   canPost: boolean;
   canDelete: boolean;
   canModerate: boolean;
+  isPrivate: boolean;
+  /** Whether the caller can read every submission; false on a private round for most people. */
+  canReadAll: boolean;
+  /** Total submissions, shown even when their bodies are private. */
+  feedbackCount: number;
 }) {
   const apiClient = useApiClient();
   const auth = useAuthClient();
@@ -429,6 +484,21 @@ function FeedbackThread({
         }
       />
 
+      {isPrivate && (
+        <Card className="p-4" data-testid="private-feedback-note">
+          <p className="flex items-start gap-2 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              {canReadAll
+                ? "This round is private: only your organization, platform admins and each author can read submissions."
+                : `This round is private. ${feedbackCount} ${
+                    feedbackCount === 1 ? "submission has" : "submissions have"
+                  } been posted, but you can only read your own.`}
+            </span>
+          </p>
+        </Card>
+      )}
+
       {formats.includes("issues") && issuesUrl && (
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">
@@ -498,7 +568,11 @@ function FeedbackThread({
       {feedbackQuery.isLoading ? (
         <Skeleton className="h-16 w-full" />
       ) : entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No feedback yet.</p>
+        <p className="text-sm text-muted-foreground">
+          {isPrivate && !canReadAll && feedbackCount > 0
+            ? "You haven't posted any feedback here."
+            : "No feedback yet."}
+        </p>
       ) : (
         <FeedbackTable
           roundId={roundId}
@@ -528,6 +602,97 @@ function FeedbackThread({
         }}
       />
     </div>
+  );
+}
+
+function LegionEligibility() {
+  const { legionAccess, isLoading } = useLegionAccess();
+  if (isLoading || !legionAccess) return null;
+  if (legionAccess.hasAccess) {
+    return (
+      <Card className="p-4" data-testid="legion-eligible">
+        <p className="text-sm text-muted-foreground">
+          You hold a Legion SBT, so you can join this round.
+        </p>
+      </Card>
+    );
+  }
+  return (
+    <Card className="p-4 space-y-1" data-testid="legion-ineligible">
+      <span className="text-sm font-medium text-foreground">You need a Legion SBT to join</span>
+      <p className="text-xs text-muted-foreground">
+        {legionAccess.linkedNearAccount
+          ? `${legionAccess.linkedNearAccount} doesn't hold one yet.`
+          : "Link a NEAR account that holds one."}{" "}
+        <a
+          href={legionAccess.mintUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-foreground underline"
+        >
+          Get a Legion SBT
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </p>
+    </Card>
+  );
+}
+
+function RoundSettingsPanel({
+  roundId,
+  isPrivate,
+  legionOnly,
+}: {
+  roundId: string;
+  isPrivate: boolean;
+  legionOnly: boolean;
+}) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+
+  const settingsMutation = useMutation({
+    mutationFn: (input: { isPrivate?: boolean; legionOnly?: boolean }) =>
+      apiClient.updateRoundSettings({ id: roundId, ...input }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId] });
+      toast.success("Round settings updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <Card className="p-4 space-y-3 border-t border-border">
+      <span className="text-sm font-medium text-foreground">Round access</span>
+      <label className="flex items-start gap-2.5 cursor-pointer" htmlFor="setting-private">
+        <Checkbox
+          id="setting-private"
+          checked={isPrivate}
+          disabled={settingsMutation.isPending}
+          onCheckedChange={(checked) => settingsMutation.mutate({ isPrivate: checked === true })}
+        />
+        <span className="text-sm">
+          <span className="text-foreground font-medium">Private feedback</span>
+          <span className="block text-xs text-muted-foreground">
+            Only your organization, platform admins and each author can read submissions. Comments
+            already published to Nostr can't be taken back.
+          </span>
+        </span>
+      </label>
+      <label className="flex items-start gap-2.5 cursor-pointer" htmlFor="setting-legion">
+        <Checkbox
+          id="setting-legion"
+          checked={legionOnly}
+          disabled={settingsMutation.isPending}
+          onCheckedChange={(checked) => settingsMutation.mutate({ legionOnly: checked === true })}
+        />
+        <span className="text-sm">
+          <span className="text-foreground font-medium">Legion members only</span>
+          <span className="block text-xs text-muted-foreground">
+            Only holders of a Legion SBT can join and post.
+          </span>
+        </span>
+      </label>
+    </Card>
   );
 }
 

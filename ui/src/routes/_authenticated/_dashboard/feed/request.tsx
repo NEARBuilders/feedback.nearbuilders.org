@@ -67,6 +67,8 @@ function RequestRoundPage() {
   const [readme, setReadme] = useState("");
   const [formats, setFormats] = useState<Array<"issues" | "written" | "recorded">>([]);
   const [repoUrl, setRepoUrl] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [legionOnly, setLegionOnly] = useState(false);
 
   const debouncedProjectQuery = useDebouncedValue(projectQuery.trim(), 300);
   const searchStatus = useQuery({
@@ -104,6 +106,8 @@ function RequestRoundPage() {
         readme: readme.trim() || undefined,
         formats,
         repoUrl: repoUrl.trim() || undefined,
+        isPrivate: isPrivate || undefined,
+        legionOnly: legionOnly || undefined,
       }),
     onSuccess: (round) => {
       toast.success(
@@ -314,6 +318,45 @@ function RequestRoundPage() {
                 required={needsRepoUrl}
                 disabled={createMutation.isPending}
               />
+            </Field>
+
+            <Field>
+              <FieldLabel>access</FieldLabel>
+              <div className="space-y-2.5 mt-1">
+                <label className="flex items-start gap-2.5 cursor-pointer" htmlFor="round-private">
+                  <Checkbox
+                    id="round-private"
+                    checked={isPrivate}
+                    onCheckedChange={(checked) => setIsPrivate(checked === true)}
+                    disabled={createMutation.isPending}
+                  />
+                  <span className="text-sm">
+                    <span className="text-foreground font-medium">Private feedback</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Only your organization (or its managing team), platform admins and each author
+                      can read submissions. Nothing is published to Nostr.
+                    </span>
+                  </span>
+                </label>
+                <label
+                  className="flex items-start gap-2.5 cursor-pointer"
+                  htmlFor="round-legion-only"
+                >
+                  <Checkbox
+                    id="round-legion-only"
+                    checked={legionOnly}
+                    onCheckedChange={(checked) => setLegionOnly(checked === true)}
+                    disabled={createMutation.isPending}
+                  />
+                  <span className="text-sm">
+                    <span className="text-foreground font-medium">Legion members only</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Only holders of a Legion SBT can join and post. Pairs well with private
+                      feedback.
+                    </span>
+                  </span>
+                </label>
+              </div>
             </Field>
           </Card>
 

@@ -95,6 +95,11 @@ export const rounds = pgTable(
     repoUrl: text("repo_url"),
     // Markdown shown to testers at the top of the round workspace (#71).
     readme: text("readme").default("").notNull(),
+    // Private rounds: feedback is readable only by the managing org/team, admins and each
+    // submission's author (#101).
+    isPrivate: boolean("is_private").default(false).notNull(),
+    // Only holders of a Legion SBT can join and post (#103).
+    legionOnly: boolean("legion_only").default(false).notNull(),
     status: roundStatus("status").default("pending").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),

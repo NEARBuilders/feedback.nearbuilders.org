@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canManageRound, isOrgAdminRole, needsTeamCheck } from "@/services/round-access";
+import {
+  canManageRound,
+  canReadAllFeedback,
+  filterVisibleFeedback,
+  isOrgAdminRole,
+  needsTeamCheck,
+} from "@/services/round-access";
 
 const round = { ownerAccountId: "creator.near" };
 
@@ -105,5 +111,69 @@ describe("isOrgAdminRole", () => {
     expect(isOrgAdminRole("member")).toBe(false);
     expect(isOrgAdminRole(null)).toBe(false);
     expect(isOrgAdminRole(undefined)).toBe(false);
+  });
+});
+
+describe("canReadAllFeedback (#101)", () => {
+  const publicRound = { ownerAccountId: "creator.near", isPrivate: false };
+  const privateRound = { ownerAccountId: "creator.near", isPrivate: true };
+  const project = { ownerOrgId: "org-1" };
+
+  it("lets everyone read a public round, even signed-out callers", () => {
+    expect(canReadAllFeedback(publicRound, project, {}, false)).toBe(true);
+  });
+
+  it("limits a private round to its managers and admins", () => {
+    expect(
+      canReadAllFeedback(privateRound, project, { activeOrganizationId: "org-1" }, false),
+    ).toBe(true);
+    expect(canReadAllFeedback(privateRound, project, {}, true)).toBe(true);
+    expect(
+      canReadAllFeedback(privateRound, project, { activeOrganizationId: "org-2" }, false),
+    ).toBe(false);
+    expect(canReadAllFeedback(privateRound, project, {}, false)).toBe(false);
+  });
+
+  it("follows the team rule when the project is delegated to a team", () => {
+    const delegated = { ownerOrgId: "org-1", managingTeamId: "team-1" };
+    const inOrg = { activeOrganizationId: "org-1" };
+    expect(canReadAllFeedback(privateRound, delegated, inOrg, false)).toBe(false);
+    expect(
+      canReadAllFeedback(privateRound, delegated, { ...inOrg, inManagingTeam: true }, false),
+    ).toBe(true);
+    expect(canReadAllFeedback(privateRound, delegated, { ...inOrg, orgRole: "admin" }, false)).toBe(
+      true,
+    );
+  });
+
+  it("falls back to the round creator when the project has no owning org", () => {
+    expect(
+      canReadAllFeedback(privateRound, { ownerOrgId: null }, { accountId: "creator.near" }, false),
+    ).toBe(true);
+    expect(
+      canReadAllFeedback(privateRound, { ownerOrgId: null }, { accountId: "other.near" }, false),
+    ).toBe(false);
+  });
+});
+
+describe("filterVisibleFeedback (#101)", () => {
+  const items = [
+    { id: "1", authorAccountId: "a.near" },
+    { id: "2", authorAccountId: "b.near" },
+    { id: "3", authorAccountId: "a.near" },
+  ];
+
+  it("returns everything when the caller can read all", () => {
+    expect(filterVisibleFeedback(items, true, null)).toEqual(items);
+  });
+
+  it("keeps only the caller's own submissions otherwise", () => {
+    expect(filterVisibleFeedback(items, false, "a.near").map((i) => i.id)).toEqual(["1", "3"]);
+    expect(filterVisibleFeedback(items, false, "nobody.near")).toEqual([]);
+  });
+
+  it("returns nothing to signed-out callers", () => {
+    expect(filterVisibleFeedback(items, false, null)).toEqual([]);
+    expect(filterVisibleFeedback(items, false, undefined)).toEqual([]);
   });
 });

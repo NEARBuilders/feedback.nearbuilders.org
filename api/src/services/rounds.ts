@@ -38,6 +38,10 @@ export interface RoundRecord {
   readme: string;
   formats: RoundFormat[];
   repoUrl: string | null;
+  /** Feedback is readable only by the managing org/team, admins and its author (#101). */
+  isPrivate: boolean;
+  /** Only Legion SBT holders can join and post (#103). */
+  legionOnly: boolean;
   status: RoundStatus;
   createdAt: string;
   updatedAt: string;
@@ -60,10 +64,24 @@ export interface CreateRoundInput {
   readme?: string;
   formats: RoundFormat[];
   repoUrl?: string | null;
+  isPrivate?: boolean;
+  legionOnly?: boolean;
+}
+
+export interface RoundSettingsInput {
+  isPrivate?: boolean;
+  legionOnly?: boolean;
 }
 
 export interface RoundDetailRecord extends RoundRecord {
   participantCount: number;
+}
+
+export interface RoundDetailWithSurfaceRecord extends RoundDetailRecord {
+  /** First three participants, for the avatar row on a round's public surface. */
+  participantPreview: string[];
+  /** Number of submissions, shown even when the bodies are private. */
+  feedbackCount: number;
 }
 
 export interface RoundFeedbackRecord {
@@ -159,8 +177,9 @@ export interface RoundsService {
    */
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   updateRoundReadme(roundId: string, readme: string): Promise<RoundRecord>;
+  updateRoundSettings(roundId: string, settings: RoundSettingsInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
-  getRoundDetail(id: string): Promise<RoundDetailRecord | null>;
+  getRoundDetail(id: string): Promise<RoundDetailWithSurfaceRecord | null>;
   listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
@@ -175,7 +194,10 @@ export interface RoundsService {
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
   /** Accepted (resolved) feedback per author, optionally only accepted on or after `since`. */
   listAcceptedCounts(since: Date | null): Promise<AcceptedCount[]>;
-  getFeedbackTotals(accountId: string): Promise<{ acceptedCount: number; submittedCount: number }>;
+  getFeedbackTotals(accountId: string): Promise<{
+    acceptedCount: number;
+    submittedCount: number;
+  }>;
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
@@ -210,6 +232,8 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     readme: row.readme,
     formats: row.formats as RoundFormat[],
     repoUrl: row.repoUrl,
+    isPrivate: row.isPrivate,
+    legionOnly: row.legionOnly,
     status: row.status,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
@@ -316,6 +340,8 @@ export const RoundsLive = Layer.effect(
                 readme: input.readme ?? "",
                 formats: input.formats,
                 repoUrl: input.repoUrl ?? null,
+                isPrivate: input.isPrivate ?? false,
+                legionOnly: input.legionOnly ?? false,
                 status: project.status === "approved" ? "open" : "pending",
               })
               .returning();
@@ -338,6 +364,26 @@ export const RoundsLive = Layer.effect(
           const [updated] = await db
             .update(roundsTable)
             .set({ readme, updatedAt: new Date() })
+            .where(eq(roundsTable.id, roundId))
+            .returning();
+          if (!updated) {
+            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+          }
+          return toRoundRecord(updated);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      updateRoundSettings: async (roundId, settings) => {
+        try {
+          const [updated] = await db
+            .update(roundsTable)
+            .set({
+              ...(settings.isPrivate !== undefined ? { isPrivate: settings.isPrivate } : {}),
+              ...(settings.legionOnly !== undefined ? { legionOnly: settings.legionOnly } : {}),
+              updatedAt: new Date(),
+            })
             .where(eq(roundsTable.id, roundId))
             .returning();
           if (!updated) {
@@ -394,7 +440,22 @@ export const RoundsLive = Layer.effect(
             .select({ value: count() })
             .from(roundParticipantsTable)
             .where(eq(roundParticipantsTable.roundId, id));
-          return { ...toRoundRecord(row), participantCount: countRow?.value ?? 0 };
+          const previewRows = await db
+            .select({ accountId: roundParticipantsTable.accountId })
+            .from(roundParticipantsTable)
+            .where(eq(roundParticipantsTable.roundId, id))
+            .orderBy(asc(roundParticipantsTable.joinedAt))
+            .limit(3);
+          const [feedbackRow] = await db
+            .select({ value: count() })
+            .from(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.roundId, id));
+          return {
+            ...toRoundRecord(row),
+            participantCount: countRow?.value ?? 0,
+            participantPreview: previewRows.map((p) => p.accountId),
+            feedbackCount: feedbackRow?.value ?? 0,
+          };
         } catch (error) {
           throw toOrpcError(error);
         }
