@@ -6,6 +6,10 @@ export interface RoundFields {
   readme: string;
   formats: RoundFormat[];
   repoUrl: string;
+  /** Private feedback: readable only by the managing org/team, admins and each author (#101). */
+  isPrivate: boolean;
+  /** Only holders of a Legion SBT can join and post (#103). */
+  legionOnly: boolean;
 }
 
 export const EMPTY_ROUND_FIELDS: RoundFields = {
@@ -14,6 +18,8 @@ export const EMPTY_ROUND_FIELDS: RoundFields = {
   readme: "",
   formats: [],
   repoUrl: "",
+  isPrivate: false,
+  legionOnly: false,
 };
 
 export const FORMAT_OPTIONS: Array<{ value: RoundFormat; label: string; hint: string }> = [
@@ -45,6 +51,8 @@ export function nextRoundFields(
     readme: previous.readme,
     formats: previous.formats,
     repoUrl: previous.repoUrl ?? "",
+    isPrivate: previous.isPrivate,
+    legionOnly: previous.legionOnly,
   };
 }
 
@@ -55,5 +63,7 @@ export function toCreateRoundInput(fields: RoundFields) {
     readme: fields.readme.trim() || undefined,
     formats: fields.formats,
     repoUrl: fields.repoUrl.trim() || undefined,
+    isPrivate: fields.isPrivate || undefined,
+    legionOnly: fields.legionOnly || undefined,
   };
 }

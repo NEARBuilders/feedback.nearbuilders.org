@@ -65,6 +65,8 @@ export interface FeedbackPostedInput {
   roundId: string;
   authorAccountId: string;
   format: string;
+  /** Carried instead of the body, which never leaves this app (#101). */
+  roundTitle?: string;
 }
 
 export interface RoundClosedInput {
@@ -202,6 +204,7 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           feedbackId: feedback.id,
           roundId: feedback.roundId,
           format: feedback.format,
+          ...(feedback.roundTitle ? { roundTitle: feedback.roundTitle } : {}),
         },
       }),
 

@@ -7,6 +7,8 @@ const complete = {
   readme: "",
   formats: ["written" as const],
   repoUrl: "",
+  isPrivate: false,
+  legionOnly: false,
 };
 
 describe("roundFieldsComplete", () => {
@@ -33,6 +35,8 @@ describe("nextRoundFields", () => {
         readme: "## Steps",
         formats: ["written", "issues"],
         repoUrl: "https://github.com/a/b",
+        isPrivate: true,
+        legionOnly: false,
       }),
     ).toEqual({
       title: "Checkout",
@@ -40,6 +44,8 @@ describe("nextRoundFields", () => {
       readme: "## Steps",
       formats: ["written", "issues"],
       repoUrl: "https://github.com/a/b",
+      isPrivate: true,
+      legionOnly: false,
     });
   });
 

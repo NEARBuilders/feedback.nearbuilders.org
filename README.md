@@ -147,6 +147,20 @@ Where points show up:
 The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
 `api/src/services/points.ts`.
 
+## Private rounds and Legion gating
+
+- **Private rounds:** a round can be marked private when it is requested, and managers can toggle
+  it later (`PATCH /rounds/{id}/settings`). On a private round, submissions are readable only by
+  the project's managing org or team (same rule as round management), platform admins, and each
+  author for their own submission. `listFeedback` enforces this for the HTTP route, the feedback
+  table export and the `/api/mcp` tool alike. Everyone else sees the round's public surface only:
+  title, description, readme, participant count with three avatars and the submission count.
+  Feedback on a private round is never published to Nostr (comments can't be retracted there), and
+  its activity event carries the round title, never the body.
+- **Legion-only rounds:** the owner can restrict a round to holders of a Legion SBT. Joining and
+  posting are rejected for non-holders, a failed holder lookup counts as "not a holder", and the
+  round page shows signed-in builders whether they are eligible before they try to join.
+
 ## Teams and delegated round management
 
 Organizations can group members into teams and delegate a project's rounds to a team. Teams

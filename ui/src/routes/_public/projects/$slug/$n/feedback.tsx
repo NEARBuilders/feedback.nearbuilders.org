@@ -1,8 +1,8 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { MessageSquare, PenLine } from "lucide-react";
+import { Lock, MessageSquare, PenLine } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Button, EmptyState } from "@/components";
+import { Button, Card, EmptyState } from "@/components";
 import { ActionCard } from "@/components/action-card";
 import { FeedbackList } from "@/components/feedback-list";
 import { LoadMoreButton } from "@/components/load-more-button";
@@ -30,6 +30,7 @@ function RoundFeedbackPage() {
   const feedbackQuery = useSuspenseInfiniteQuery(roundFeedbackQueryOptions(apiClient, round.id));
   const entries = feedbackQuery.data.pages.flatMap((page) => page.items);
   const issues = roundIssuesUrl(round);
+  const canReadAll = viewer.canManage || viewer.isAdmin;
 
   return (
     <div className="space-y-4">
@@ -54,8 +55,31 @@ function RoundFeedbackPage() {
         </ActionCard>
       )}
 
+      {round.isPrivate && (
+        <Card className="p-4" data-testid="private-feedback-note">
+          <p className="flex items-start gap-2 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              {canReadAll
+                ? "This round is private: only your organization, platform admins and each author can read submissions."
+                : `This round is private. ${round.feedbackCount ?? 0} ${
+                    round.feedbackCount === 1 ? "submission has" : "submissions have"
+                  } been posted, but you can only read your own.`}
+            </span>
+          </p>
+        </Card>
+      )}
+
       {entries.length === 0 ? (
-        <EmptyState icon={MessageSquare} title="No feedback yet." className="min-h-[20vh]" />
+        <EmptyState
+          icon={MessageSquare}
+          title={
+            round.isPrivate && !canReadAll && (round.feedbackCount ?? 0) > 0
+              ? "You haven't posted any feedback here."
+              : "No feedback yet."
+          }
+          className="min-h-[20vh]"
+        />
       ) : (
         <FeedbackList
           roundId={round.id}

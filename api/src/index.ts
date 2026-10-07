@@ -26,6 +26,8 @@ import { createProjectsLookup } from "./services/projects";
 import {
   canManageProject,
   canManageRound,
+  canReadAllFeedback,
+  filterVisibleFeedback,
   isOrgAdminRole,
   needsTeamCheck,
   type RoundActor,
@@ -258,6 +260,29 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
       if (!allowed) throw new ORPCError("FORBIDDEN", { message });
+    };
+
+    /**
+     * Legion-gated rounds (#103): joining and posting need a Legion SBT on the caller's linked
+     * NEAR account. Fails closed, so a failed holder lookup counts as "not a holder".
+     */
+    const assertLegionAccess = async (
+      round: { legionOnly: boolean },
+      accountId: string,
+      context: ActorContext,
+      action: "join" | "post in",
+    ) => {
+      if (!round.legionOnly) return;
+      const access = await services.legionAccess.getMyAccess(
+        context as Record<string, unknown>,
+        accountId,
+      );
+      if (!access.hasAccess) {
+        throw new ORPCError("FORBIDDEN", {
+          message: `You need a Legion SBT to ${action} this round`,
+          data: { legionOnly: true, mintUrl: access.mintUrl },
+        });
+      }
     };
 
     type ViewerContext = ActorContext & { user?: { role?: string | null } | null };
@@ -503,6 +528,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
             readme: input.readme,
             formats: input.formats,
             repoUrl: input.repoUrl,
+            isPrivate: input.isPrivate,
+            legionOnly: input.legionOnly,
           });
           // A round on a not-yet-approved project waits as "pending" until an admin
           // decides the project (#69); round.opened fires then. On an already
@@ -531,6 +558,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
           formats: input.formats,
         });
       }),
+
+      updateRoundSettings: builder.updateRoundSettings
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          await assertCanManageRound(
+            round,
+            context,
+            "Only the round owner can change its privacy or Legion gate",
+          );
+          return await services.rounds.updateRoundSettings(round.id, {
+            isPrivate: input.isPrivate,
+            legionOnly: input.legionOnly,
+          });
+        }),
 
       listRounds: builder.listRounds.handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
@@ -724,6 +772,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         // accounts already joined, that stays the participation instead of adding a second.
         const alreadyJoinedAs = await services.rounds.findParticipantAccount(round.id, myAccounts);
         const accountId = actingAccountId(myAccounts, alreadyJoinedAs) as string;
+        await assertLegionAccess(round, accountId, context, "join");
         await services.rounds.addParticipant(round.id, accountId);
         const detail = await services.rounds.getRoundDetail(round.id);
         if (!detail) {
@@ -809,6 +858,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Join the round before posting feedback",
             });
           }
+          await assertLegionAccess(round, accountId, context, "post in");
           const body = input.format === "written" ? (input.body?.trim() ?? null) : null;
           const url = input.format === "recorded" ? (input.url ?? null) : null;
           const feedback = await services.rounds.addFeedback({
@@ -818,18 +868,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
             body,
             url,
           });
-          const eventId = await services.activityEvents.emitFeedbackPosted(feedback);
+          // The activity event never carries the feedback body, so it's safe for private
+          // rounds too (#101).
+          const eventId = await services.activityEvents.emitFeedbackPosted({
+            ...feedback,
+            roundTitle: round.title,
+          });
           if (eventId) await services.rounds.setFeedbackActivityEventId(feedback.id, eventId);
-          const nostrEventId = await services.feedbackNostr.publish(
-            {
-              projectSlug: round.projectSlug,
-              roundNumber: round.projectRoundNumber,
-              format: input.format,
-              content: (input.format === "written" ? body : url) ?? "",
-              authorAccountId: accountId,
-            },
-            context,
-          );
+          // A Nostr comment can't be retracted, so a private round's feedback never goes there.
+          const nostrEventId = round.isPrivate
+            ? null
+            : await services.feedbackNostr.publish(
+                {
+                  projectSlug: round.projectSlug,
+                  roundNumber: round.projectRoundNumber,
+                  format: input.format,
+                  content: (input.format === "written" ? body : url) ?? "",
+                  authorAccountId: accountId,
+                },
+                context,
+              );
           if (nostrEventId)
             await services.rounds.setFeedbackNostrEventId(feedback.id, nostrEventId);
           return { ...feedback, nostrEventId: nostrEventId ?? feedback.nostrEventId };
@@ -837,7 +895,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listFeedback: builder.listFeedback.handler(async ({ input, context }) => {
         const round = await visibleRound(input.id, context);
-        return await services.rounds.listFeedback(round.id, input);
+        const page = await services.rounds.listFeedback(round.id, input);
+        if (!round.isPrivate) return page;
+        // Private round (#101): everything for the managing org/team and admins, otherwise
+        // only the caller's own submissions. This one handler backs the HTTP route, the
+        // data table's export and the MCP `listFeedback` tool. The cursor stays derived from
+        // the unfiltered page, so filtering never blocks pagination.
+        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+        const canReadAll = canReadAllFeedback(
+          round,
+          project,
+          await resolveActor(project, context),
+          isSiteAdmin(context),
+        );
+        return {
+          items: filterVisibleFeedback(page.items, canReadAll, linkedAccountIds(context)),
+          nextCursor: page.nextCursor,
+        };
       }),
 
       listMyFeedback: builder.listMyFeedback
@@ -1134,7 +1208,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return detail;
         }),
 
-      listRoundCredits: builder.listRoundCredits.handler(async ({ input, errors }) => {
+      listRoundCredits: builder.listRoundCredits.handler(async ({ input, context, errors }) => {
         const round = await services.rounds.resolveRoundById(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
@@ -1142,7 +1216,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
             data: { resource: "round", resourceId: input.id },
           });
         }
-        return await services.rounds.listRoundCredits(round.id);
+        const credits = await services.rounds.listRoundCredits(round.id);
+        if (!round.isPrivate) return credits;
+        // Credits name the people who posted, so a private round (#101) only shows them to
+        // its readers, plus each builder's own credit.
+        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+        const canReadAll = canReadAllFeedback(
+          round,
+          project,
+          await resolveActor(project, context),
+          isSiteAdmin(context),
+        );
+        return filterVisibleFeedback(
+          credits.map((credit) => ({ ...credit, authorAccountId: credit.builderAccountId })),
+          canReadAll,
+          linkedAccountIds(context),
+        ).map(({ authorAccountId: _author, ...credit }) => credit);
       }),
 
       getBuilderRounds: builder.getBuilderRounds.handler(async ({ input }) =>

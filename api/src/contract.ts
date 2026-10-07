@@ -84,6 +84,10 @@ export const RoundSchema = z.object({
   readme: z.string(),
   formats: z.array(RoundFormatSchema),
   repoUrl: z.string().nullable(),
+  /** Feedback is readable only by the managing org/team, admins and each submission's author (#101). */
+  isPrivate: z.boolean(),
+  /** Only holders of a Legion SBT can join and post (#103). */
+  legionOnly: z.boolean(),
   status: RoundStatusSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -96,6 +100,10 @@ export type Round = z.infer<typeof RoundSchema>;
 
 export const RoundDetailSchema = RoundSchema.extend({
   participantCount: z.number().int().nonnegative(),
+  /** First three participants, for the avatar row. Only set by getRound and getRoundBySlug. */
+  participantPreview: z.array(z.string()).optional(),
+  /** Number of submissions, shown even when a private round hides the bodies. Only set by getRound and getRoundBySlug. */
+  feedbackCount: z.number().int().nonnegative().optional(),
   /** Whether the caller's org owns this round's project (#70). Only set by getRound and getRoundBySlug. */
   canManage: z.boolean().optional(),
 });
@@ -414,6 +422,10 @@ const CreateRoundInputSchema = z
     readme: z.string().max(MAX_README_LENGTH).optional(),
     formats: z.array(RoundFormatSchema).min(1, "Select at least one feedback format"),
     repoUrl: z.string().url("Must be a valid URL").optional(),
+    /** Feedback readable only by the managing org/team and admins (#101). */
+    isPrivate: z.boolean().optional(),
+    /** Only Legion SBT holders can join and post (#103). */
+    legionOnly: z.boolean().optional(),
   })
   .refine((val) => !val.formats.includes("issues") || !!val.repoUrl, {
     message: "A repo URL is required when the issues format is selected",
@@ -557,6 +569,22 @@ export const contract = oc.router({
     .output(RoundSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
+  updateRoundSettings: oc
+    .route({
+      method: "PATCH",
+      path: "/rounds/{id}/settings",
+      summary: "Change a round's privacy and Legion gate",
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        isPrivate: z.boolean().optional(),
+        legionOnly: z.boolean().optional(),
+      }),
+    )
+    .output(RoundSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })
     .input(z.object({ status: RoundStatusSchema.optional() }))
@@ -673,6 +701,8 @@ export const contract = oc.router({
     )
     .output(FeedbackPageSchema)
     .errors({ NOT_FOUND }),
+  // Visibility-aware (#101): on a private round only the managing org/team and admins
+  // get every submission; anyone else gets just their own.
 
   listMyFeedback: oc
     .route({ method: "GET", path: "/rounds/{id}/my-feedback" })

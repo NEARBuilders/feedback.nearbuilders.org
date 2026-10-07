@@ -124,6 +124,41 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
           disabled={disabled}
         />
       </Field>
+
+      <Field>
+        <FieldLabel>access</FieldLabel>
+        <div className="mt-1 space-y-2.5">
+          <label className="flex cursor-pointer items-start gap-2.5" htmlFor="round-private">
+            <Checkbox
+              id="round-private"
+              checked={value.isPrivate}
+              onCheckedChange={(checked) => set("isPrivate", checked === true)}
+              disabled={disabled}
+            />
+            <span className="text-sm">
+              <span className="font-medium text-foreground">Private feedback</span>
+              <span className="block text-xs text-muted-foreground">
+                Only your organization (or its managing team), platform admins and each author can
+                read submissions. Nothing is published to Nostr.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2.5" htmlFor="round-legion-only">
+            <Checkbox
+              id="round-legion-only"
+              checked={value.legionOnly}
+              onCheckedChange={(checked) => set("legionOnly", checked === true)}
+              disabled={disabled}
+            />
+            <span className="text-sm">
+              <span className="font-medium text-foreground">Legion members only</span>
+              <span className="block text-xs text-muted-foreground">
+                Only holders of a Legion SBT can join and post. Pairs well with private feedback.
+              </span>
+            </span>
+          </label>
+        </div>
+      </Field>
     </>
   );
 }

@@ -1,15 +1,21 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type UseMutationResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, PenLine, Users } from "lucide-react";
+import { ExternalLink, Lock, PenLine, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Badge, Button } from "@/components";
+import { Badge, Button, Card } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { RoundCredits } from "@/components/round-credits";
 import { RoundParticipants } from "@/components/round-participants";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundRepoLinks } from "@/components/round-repo-links";
+import { useLegionAccess } from "@/hooks/use-legion-access";
 import { roundActivityUrl } from "@/lib/activity-events";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 import {
@@ -60,6 +66,17 @@ function RoundOverviewPage() {
           </Badge>
         ))}
         <RoundRepoLinks round={round} />
+        {round.isPrivate && (
+          <Badge variant="secondary" className="gap-1 text-xs" data-testid="private-badge">
+            <Lock className="h-3 w-3" />
+            Private feedback
+          </Badge>
+        )}
+        {round.legionOnly && (
+          <Badge variant="secondary" className="text-xs" data-testid="legion-badge">
+            Legion members only
+          </Badge>
+        )}
       </div>
 
       <TestersRow round={round} viewer={viewer} />
@@ -86,6 +103,7 @@ function TestersRow({
     enabled: viewer.canSeeParticipants,
   });
   const faces = (participantsQuery.data ?? []).slice(0, 3);
+  const needsLegionCheck = round.legionOnly && cta.kind === "join";
 
   const joinMutation = useMutation({
     mutationFn: (next: boolean) =>
@@ -99,53 +117,115 @@ function TestersRow({
   });
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-        {faces.length > 0 ? (
-          <span className="flex -space-x-2">
-            {faces.map((participant) => (
-              <AccountAvatar key={participant.accountId} accountId={participant.accountId} />
-            ))}
-          </span>
-        ) : (
-          <Users className="h-4 w-4" />
-        )}
-        {round.participantCount} {round.participantCount === 1 ? "tester" : "testers"} joined
-      </span>
-
-      {(cta.kind === "join" || cta.kind === "leave") && (
-        <div className="flex gap-2">
-          {viewer.canPost && (
-            <Button asChild>
-              <Link to="/testing/$slug/$n" params={roundParams(round)}>
-                <PenLine className="h-4 w-4" />
-                write feedback
-              </Link>
-            </Button>
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          {faces.length > 0 ? (
+            <span className="flex -space-x-2">
+              {faces.map((participant) => (
+                <AccountAvatar key={participant.accountId} accountId={participant.accountId} />
+              ))}
+            </span>
+          ) : (
+            <Users className="h-4 w-4" />
           )}
-          <Button
-            variant={cta.kind === "leave" ? "outline" : "default"}
-            onClick={() => joinMutation.mutate(cta.kind === "join")}
-            disabled={joinMutation.isPending || viewer.participationPending}
+          {round.participantCount} {round.participantCount === 1 ? "tester" : "testers"} joined
+        </span>
+
+        {(cta.kind === "join" || cta.kind === "leave") && (
+          <JoinButtons
+            round={round}
+            viewer={viewer}
+            joinMutation={joinMutation}
+            legionPending={needsLegionCheck}
+          />
+        )}
+        {cta.kind === "signin" && (
+          <Link
+            to={cta.loginTo.to}
+            search={cta.loginTo.search}
+            className="text-sm text-foreground underline"
           >
-            {cta.kind === "leave" ? "leave round" : "join round"}
-          </Button>
-        </div>
+            sign in to join
+          </Link>
+        )}
+        {cta.kind === "link-account" && (
+          <Link to="/settings/auth-methods" className="text-sm text-foreground underline">
+            link a NEAR account to join
+          </Link>
+        )}
+      </div>
+      {needsLegionCheck && <LegionEligibility />}
+    </>
+  );
+}
+
+function JoinButtons({
+  round,
+  viewer,
+  joinMutation,
+  legionPending,
+}: {
+  round: RoundDetail;
+  viewer: ReturnType<typeof useRoundViewer>;
+  joinMutation: UseMutationResult<RoundDetail, Error, boolean>;
+  legionPending: boolean;
+}) {
+  const { cta } = viewer;
+  const { legionAccess } = useLegionAccess();
+  const legionBlocked =
+    legionPending && cta.kind === "join" && !!legionAccess && !legionAccess.hasAccess;
+
+  return (
+    <div className="flex gap-2">
+      {viewer.canPost && (
+        <Button asChild>
+          <Link to="/testing/$slug/$n" params={roundParams(round)}>
+            <PenLine className="h-4 w-4" />
+            write feedback
+          </Link>
+        </Button>
       )}
-      {cta.kind === "signin" && (
-        <Link
-          to={cta.loginTo.to}
-          search={cta.loginTo.search}
-          className="text-sm text-foreground underline"
-        >
-          sign in to join
-        </Link>
-      )}
-      {cta.kind === "link-account" && (
-        <Link to="/settings/auth-methods" className="text-sm text-foreground underline">
-          link a NEAR account to join
-        </Link>
-      )}
+      <Button
+        variant={cta.kind === "leave" ? "outline" : "default"}
+        onClick={() => joinMutation.mutate(cta.kind === "join")}
+        disabled={joinMutation.isPending || viewer.participationPending || legionBlocked}
+      >
+        {cta.kind === "leave" ? "leave round" : "join round"}
+      </Button>
     </div>
+  );
+}
+
+function LegionEligibility() {
+  const { legionAccess, isLoading } = useLegionAccess();
+  if (isLoading || !legionAccess) return null;
+  if (legionAccess.hasAccess) {
+    return (
+      <Card className="p-4" data-testid="legion-eligible">
+        <p className="text-sm text-muted-foreground">
+          You hold a Legion SBT, so you can join this round.
+        </p>
+      </Card>
+    );
+  }
+  return (
+    <Card className="space-y-1 p-4" data-testid="legion-ineligible">
+      <span className="text-sm font-medium text-foreground">You need a Legion SBT to join</span>
+      <p className="text-xs text-muted-foreground">
+        {legionAccess.linkedNearAccount
+          ? `${legionAccess.linkedNearAccount} doesn't hold one yet.`
+          : "Link a NEAR account that holds one."}{" "}
+        <a
+          href={legionAccess.mintUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-foreground underline"
+        >
+          Get a Legion SBT
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </p>
+    </Card>
   );
 }
