@@ -1,9 +1,93 @@
 {
-  "id": "44808e11-d90e-4b3f-918d-d50e4cef6cde",
-  "prevId": "a8991e43-4348-4ffa-bc5c-44e9d9f2d7c9",
+  "id": "885a9bf7-756d-45d4-b7ae-a88b41d56d45",
+  "prevId": "3582b91c-b814-40c3-92c3-9506a8ce5def",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.feedback_notes": {
+      "name": "feedback_notes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "feedback_id": {
+          "name": "feedback_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_account_id": {
+          "name": "author_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "feedback_note_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "feedback_notes_feedback_created_idx": {
+          "name": "feedback_notes_feedback_created_idx",
+          "columns": [
+            {
+              "expression": "feedback_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "feedback_notes_feedback_id_round_feedback_id_fk": {
+          "name": "feedback_notes_feedback_id_round_feedback_id_fk",
+          "tableFrom": "feedback_notes",
+          "tableTo": "round_feedback",
+          "columnsFrom": ["feedback_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.notifications": {
       "name": "notifications",
       "schema": "",
@@ -33,6 +117,12 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
+        },
+        "feedback_id": {
+          "name": "feedback_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "title": {
           "name": "title",
@@ -128,6 +218,15 @@
           "columnsFrom": ["round_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notifications_feedback_id_round_feedback_id_fk": {
+          "name": "notifications_feedback_id_round_feedback_id_fk",
+          "tableFrom": "notifications",
+          "tableTo": "round_feedback",
+          "columnsFrom": ["feedback_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -480,18 +579,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "starred_at": {
-          "name": "starred_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "starred_by_account_id": {
-          "name": "starred_by_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -718,13 +805,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "readme": {
-          "name": "readme",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
         "is_private": {
           "name": "is_private",
           "type": "boolean",
@@ -738,6 +818,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "readme": {
+          "name": "readme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "status": {
           "name": "status",
@@ -992,10 +1079,22 @@
     }
   },
   "enums": {
+    "public.feedback_note_role": {
+      "name": "feedback_note_role",
+      "schema": "public",
+      "values": ["owner", "tester"]
+    },
     "public.notification_kind": {
       "name": "notification_kind",
       "schema": "public",
-      "values": ["round_opened", "round_closing", "round_closed", "custom"]
+      "values": [
+        "round_opened",
+        "round_closing",
+        "round_closed",
+        "custom",
+        "feedback_resolved",
+        "feedback_dismissed"
+      ]
     },
     "public.project_status": {
       "name": "project_status",

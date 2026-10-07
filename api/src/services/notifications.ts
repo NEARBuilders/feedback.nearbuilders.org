@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -15,6 +15,9 @@ export interface NotificationRecord {
   id: string;
   roundId: string;
   roundTitle: string;
+  projectSlug: string;
+  projectRoundNumber: number;
+  feedbackId: string | null;
   kind: NotificationKindValue;
   title: string;
   body: string;
@@ -34,11 +37,16 @@ export interface NotifyParticipantsInput {
   body: string;
 }
 
+export interface NotifyAccountsInput extends NotifyParticipantsInput {
+  recipients: Array<{ accountId: string; feedbackId?: string | null }>;
+}
+
 export interface NotificationsService {
-  listForAccount(accountId: string, limit: number): Promise<NotificationList>;
-  markRead(accountId: string, notificationId: string): Promise<NotificationRecord | null>;
-  markAllRead(accountId: string): Promise<number>;
+  listForAccount(accountIds: string[], limit: number): Promise<NotificationList>;
+  markRead(accountIds: string[], notificationId: string): Promise<NotificationRecord | null>;
+  markAllRead(accountIds: string[]): Promise<number>;
   notifyParticipants(input: NotifyParticipantsInput): Promise<number>;
+  notifyAccounts(input: NotifyAccountsInput): Promise<number>;
 }
 
 export class NotificationsTag extends Context.Tag("api/Notifications")<
@@ -72,6 +80,9 @@ const recordColumns = {
   id: notificationsTable.id,
   roundId: notificationsTable.roundId,
   roundTitle: roundsTable.title,
+  projectSlug: roundsTable.projectSlug,
+  projectRoundNumber: roundsTable.projectRoundNumber,
+  feedbackId: notificationsTable.feedbackId,
   kind: notificationsTable.kind,
   title: notificationsTable.title,
   body: notificationsTable.body,
@@ -79,23 +90,14 @@ const recordColumns = {
   createdAt: notificationsTable.createdAt,
 };
 
-function toRecord(row: {
-  id: string;
-  roundId: string;
-  roundTitle: string;
-  kind: NotificationKindValue;
-  title: string;
-  body: string;
-  readAt: Date | string | null;
-  createdAt: Date | string;
-}): NotificationRecord {
+function toRecord(
+  row: Omit<NotificationRecord, "readAt" | "createdAt"> & {
+    readAt: Date | string | null;
+    createdAt: Date | string;
+  },
+): NotificationRecord {
   return {
-    id: row.id,
-    roundId: row.roundId,
-    roundTitle: row.roundTitle,
-    kind: row.kind,
-    title: row.title,
-    body: row.body,
+    ...row,
     readAt: row.readAt === null ? null : iso(row.readAt),
     createdAt: iso(row.createdAt),
   };
@@ -107,13 +109,13 @@ export const NotificationsLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     const service: NotificationsService = {
-      listForAccount: async (accountId, limit) => {
+      listForAccount: async (accountIds, limit) => {
         try {
           const rows = await db
             .select(recordColumns)
             .from(notificationsTable)
             .innerJoin(roundsTable, eq(roundsTable.id, notificationsTable.roundId))
-            .where(eq(notificationsTable.recipientAccountId, accountId))
+            .where(inArray(notificationsTable.recipientAccountId, accountIds))
             .orderBy(desc(notificationsTable.createdAt))
             .limit(limit);
           const [unread] = await db
@@ -121,7 +123,7 @@ export const NotificationsLive = Layer.effect(
             .from(notificationsTable)
             .where(
               and(
-                eq(notificationsTable.recipientAccountId, accountId),
+                inArray(notificationsTable.recipientAccountId, accountIds),
                 isNull(notificationsTable.readAt),
               ),
             );
@@ -131,7 +133,7 @@ export const NotificationsLive = Layer.effect(
         }
       },
 
-      markRead: async (accountId, notificationId) => {
+      markRead: async (accountIds, notificationId) => {
         try {
           const updated = await db
             .update(notificationsTable)
@@ -139,7 +141,7 @@ export const NotificationsLive = Layer.effect(
             .where(
               and(
                 eq(notificationsTable.id, notificationId),
-                eq(notificationsTable.recipientAccountId, accountId),
+                inArray(notificationsTable.recipientAccountId, accountIds),
               ),
             )
             .returning({ id: notificationsTable.id });
@@ -156,14 +158,14 @@ export const NotificationsLive = Layer.effect(
         }
       },
 
-      markAllRead: async (accountId) => {
+      markAllRead: async (accountIds) => {
         try {
           const updated = await db
             .update(notificationsTable)
             .set({ readAt: sql`now()` })
             .where(
               and(
-                eq(notificationsTable.recipientAccountId, accountId),
+                inArray(notificationsTable.recipientAccountId, accountIds),
                 isNull(notificationsTable.readAt),
               ),
             )
@@ -180,20 +182,26 @@ export const NotificationsLive = Layer.effect(
             .select({ accountId: roundParticipantsTable.accountId })
             .from(roundParticipantsTable)
             .where(eq(roundParticipantsTable.roundId, input.roundId));
-          if (participants.length === 0) return 0;
-          const rows = participants.map((participant) => ({
-            recipientAccountId: participant.accountId,
-            roundId: input.roundId,
-            kind: input.kind,
-            title: input.title,
-            body: input.body,
+          return await service.notifyAccounts({ ...input, recipients: participants });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      notifyAccounts: async ({ recipients, ...input }) => {
+        try {
+          if (recipients.length === 0) return 0;
+          const rows = recipients.map(({ accountId, feedbackId }) => ({
+            ...input,
+            recipientAccountId: accountId,
+            feedbackId: feedbackId ?? null,
           }));
           await db.transaction(async (tx) => {
             for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
               await tx.insert(notificationsTable).values(batch);
             }
           });
-          return participants.length;
+          return recipients.length;
         } catch (error) {
           throw toOrpcError(error);
         }

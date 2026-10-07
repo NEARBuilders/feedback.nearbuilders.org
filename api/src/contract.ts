@@ -100,11 +100,11 @@ export type Round = z.infer<typeof RoundSchema>;
 
 export const RoundDetailSchema = RoundSchema.extend({
   participantCount: z.number().int().nonnegative(),
-  /** First three participants, for the avatar row. Only set by getRound. */
+  /** First three participants, for the avatar row. Only set by getRound and getRoundBySlug. */
   participantPreview: z.array(z.string()).optional(),
-  /** Number of submissions, shown even when a private round hides the bodies. Only set by getRound. */
+  /** Number of submissions, shown even when a private round hides the bodies. Only set by getRound and getRoundBySlug. */
   feedbackCount: z.number().int().nonnegative().optional(),
-  /** Whether the caller's org owns this round's project (#70). Only set by getRound. */
+  /** Whether the caller's org owns this round's project (#70). Only set by getRound and getRoundBySlug. */
   canManage: z.boolean().optional(),
 });
 
@@ -115,6 +115,7 @@ export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 export const RoundParticipantSchema = z.object({
   accountId: z.string(),
   joinedAt: z.string(),
+  feedbackCount: z.number().int().nonnegative(),
 });
 
 export type RoundParticipant = z.infer<typeof RoundParticipantSchema>;
@@ -139,6 +140,40 @@ export const RoundFeedbackSchema = z.object({
 
 export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;
 
+export const FeedbackNoteSchema = z.object({
+  id: z.string(),
+  feedbackId: z.string(),
+  authorAccountId: z.string(),
+  role: z.enum(["owner", "tester"]),
+  body: z.string(),
+  createdAt: z.string(),
+});
+
+export type FeedbackNote = z.infer<typeof FeedbackNoteSchema>;
+
+const MAX_NOTE_LENGTH = 1000;
+
+const NoteBodySchema = z.string().trim().min(1, "Write a note").max(MAX_NOTE_LENGTH);
+
+export const FeedbackDetailSchema = RoundFeedbackSchema.extend({
+  notes: z.array(FeedbackNoteSchema),
+});
+
+export type FeedbackDetail = z.infer<typeof FeedbackDetailSchema>;
+
+export const MyFeedbackSchema = FeedbackDetailSchema.extend({
+  points: z.number().int().nonnegative(),
+});
+
+export type MyFeedback = z.infer<typeof MyFeedbackSchema>;
+
+export const FeedbackPageSchema = z.object({
+  items: z.array(RoundFeedbackSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type FeedbackPage = z.infer<typeof FeedbackPageSchema>;
+
 export const RoundCreditSchema = z.object({
   id: z.string(),
   roundId: z.string(),
@@ -159,6 +194,8 @@ export const NotificationKindSchema = z.enum([
   "round_closing",
   "round_closed",
   "custom",
+  "feedback_resolved",
+  "feedback_dismissed",
 ]);
 
 export type NotificationKind = z.infer<typeof NotificationKindSchema>;
@@ -167,6 +204,9 @@ export const NotificationSchema = z.object({
   id: z.string(),
   roundId: z.string(),
   roundTitle: z.string(),
+  projectSlug: z.string(),
+  projectRoundNumber: z.number().int().positive(),
+  feedbackId: z.string().nullable(),
   kind: NotificationKindSchema,
   title: z.string(),
   body: z.string(),
@@ -243,6 +283,7 @@ export const MyJoinedRoundSchema = z.object({
   roundId: z.string(),
   roundTitle: z.string(),
   projectSlug: z.string(),
+  projectRoundNumber: z.number().int().positive(),
   status: RoundStatusSchema,
   formats: z.array(RoundFormatSchema),
   /** Markdown for testers from the round owner; empty string when unset. */
@@ -347,6 +388,13 @@ export const NearBuildersProjectSchema = z.object({
 
 export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
 
+export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
+  canManage: z.boolean(),
+  nearbuilders: NearBuildersProjectSchema.nullable(),
+});
+
+export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;
+
 export const ProjectSearchResultSchema = z.object({
   available: z.boolean(),
   results: z.array(NearBuildersProjectSchema),
@@ -393,6 +441,20 @@ const CreateRoundInputSchema = z
     message: "A repo URL is required when the issues format is selected",
     path: ["repoUrl"],
   });
+
+export const TelegramTipSchema = z.object({
+  /** Bare handle without `@`; null when none is linked. */
+  handle: z.string().nullable(),
+  source: z.enum(["nearbuilders", "near-social"]).nullable(),
+  /** False when every handle source was unreachable, so null may just mean "couldn't check". */
+  available: z.boolean(),
+  /** The tip-bot message addressed to the handle, built from the configured template. */
+  message: z.string().nullable(),
+  /** `t.me` deep link that opens Telegram with the message ready to send. */
+  shareUrl: z.string().nullable(),
+});
+
+export type TelegramTip = z.infer<typeof TelegramTipSchema>;
 
 export const contract = oc.router({
   ping: oc.route({ method: "GET", path: "/ping" }).output(
@@ -502,11 +564,20 @@ export const contract = oc.router({
     .output(RoundSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
-  updateRoundReadme: oc
-    .route({ method: "PATCH", path: "/rounds/{id}/readme" })
-    .input(z.object({ id: z.string(), readme: z.string().max(MAX_README_LENGTH) }))
+  updateRound: oc
+    .route({ method: "PATCH", path: "/rounds/{id}" })
+    .input(
+      z.object({
+        id: z.string(),
+        readme: z.string().max(MAX_README_LENGTH).optional(),
+        formats: z
+          .array(RoundFormatSchema)
+          .min(1, "Select at least one feedback format")
+          .optional(),
+      }),
+    )
     .output(RoundSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
   updateRoundSettings: oc
     .route({
@@ -576,6 +647,12 @@ export const contract = oc.router({
     .output(RoundDetailSchema)
     .errors({ NOT_FOUND }),
 
+  getRoundBySlug: oc
+    .route({ method: "GET", path: "/projects/{slug}/rounds/{number}" })
+    .input(z.object({ slug: z.string().min(1), number: z.number().int().positive() }))
+    .output(RoundDetailSchema)
+    .errors({ NOT_FOUND }),
+
   joinRound: oc
     .route({ method: "POST", path: "/rounds/{id}/join" })
     .input(z.object({ id: z.string() }))
@@ -623,11 +700,39 @@ export const contract = oc.router({
 
   listFeedback: oc
     .route({ method: "GET", path: "/rounds/{id}/feedback" })
-    .input(z.object({ id: z.string() }))
-    .output(z.array(RoundFeedbackSchema))
+    .input(
+      z.object({
+        id: z.string(),
+        cursor: z.string().max(100).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        status: RoundFeedbackStatusSchema.optional(),
+        author: z.string().min(1).optional(),
+        /** Only starred submissions (#104). */
+        starred: z.boolean().optional(),
+      }),
+    )
+    .output(FeedbackPageSchema)
     .errors({ NOT_FOUND }),
   // Visibility-aware (#101): on a private round only the managing org/team and admins
   // get every submission; anyone else gets just their own.
+
+  listMyFeedback: oc
+    .route({ method: "GET", path: "/rounds/{id}/my-feedback" })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(MyFeedbackSchema))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
+
+  getFeedback: oc
+    .route({ method: "GET", path: "/rounds/{id}/feedback/{feedbackId}" })
+    .input(z.object({ id: z.string(), feedbackId: z.uuid() }))
+    .output(FeedbackDetailSchema)
+    .errors({ NOT_FOUND }),
+
+  addFeedbackNote: oc
+    .route({ method: "POST", path: "/rounds/{id}/feedback/{feedbackId}/notes" })
+    .input(z.object({ id: z.string(), feedbackId: z.uuid(), body: NoteBodySchema }))
+    .output(FeedbackNoteSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   deleteFeedback: oc
     .route({ method: "DELETE", path: "/rounds/{id}/feedback/{feedbackId}" })
@@ -642,10 +747,11 @@ export const contract = oc.router({
         id: z.string(),
         feedbackIds: z.array(z.string()).min(1).max(500),
         status: RoundFeedbackStatusSchema,
+        note: NoteBodySchema.optional(),
       }),
     )
     .output(z.array(RoundFeedbackSchema))
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   setFeedbackStarred: oc
     .route({
@@ -754,9 +860,37 @@ export const contract = oc.router({
     .input(z.object({ query: z.string().trim().min(1).max(200) }))
     .output(ProjectSearchResultSchema),
 
+  getTelegramTip: oc
+    .route({
+      method: "GET",
+      path: "/builders/{accountId}/telegram",
+      summary: "Resolve a builder's Telegram handle and the tip-bot message for it",
+      description:
+        "Looks the handle up on nearbuilders.org (links.telegram) with a NEAR Social fallback (#105). Never errors on a lookup failure: `available` is false when every source was unreachable.",
+    })
+    .input(z.object({ accountId: z.string().min(1).max(128) }))
+    .output(TelegramTipSchema)
+    .errors({ UNAUTHORIZED }),
+
   getProjectSearchStatus: oc
     .route({ method: "GET", path: "/projects/search/status" })
     .output(z.object({ enabled: z.boolean() })),
+
+  listPublicProjects: oc
+    .route({ method: "GET", path: "/projects/approved" })
+    .output(z.array(ProjectWithRoundsSchema)),
+
+  getProjectBySlug: oc
+    .route({ method: "GET", path: "/projects/{slug}/detail" })
+    .input(z.object({ slug: z.string().min(1) }))
+    .output(ProjectDetailSchema)
+    .errors({ NOT_FOUND }),
+
+  inviteTesters: oc
+    .route({ method: "POST", path: "/rounds/{id}/invite" })
+    .input(z.object({ id: z.string(), fromRoundId: z.string() }))
+    .output(z.object({ recipients: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   resolveProjectBySlug: oc
     .route({ method: "GET", path: "/projects/by-slug/{slug}" })

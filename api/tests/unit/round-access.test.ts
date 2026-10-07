@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canManageProject,
   canManageRound,
   canReadAllFeedback,
   filterVisibleFeedback,
@@ -77,6 +78,27 @@ describe("canManageRound with a managing team", () => {
   it("treats a project with no managing team like any org-owned project", () => {
     expect(canManageRound(round, { ownerOrgId: "org-1", managingTeamId: null }, inOrg)).toBe(true);
     expect(canManageRound(round, { ownerOrgId: "org-1" }, inOrg)).toBe(true);
+  });
+});
+
+describe("canManageProject (#119)", () => {
+  const rounds = [round, { ownerAccountId: "second.near" }];
+
+  it("follows the owning org and its managing team", () => {
+    const project = { ownerOrgId: "org-1", managingTeamId: "team-1", rounds };
+    expect(canManageProject(project, { activeOrganizationId: "org-1", orgRole: "admin" })).toBe(
+      true,
+    );
+    expect(canManageProject(project, { activeOrganizationId: "org-1", inManagingTeam: true })).toBe(
+      true,
+    );
+    expect(canManageProject(project, { activeOrganizationId: "org-1" })).toBe(false);
+  });
+
+  it("falls back to the creator of any of its rounds when no org owns it yet", () => {
+    const project = { ownerOrgId: null, rounds };
+    expect(canManageProject(project, { accountId: "second.near" })).toBe(true);
+    expect(canManageProject(project, { accountId: "someone.near" })).toBe(false);
   });
 });
 
@@ -168,12 +190,19 @@ describe("filterVisibleFeedback (#101)", () => {
   });
 
   it("keeps only the caller's own submissions otherwise", () => {
-    expect(filterVisibleFeedback(items, false, "a.near").map((i) => i.id)).toEqual(["1", "3"]);
-    expect(filterVisibleFeedback(items, false, "nobody.near")).toEqual([]);
+    expect(filterVisibleFeedback(items, false, ["a.near"]).map((i) => i.id)).toEqual(["1", "3"]);
+    expect(filterVisibleFeedback(items, false, ["nobody.near"])).toEqual([]);
+  });
+
+  it("keeps submissions from any of the caller's linked wallets (#121)", () => {
+    expect(filterVisibleFeedback(items, false, ["nobody.near", "b.near"]).map((i) => i.id)).toEqual(
+      ["2"],
+    );
   });
 
   it("returns nothing to signed-out callers", () => {
     expect(filterVisibleFeedback(items, false, null)).toEqual([]);
     expect(filterVisibleFeedback(items, false, undefined)).toEqual([]);
+    expect(filterVisibleFeedback(items, false, [])).toEqual([]);
   });
 });

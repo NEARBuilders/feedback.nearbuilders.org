@@ -40,7 +40,7 @@ describe("starring feedback (#104)", () => {
     expect(starred?.status).toBe("unresolved");
 
     await owner.setFeedbackStatus({ id: round.id, feedbackIds: [item.id], status: "resolved" });
-    const afterResolve = (await owner.listFeedback({ id: round.id }))[0];
+    const afterResolve = (await owner.listFeedback({ id: round.id })).items[0];
     expect(afterResolve).toMatchObject({ status: "resolved" });
     expect(afterResolve?.starredAt).toEqual(expect.any(String));
 
@@ -90,7 +90,7 @@ describe("starring feedback (#104)", () => {
       starred: true,
     });
     expect(result).toEqual([]);
-    const untouched = (await other.owner.listFeedback({ id: other.round.id }))[0];
+    const untouched = (await other.owner.listFeedback({ id: other.round.id })).items[0];
     expect(untouched?.starredAt).toBeNull();
   });
 
@@ -104,6 +104,18 @@ describe("starring feedback (#104)", () => {
       starred: true,
     });
     expect(result).toHaveLength(2);
+  });
+
+  it("filters listFeedback to starred submissions (#104)", async () => {
+    const { round, owner } = await openRound();
+    const a = await post("star-filter.near", round.id, "Starred one");
+    await post("star-filter.near", round.id, "Plain one");
+    await owner.setFeedbackStarred({ id: round.id, feedbackIds: [a.id], starred: true });
+
+    const starred = await owner.listFeedback({ id: round.id, starred: true });
+    expect(starred.items.map((f) => f.id)).toEqual([a.id]);
+    const everything = await owner.listFeedback({ id: round.id });
+    expect(everything.items).toHaveLength(2);
   });
 });
 

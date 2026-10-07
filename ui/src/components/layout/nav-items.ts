@@ -2,7 +2,9 @@ import {
   BookOpen,
   Building2,
   ClipboardCheck,
+  FolderKanban,
   Home,
+  LayoutDashboard,
   MessageSquare,
   PlusCircle,
   Shield,
@@ -36,7 +38,14 @@ export const SIDEBAR_SECTIONS: { id: SidebarSectionId; label: string }[] = [
 
 export const NAV_ITEMS: SidebarItem[] = [
   { icon: Home, label: "dashboard", to: "/dashboard", section: "main", roleRequired: "member" },
-  { icon: MessageSquare, label: "feed", to: "/feed", section: "main", roleRequired: "anon" },
+  { icon: MessageSquare, label: "rounds", to: "/rounds", section: "main", roleRequired: "anon" },
+  {
+    icon: FolderKanban,
+    label: "projects",
+    to: "/projects",
+    section: "main",
+    roleRequired: "anon",
+  },
   {
     icon: Trophy,
     label: "leaderboard",
@@ -62,6 +71,13 @@ export const NAV_ITEMS: SidebarItem[] = [
     icon: PlusCircle,
     label: "request a round",
     to: "/feed/request",
+    section: "workspace",
+    roleRequired: "member",
+  },
+  {
+    icon: LayoutDashboard,
+    label: "manage",
+    to: "/manage",
     section: "workspace",
     roleRequired: "member",
   },
@@ -95,7 +111,7 @@ function matchLength(pathname: string, prefix: string): number {
   return pathname === prefix || pathname.startsWith(`${prefix}/`) ? prefix.length : -1;
 }
 
-/** The item whose prefix matches `pathname` most specifically, so /feed/request beats /feed. */
+/** The item whose prefix matches `pathname` most specifically. */
 export function getActiveItem(items: SidebarItem[], pathname: string): SidebarItem | undefined {
   let best: SidebarItem | undefined;
   let bestLength = -1;

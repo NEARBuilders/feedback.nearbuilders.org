@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  type ExportableFeedback,
-  feedbackToCsv,
-  feedbackToJson,
-  filterFeedbackByStatus,
-} from "./feedback-export";
+import { type ExportableFeedback, feedbackToCsv, feedbackToJson } from "./feedback-export";
 
 const written: ExportableFeedback = {
   id: "f1",
@@ -64,19 +59,5 @@ describe("feedbackToJson", () => {
         createdAt: "2026-10-02T00:00:00.000Z",
       },
     ]);
-  });
-});
-
-describe("filterFeedbackByStatus", () => {
-  it("returns everything for all and only the matching status otherwise", () => {
-    expect(filterFeedbackByStatus([written, recorded], "all")).toHaveLength(2);
-    expect(filterFeedbackByStatus([written, recorded], "resolved")).toEqual([recorded]);
-    expect(filterFeedbackByStatus([written, recorded], "dismissed")).toEqual([]);
-  });
-
-  it("filters to starred submissions regardless of status", () => {
-    expect(filterFeedbackByStatus([written, recorded], "starred")).toEqual([recorded]);
-    const starredUnresolved = { ...written, starredAt: "2026-10-04T00:00:00.000Z" };
-    expect(filterFeedbackByStatus([starredUnresolved, recorded], "starred")).toHaveLength(2);
   });
 });

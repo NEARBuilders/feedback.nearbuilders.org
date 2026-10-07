@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Badge, Button, Card, Input, SectionHeader, Skeleton } from "@/components";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { invalidateProjectQueries, myProjectsQueryOptions } from "@/lib/queries/projects";
+import { orgTeamsQueryOptions, teamKeys } from "@/lib/queries/teams";
 import {
   delegationOptions,
   describeDelegation,
@@ -17,7 +19,6 @@ import {
   teamMemberCandidates,
 } from "@/lib/teams";
 
-const teamsKey = (orgId: string) => ["org-teams", orgId] as const;
 const teamMembersKey = (teamId: string) => ["org-team-members", teamId] as const;
 
 interface OrgTeamsProps {
@@ -33,19 +34,12 @@ export function OrgTeams({ orgId, orgMembers, canManage, isActiveOrg }: OrgTeams
   const [name, setName] = useState("");
   const [deleteTeam, setDeleteTeam] = useState<{ id: string; name: string } | null>(null);
 
-  const teamsQuery = useQuery({
-    queryKey: teamsKey(orgId),
-    queryFn: () => apiClient.auth.listTeams({ organizationId: orgId }),
-    enabled: !!orgId,
-    retry: false,
-  });
+  const teamsQuery = useQuery(orgTeamsQueryOptions(apiClient, orgId));
   const teams = teamsQuery.data ?? [];
 
   const projectsQuery = useQuery({
-    queryKey: ["projects", "mine"],
-    queryFn: () => apiClient.listMyProjects(),
+    ...myProjectsQueryOptions(apiClient),
     enabled: isActiveOrg && canManage,
-    retry: false,
   });
 
   const createMutation = useMutation({
@@ -53,7 +47,7 @@ export function OrgTeams({ orgId, orgMembers, canManage, isActiveOrg }: OrgTeams
       apiClient.auth.createTeam({ name: normalizeTeamName(name), organizationId: orgId }),
     onSuccess: (team) => {
       setName("");
-      void queryClient.invalidateQueries({ queryKey: teamsKey(orgId) });
+      void queryClient.invalidateQueries({ queryKey: teamKeys.org(orgId) });
       toast.success(`Created ${team.name}`);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -71,8 +65,8 @@ export function OrgTeams({ orgId, orgMembers, canManage, isActiveOrg }: OrgTeams
     },
     onSuccess: () => {
       setDeleteTeam(null);
-      void queryClient.invalidateQueries({ queryKey: teamsKey(orgId) });
-      void queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+      void queryClient.invalidateQueries({ queryKey: teamKeys.org(orgId) });
+      void invalidateProjectQueries(queryClient);
       toast.success("Team deleted");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -301,10 +295,8 @@ function ProjectDelegation({
   const queryClient = useQueryClient();
 
   const projectsQuery = useQuery({
-    queryKey: ["projects", "mine"],
-    queryFn: () => apiClient.listMyProjects(),
+    ...myProjectsQueryOptions(apiClient),
     enabled: isActiveOrg,
-    retry: false,
   });
   const projects = (projectsQuery.data ?? []).filter((project) => project.status === "approved");
 
@@ -312,7 +304,7 @@ function ProjectDelegation({
     mutationFn: (input: { id: string; teamId: string | null }) =>
       apiClient.setProjectManagingTeam(input),
     onSuccess: (project) => {
-      void queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+      void invalidateProjectQueries(queryClient);
       toast.success(
         project.managingTeamId
           ? `Round management delegated to ${describeDelegation(teams, project.managingTeamId)}`

@@ -31,6 +31,7 @@ export interface ProjectRecord {
 
 export interface ProjectRoundSummary {
   id: string;
+  ownerAccountId: string;
   title: string;
   status: (typeof roundStatus)["enumValues"][number];
   projectRoundNumber: number;
@@ -180,6 +181,7 @@ async function withRounds(db: Database, rows: ProjectRow[]): Promise<ProjectWith
   const roundRows = await db
     .select({
       id: roundsTable.id,
+      ownerAccountId: roundsTable.ownerAccountId,
       title: roundsTable.title,
       status: roundsTable.status,
       projectRoundNumber: roundsTable.projectRoundNumber,

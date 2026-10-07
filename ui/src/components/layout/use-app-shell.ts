@@ -7,8 +7,11 @@ import { shouldUseAppShell } from "@/lib/app-shell";
 export function useAppShellState() {
   const authClient = useAuthClient();
   const initialSession = useRouteContext({ strict: false, select: (c) => c.session });
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const location = useRouterState({ select: (s) => s.location });
   const { data: session } = useQuery(sessionQueryOptions(authClient, initialSession));
 
-  return { session, useAppShell: shouldUseAppShell(!!session?.user, pathname) };
+  return {
+    session,
+    useAppShell: shouldUseAppShell(!!session?.user, location.pathname, location.search),
+  };
 }
