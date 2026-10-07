@@ -79,11 +79,9 @@ export async function getPluginClient(context?: Record<string, unknown>) {
     });
     const rpcHandler = new RPCHandler(router);
 
-    // Find an available port
-    const testPort = 3000 + Math.floor(Math.random() * 1000);
-    port = testPort;
-    baseUrl = `http://localhost:${port}`;
-
+    // The base URL is only known once the OS has picked a free port (listening on 0). A random
+    // port in a fixed range could land on one that fetch refuses ("bad port", e.g. 3659) or
+    // that is already in use, which made CI flaky.
     server = createServer(async (req, res) => {
       const url = new URL(req.url!, baseUrl);
 
@@ -108,9 +106,15 @@ export async function getPluginClient(context?: Record<string, unknown>) {
     });
 
     await new Promise<void>((resolve, reject) => {
-      server?.listen(port, "127.0.0.1", () => resolve());
-      server?.on("error", reject);
+      server?.once("error", reject);
+      server?.listen(0, "127.0.0.1", () => resolve());
     });
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Test server did not bind to a TCP port");
+    }
+    port = address.port;
+    baseUrl = `http://127.0.0.1:${port}`;
   }
 
   const link = new RPCLink({
