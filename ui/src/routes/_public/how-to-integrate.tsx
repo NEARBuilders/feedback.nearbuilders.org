@@ -14,7 +14,7 @@ const STEPS = [
   {
     n: 1,
     title: "Request a round",
-    body: "Sign in with your NEAR wallet and submit a round for a project you own — what needs testing, the feedback formats you'll accept (written notes, a recorded session, or GitHub issues), and an optional repo link. It goes live immediately, no approval step.",
+    body: "Sign in with your NEAR wallet and submit a round for a project you own — what needs testing, the feedback formats you'll accept (written notes, a recorded session, or GitHub issues), and an optional repo link. A new project is reviewed by an admin once, and its first round opens when it is approved. After that, your organization's rounds open right away.",
   },
   {
     n: 2,
@@ -45,7 +45,6 @@ const FOR_BUILDERS = [
   "Credit you receive is portable — it shows on your public profile page, linked from the round.",
 ];
 
-// TODO(phase 11): revisit once the API-key integration path for external projects ships.
 function HowToIntegratePage() {
   return (
     <PageContainer variant="default">
