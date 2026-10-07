@@ -130,7 +130,7 @@ Where points show up:
 The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
 `api/src/services/points.ts`.
 
-## Private rounds and Legion gating
+## Private rounds, Legion gating and stars
 
 - **Private rounds:** a round can be marked private when it is requested, and managers can toggle
   it later (`PATCH /rounds/{id}/settings`). On a private round, submissions are readable only by
@@ -143,6 +143,11 @@ The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
 - **Legion-only rounds:** the owner can restrict a round to holders of a Legion SBT. Joining and
   posting are rejected for non-holders, a failed holder lookup counts as "not a holder", and the
   round page shows signed-in builders whether they are eligible before they try to join.
+- **Stars:** round managers (and admins) can star standout submissions
+  (`PATCH /rounds/{id}/feedback/star`), independent of resolve/dismiss. A star on an **accepted**
+  submission adds a **5 point** bonus (`BONUS_POINTS_PER_STARRED_FEEDBACK`), shown on the
+  leaderboard and builder profiles. Stars on unresolved or dismissed feedback earn nothing, and
+  un-starring or un-accepting takes the bonus back.
 
 ## Teams and delegated round management
 

@@ -92,6 +92,9 @@ export interface RoundFeedbackRecord {
   body: string | null;
   url: string | null;
   status: RoundFeedbackStatus;
+  /** Set when a round manager starred the submission (#104); independent of status. */
+  starredAt: string | null;
+  starredByAccountId: string | null;
   createdAt: string;
   activityEventId: string | null;
   nostrEventId: string | null;
@@ -191,11 +194,19 @@ export interface RoundsService {
     feedbackIds: string[],
     status: RoundFeedbackStatus,
   ): Promise<RoundFeedbackRecord[]>;
+  /** Stars or unstars submissions, leaving their status untouched (#104). */
+  setFeedbackStarred(
+    roundId: string,
+    feedbackIds: string[],
+    starred: boolean,
+    starredByAccountId: string,
+  ): Promise<RoundFeedbackRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
   /** Accepted (resolved) feedback per author, optionally only accepted on or after `since`. */
   listAcceptedCounts(since: Date | null): Promise<AcceptedCount[]>;
   getFeedbackTotals(accountId: string): Promise<{
     acceptedCount: number;
+    starredCount: number;
     submittedCount: number;
   }>;
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
@@ -255,6 +266,8 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     body: row.body,
     url: row.url,
     status: row.status,
+    starredAt: row.starredAt instanceof Date ? row.starredAt.toISOString() : null,
+    starredByAccountId: row.starredByAccountId,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     activityEventId: row.activityEventId,
     nostrEventId: row.nostrEventId,
@@ -561,6 +574,29 @@ export const RoundsLive = Layer.effect(
         }
       },
 
+      setFeedbackStarred: async (roundId, feedbackIds, starred, starredByAccountId) => {
+        try {
+          if (feedbackIds.length === 0) return [];
+          const rows = await db
+            .update(roundFeedbackTable)
+            .set(
+              starred
+                ? { starredAt: new Date(), starredByAccountId }
+                : { starredAt: null, starredByAccountId: null },
+            )
+            .where(
+              and(
+                eq(roundFeedbackTable.roundId, roundId),
+                inArray(roundFeedbackTable.id, feedbackIds),
+              ),
+            )
+            .returning();
+          return rows.map(toFeedbackRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
       listParticipants: async (roundId) => {
         try {
           const rows = await db
@@ -588,6 +624,7 @@ export const RoundsLive = Layer.effect(
             .select({
               accountId: roundFeedbackTable.authorAccountId,
               acceptedCount: count(),
+              starredCount: sql<number>`count(*) filter (where ${roundFeedbackTable.starredAt} is not null)::int`,
             })
             .from(roundFeedbackTable)
             .where(
@@ -600,6 +637,7 @@ export const RoundsLive = Layer.effect(
           return rows.map((row) => ({
             accountId: row.accountId,
             acceptedCount: row.acceptedCount,
+            starredCount: row.starredCount,
           }));
         } catch (error) {
           throw toOrpcError(error);
@@ -612,12 +650,14 @@ export const RoundsLive = Layer.effect(
             .select({
               submittedCount: count(),
               acceptedCount: sql<number>`count(*) filter (where ${roundFeedbackTable.status} = 'resolved')::int`,
+              starredCount: sql<number>`count(*) filter (where ${roundFeedbackTable.status} = 'resolved' and ${roundFeedbackTable.starredAt} is not null)::int`,
             })
             .from(roundFeedbackTable)
             .where(eq(roundFeedbackTable.authorAccountId, accountId));
           return {
             submittedCount: row?.submittedCount ?? 0,
             acceptedCount: row?.acceptedCount ?? 0,
+            starredCount: row?.starredCount ?? 0,
           };
         } catch (error) {
           throw toOrpcError(error);

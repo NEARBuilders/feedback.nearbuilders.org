@@ -63,6 +63,7 @@ function LeaderboardPage() {
             actor: entry.actor,
             score: entry.points,
             eventCount: entry.acceptedCount,
+            starredCount: entry.starredCount,
           })),
         };
       }
@@ -90,7 +91,7 @@ function LeaderboardPage() {
           title="Top testers"
           description={
             isPoints
-              ? "Builders ranked by points: 10 for every feedback item a round owner accepts."
+              ? "Builders ranked by points: 10 for every feedback item a round owner accepts, plus a 5 point bonus when they star it."
               : "Builders ranked by the feedback they've submitted across rounds."
           }
         />

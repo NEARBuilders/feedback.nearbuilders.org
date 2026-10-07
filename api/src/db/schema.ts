@@ -162,6 +162,9 @@ export const roundFeedback = pgTable(
     url: text("url"),
     status: roundFeedbackStatus("status").default("unresolved").notNull(),
     statusChangedAt: timestamp("status_changed_at", { mode: "date", withTimezone: true }),
+    // Standout mark set by a round manager, independent of status (#104).
+    starredAt: timestamp("starred_at", { mode: "date", withTimezone: true }),
+    starredByAccountId: text("starred_by_account_id"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     activityEventId: text("activity_event_id"),
     nostrEventId: text("nostr_event_id"),

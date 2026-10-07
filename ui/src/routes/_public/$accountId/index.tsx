@@ -54,6 +54,13 @@ export function BuilderPoints({ accountId }: { accountId: string }) {
               {acceptedLabel(data.acceptedCount)} of {data.submittedCount} submitted ·{" "}
               {acceptanceRate(data.acceptedCount, data.submittedCount)} accepted
             </p>
+            {data.starredCount > 0 && (
+              <p className="text-sm text-muted-foreground" data-testid="builder-starred">
+                {data.starredCount} starred as{" "}
+                {data.starredCount === 1 ? "a standout" : "standouts"} (+{data.bonusPoints} bonus{" "}
+                {data.bonusPoints === 1 ? "point" : "points"})
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {data.rank !== null && <Badge variant="secondary">rank #{data.rank}</Badge>}

@@ -15,6 +15,7 @@ import {
   Check,
   Download,
   RotateCcw,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -48,6 +49,7 @@ const STATUS_FILTERS: Array<{ value: FeedbackStatusFilter; label: string }> = [
   { value: "unresolved", label: "Unresolved" },
   { value: "resolved", label: "Resolved" },
   { value: "dismissed", label: "Dismissed" },
+  { value: "starred", label: "Starred" },
 ];
 
 const STATUS_BADGE_VARIANT: Record<FeedbackStatus, "secondary" | "success" | "outline"> = {
@@ -119,6 +121,25 @@ export function FeedbackTable({
 
   const { mutate: setStatus, isPending: isStatusPending } = statusMutation;
 
+  const starMutation = useMutation({
+    mutationFn: (input: { feedbackIds: string[]; starred: boolean }) =>
+      apiClient.setFeedbackStarred({ id: roundId, ...input }),
+    onSuccess: (updated, { starred }) => {
+      void queryClient.invalidateQueries({ queryKey: ["round", roundId, "feedback"] });
+      setRowSelection({});
+      toast.success(
+        updated.length === 1
+          ? starred
+            ? "Starred"
+            : "Star removed"
+          : `${starred ? "Starred" : "Unstarred"} ${updated.length} items`,
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const { mutate: setStarred, isPending: isStarPending } = starMutation;
+
   const columns = useMemo<ColumnDef<FeedbackEntry>[]>(
     () => [
       {
@@ -187,6 +208,12 @@ export function FeedbackTable({
                   </a>
                 )
               )}
+              {entry.starredAt && (
+                <Badge variant="secondary" className="gap-1 text-[10px]" data-testid="star-badge">
+                  <Star className="h-3 w-3 fill-current" />
+                  Standout
+                </Badge>
+              )}
               <p className="text-xs text-muted-foreground sm:hidden">
                 <span className="font-mono">{entry.authorAccountId}</span>
                 {entry.authorAccountId === currentAccountId && " (you)"}
@@ -224,6 +251,18 @@ export function FeedbackTable({
           const isOwn = !!currentAccountId && entry.authorAccountId === currentAccountId;
           return (
             <div className="flex items-center justify-end gap-1">
+              {canModerate && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={entry.starredAt ? "Remove star" : "Star as standout"}
+                  aria-pressed={!!entry.starredAt}
+                  disabled={isStarPending}
+                  onClick={() => setStarred({ feedbackIds: [entry.id], starred: !entry.starredAt })}
+                >
+                  <Star className={`h-3.5 w-3.5 ${entry.starredAt ? "fill-current" : ""}`} />
+                </Button>
+              )}
               {canModerate && entry.status !== "resolved" && (
                 <Button
                   variant="ghost"
@@ -272,7 +311,16 @@ export function FeedbackTable({
         },
       },
     ],
-    [canModerate, canDelete, currentAccountId, onDelete, setStatus, isStatusPending],
+    [
+      canModerate,
+      canDelete,
+      currentAccountId,
+      onDelete,
+      setStatus,
+      isStatusPending,
+      setStarred,
+      isStarPending,
+    ],
   );
 
   const table = useReactTable({
@@ -325,6 +373,27 @@ export function FeedbackTable({
                   <X className="h-3.5 w-3.5" />
                   Dismiss
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isStarPending}
+                  onClick={() =>
+                    setStarred({ feedbackIds: selected.map((entry) => entry.id), starred: true })
+                  }
+                >
+                  <Star className="h-3.5 w-3.5" />
+                  Star
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isStarPending}
+                  onClick={() =>
+                    setStarred({ feedbackIds: selected.map((entry) => entry.id), starred: false })
+                  }
+                >
+                  Unstar
+                </Button>
               </>
             )}
             <Button variant="outline" size="sm" onClick={() => exportSelection("csv")}>
@@ -341,7 +410,11 @@ export function FeedbackTable({
 
       {visibleEntries.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {filter === "all" ? "No feedback yet." : `No ${filter} feedback.`}
+          {filter === "all"
+            ? "No feedback yet."
+            : filter === "starred"
+              ? "No starred feedback."
+              : `No ${filter} feedback.`}
         </p>
       ) : (
         <Table>

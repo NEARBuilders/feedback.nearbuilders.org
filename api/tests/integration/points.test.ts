@@ -31,6 +31,8 @@ describe("points for accepted feedback", () => {
       accountId: "nobody-pts.near",
       points: 0,
       acceptedCount: 0,
+      starredCount: 0,
+      bonusPoints: 0,
       submittedCount: 0,
       rank: null,
     });

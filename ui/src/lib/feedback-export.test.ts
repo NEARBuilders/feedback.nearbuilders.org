@@ -23,6 +23,7 @@ const recorded: ExportableFeedback = {
   body: null,
   url: "https://example.com/r",
   status: "resolved",
+  starredAt: "2026-10-03T00:00:00.000Z",
   createdAt: "2026-10-02T00:00:00.000Z",
 };
 
@@ -30,14 +31,14 @@ describe("feedbackToCsv", () => {
   it("writes a header and quotes cells containing commas, quotes and newlines", () => {
     const csv = feedbackToCsv([written, recorded]);
     expect(csv.split("\r\n")).toEqual([
-      "id,author,format,content,status,createdAt",
-      'f1,alice.near,written,"Said ""hi"",\nthen left",unresolved,2026-10-01T00:00:00.000Z',
-      "f2,bob.near,recorded,https://example.com/r,resolved,2026-10-02T00:00:00.000Z",
+      "id,author,format,content,status,starred,createdAt",
+      'f1,alice.near,written,"Said ""hi"",\nthen left",unresolved,no,2026-10-01T00:00:00.000Z',
+      "f2,bob.near,recorded,https://example.com/r,resolved,yes,2026-10-02T00:00:00.000Z",
     ]);
   });
 
   it("writes only the header for an empty selection", () => {
-    expect(feedbackToCsv([])).toBe("id,author,format,content,status,createdAt");
+    expect(feedbackToCsv([])).toBe("id,author,format,content,status,starred,createdAt");
   });
 });
 
@@ -50,6 +51,7 @@ describe("feedbackToJson", () => {
         format: "written",
         content: 'Said "hi",\nthen left',
         status: "unresolved",
+        starred: false,
         createdAt: "2026-10-01T00:00:00.000Z",
       },
       {
@@ -58,6 +60,7 @@ describe("feedbackToJson", () => {
         format: "recorded",
         content: "https://example.com/r",
         status: "resolved",
+        starred: true,
         createdAt: "2026-10-02T00:00:00.000Z",
       },
     ]);
@@ -69,5 +72,11 @@ describe("filterFeedbackByStatus", () => {
     expect(filterFeedbackByStatus([written, recorded], "all")).toHaveLength(2);
     expect(filterFeedbackByStatus([written, recorded], "resolved")).toEqual([recorded]);
     expect(filterFeedbackByStatus([written, recorded], "dismissed")).toEqual([]);
+  });
+
+  it("filters to starred submissions regardless of status", () => {
+    expect(filterFeedbackByStatus([written, recorded], "starred")).toEqual([recorded]);
+    const starredUnresolved = { ...written, starredAt: "2026-10-04T00:00:00.000Z" };
+    expect(filterFeedbackByStatus([starredUnresolved, recorded], "starred")).toHaveLength(2);
   });
 });
