@@ -67,7 +67,7 @@ describe("postFeedback (nostr plugin composition)", () => {
     expect(feedback.nostrEventId).toBeNull();
 
     const anon = await getPluginClient();
-    const thread = await anon.listFeedback({ id: round.id });
+    const { items: thread } = await anon.listFeedback({ id: round.id });
     expect(thread.find((entry) => entry.id === feedback.id)?.body).toBe("Still lands in Postgres");
   });
 });

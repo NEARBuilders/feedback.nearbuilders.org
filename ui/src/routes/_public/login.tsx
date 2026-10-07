@@ -6,10 +6,15 @@ import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, PageContainer } from "@/components";
 import { UnderConstruction } from "@/components/under-construction";
 import { pageHead } from "@/lib/page-title";
+import { resetViewerQueries } from "@/lib/queries/viewer";
 
 type SearchParams = {
   redirect?: string;
 };
+
+function afterLogin(redirect?: string) {
+  return redirect?.startsWith("/") ? redirect : "/rounds";
+}
 
 export const Route = createFileRoute("/_public/login")({
   ssr: false,
@@ -25,7 +30,7 @@ export const Route = createFileRoute("/_public/login")({
       queryClient.getQueryData(sessionQueryOptions(authClient, initialSession).queryKey);
 
     if (session?.user && !session.user.banned) {
-      const redirectTo = search.redirect?.startsWith("/") ? search.redirect : "/feed";
+      const redirectTo = afterLogin(search.redirect);
       throw redirect({ to: redirectTo, search: {} });
     }
   },
@@ -56,12 +61,13 @@ function LoginPage() {
   }, [auth.near]);
 
   const handleSuccess = async (message: string) => {
-    const redirectTo = redirect?.startsWith("/") ? redirect : "/feed";
+    const redirectTo = afterLogin(redirect);
     toast.success(message);
     const { data: freshSession } = await auth.getSession({
       query: { disableCookieCache: true },
     });
     queryClient.setQueryData(sessionQueryOptions(auth, undefined).queryKey, freshSession ?? null);
+    resetViewerQueries(queryClient);
     navigate({ to: redirectTo, replace: true, search: {} });
   };
 
@@ -92,7 +98,7 @@ function LoginPage() {
   };
 
   if (session?.user && !session.user.banned) {
-    const redirectTo = redirect?.startsWith("/") ? redirect : "/feed";
+    const redirectTo = afterLogin(redirect);
     return <Navigate to={redirectTo} replace search={{}} />;
   }
 

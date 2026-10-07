@@ -13,7 +13,8 @@ import {
   DropdownMenuTrigger,
   Skeleton,
 } from "@/components";
-import { formatRelativeTime, formatUnreadCount } from "@/lib/notifications";
+import { formatRelativeTime, formatUnreadCount, notificationTarget } from "@/lib/notifications";
+import { roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 const NOTIFICATIONS_KEY = ["notifications"] as const;
@@ -109,8 +110,9 @@ export function NotificationBell() {
                       }}
                     >
                       <Link
-                        to="/feed/$roundId"
-                        params={{ roundId: item.roundId }}
+                        to={notificationTarget(item.kind)}
+                        params={roundParams(item)}
+                        hash={item.feedbackId ? `feedback-${item.feedbackId}` : undefined}
                         className="flex cursor-pointer gap-2.5 rounded-none px-3 py-2.5"
                       >
                         <span

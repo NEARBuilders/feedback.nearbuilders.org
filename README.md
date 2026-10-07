@@ -1,6 +1,6 @@
 # Feedback Rounds Service
 
-`feedback.nearbuilders.org` is a standalone service for project-requested product testing rounds. A project owner requests a round on their product, builders sign up to test it, the project picks who they want, testers use the product and submit feedback during a set window, and when the round closes the selected testers get credit on their NEAR Builders profile.
+`feedback.nearbuilders.org` is a standalone service for project-requested product testing rounds. A project owner requests a round on their product, any builder can join it and try the product, testers post feedback while the round is open, and when the owner closes the round the testers they mark as meaningful contributors get credit on their NEAR Builders profile.
 
 This repository extends [`dev.everything`](https://everything.dev/) with local UI and API overrides, implementing the feedback-rounds features described below.
 
@@ -10,62 +10,79 @@ The product scope comes from [NEAR Builders issue #221](https://github.com/NEARB
 
 Projects in the NEAR Builders directory ship things and have no easy way to get real users to test them. Builders on the site want to try things, break them, and report what is wrong, but there is no place today that connects the two sides. Right now it happens in Telegram DMs, or not at all.
 
-Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs tested, builders apply, the project selects testers, testers report back, and the round produces a durable record of who contributed.
+Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs tested, builders join and try it, testers report back, and the round produces a durable record of who contributed.
 
 ## Product principles
 
-- **Human-judged.** The project owner selects testers and marks who contributed meaningfully. Nothing is automatic.
+- **Human-judged.** The project owner marks who contributed meaningfully when closing the round, and resolves or dismisses feedback. Nothing is automatic.
 - **The project owns its issue tracker.** Bugs are filed on the project's own GitHub. This service never mirrors or rebuilds an issue tracker.
 - **No pasted links for GitHub credit.** When credit needs to reflect issues filed, it is pulled from the GitHub API by repository and contributor.
-- **Time-boxed.** Every round has a start and end date. Signups lock once the tester slots are full.
-- **Not first come first served.** Applying is an expression of interest; the project chooses.
+- **Open to join.** Any signed-in builder with a linked NEAR account can join an open round and leave again before it closes. There is no application queue or slot limit.
 - **Portable credit.** Participation shows on the builder's NEAR Builders profile — which round, which project, and what they submitted.
-- **No money, no scoring.** No payments or rewards handling, and no quality scoring of feedback.
+- **No money.** No payments handling. Points are derived from accepted feedback (see Points below), not from any quality scoring.
 
-## Planned API
+## API
+
+All endpoints are under `/api/v1`. Open rounds and leaderboards are public; everything else needs a signed-in session.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/v1/rounds` | Request a feedback round for a project your active organization owns, with an optional markdown `readme` for testers. A new project is created `pending`; on an approved project the round opens immediately. |
-| `GET` | `/api/v1/rounds` | List rounds, filtered by status (open rounds are public and need no sign-in). |
-| `GET` | `/api/v1/rounds/{id}` | Read one round. Pending and rejected rounds are visible only to the owning organization and admins. |
-| `PATCH` | `/api/v1/rounds/{id}/readme` | Owning organization: edit the round's markdown readme for testers. |
-| `GET` | `/api/v1/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
-| `GET` | `/api/v1/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
-| `POST` | `/api/v1/projects/{id}/approve` | Admin: approve a project; its pending rounds go live for signups. |
-| `POST` | `/api/v1/projects/{id}/reject` | Admin: reject a project with a required reason; its pending rounds are rejected with it. |
-| `POST` | `/api/v1/rounds/{id}/signups` | Apply to test a round, with a short note. Once per builder per round. |
-| `DELETE` | `/api/v1/rounds/{id}/signups/me` | Withdraw your own application. |
-| `GET` | `/api/v1/rounds/{id}/signups` | Owner: list applicants for a round. |
-| `PATCH` | `/api/v1/rounds/{id}/signups/{signupId}` | Owner: select or decline an applicant, until the slots are full. |
-| `POST` | `/api/v1/rounds/{id}/submissions` | Selected tester: submit written feedback or a recorded-session link. |
-| `GET` | `/api/v1/rounds/{id}/submissions` | Owner: read the in-app feedback for a round. |
-| `GET` | `/api/v1/rounds/{id}/github-issues` | Read issues filed on the round's repo during its window, grouped by contributor. |
-| `POST` | `/api/v1/rounds/{id}/close` | Owner: close the round and mark who contributed meaningfully. |
-| `GET` | `/api/v1/builders/{accountId}/rounds` | Public: completed rounds a builder was credited on, for their profile. |
+| `POST` | `/rounds` | Request a feedback round for a project your active organization owns, with an optional markdown `readme` for testers. A new project is created `pending`; on an approved project the round opens immediately. |
+| `GET` | `/rounds` | List rounds, filtered by status (open and closed rounds are public; pending and rejected are admin only). |
+| `GET` | `/rounds/{id}` | Read one round. Pending and rejected rounds are visible only to the owning organization and admins. |
+| `GET` | `/projects/{slug}/rounds/{number}` | Read a round by its readable address, e.g. `/projects/near-wallet/rounds/3`. |
+| `PATCH` | `/rounds/{id}` | Owning organization: edit the round's markdown readme for testers and its feedback formats. |
+| `DELETE` | `/rounds/{id}` | Owning organization: delete a round. |
+| `GET` | `/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
+| `GET` | `/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
+| `GET` | `/projects/approved` | Public: approved projects with their rounds. |
+| `GET` | `/projects/{slug}/detail` | Public: a project, its rounds and its nearbuilders.org metadata. |
+| `POST` | `/projects/{id}/approve` | Admin: approve a project; its pending rounds open. |
+| `POST` | `/projects/{id}/reject` | Admin: reject a project with a required reason; its pending rounds are rejected with it. |
+| `POST` | `/projects/{id}/managing-team` | Org owner or admin: delegate the project's rounds to a team (or clear it). |
+| `POST` / `DELETE` | `/rounds/{id}/join` | Join an open round, or leave it. Members of the owning organization can't join. |
+| `GET` | `/rounds/{id}/join` | Whether you have joined. |
+| `GET` | `/rounds/joined` | Rounds you have joined. |
+| `GET` | `/rounds/{id}/participants` | Participants, for the owner, admins and joined testers. |
+| `POST` | `/rounds/{id}/invite` | Owner: notify the testers of an earlier round of the same project. |
+| `POST` | `/rounds/{id}/feedback` | Joined tester: post written feedback or a recorded-session link while the round is open. |
+| `GET` | `/rounds/{id}/feedback` | Read a round's feedback, newest first, cursor-paged and filterable by `status` and `author`. |
+| `GET` | `/rounds/{id}/feedback/{feedbackId}` | One feedback item; owner notes are included for its author and the round's managers. |
+| `POST` | `/rounds/{id}/feedback/{feedbackId}/notes` | Owner note on feedback, or the author's reply to one. |
+| `GET` | `/rounds/{id}/my-feedback` | Tester: your feedback in a round, with status, points and notes. |
+| `DELETE` | `/rounds/{id}/feedback/{feedbackId}` | Owning organization: remove a feedback item. |
+| `PATCH` | `/rounds/{id}/feedback/status` | Owning organization or admin: resolve, dismiss or reopen feedback (bulk). |
+| `POST` | `/rounds/{id}/broadcast` | Owning organization: send an in-app notification to the round's participants. |
+| `GET` | `/notifications` | Your notifications; `POST /notifications/{id}/read` and `/notifications/read-all` mark them read. |
+| `GET` | `/rounds/{id}/github-issues` | Read issues filed on the round's repo during its window, grouped by contributor. |
+| `GET` | `/rounds/{id}/credit-candidates` | Owner: the builders who posted feedback and can be credited. |
+| `POST` | `/rounds/{id}/close` | Owner: close the round and mark who contributed meaningfully. |
+| `GET` | `/rounds/{id}/credits` | The credit records of a closed round. |
+| `GET` | `/builders/{accountId}/rounds` | Public: completed rounds a builder was credited on, for their profile. |
+| `GET` | `/points/leaderboard`, `/builders/{accountId}/points` | Public: points standings and one builder's points. |
 
 ### Round lifecycle
 
 ```text
-pending ──project approved──▶ open ──slots fill──▶ in_progress ──owner closes──▶ closed
+pending ──project approved──▶ open ──owner closes──▶ closed
    │
    └──project rejected──▶ rejected
 ```
 
 - Rounds belong to a project, and a project belongs to the organization that first requested it. Admins approve a project once; there is no per-round approval.
 - The request that creates a project carries its first round, which starts `pending` and is only visible to the owning organization and admins. Further rounds need an approved project and open immediately.
-- Only the owning organization can create and manage a project's rounds (close, edit the readme, remove feedback, delete). Projects that predate organization ownership are claimed by the creator of one of their rounds.
-- On project approval its pending rounds become `open` and are listed publicly for signups.
-- When the last tester slot is filled the round auto-locks: no more applications are accepted, and any still-pending applications are politely closed out.
-- The owner closes the round from `open` or `in_progress`; closing writes the credit records.
+- Only the owning organization (or the team it delegated the project to) can manage a project's rounds: close, edit the readme, remove feedback, resolve or dismiss, delete. Projects that predate organization ownership are claimed by the creator of one of their rounds.
+- On project approval its pending rounds become `open` and are listed publicly.
+- Joining is open while the round is `open`. There is no application step, no tester selection and no slot limit, so there is no `in_progress` status.
+- The owner closes the round from `open`; closing writes the credit records.
 
 ### Feedback formats
 
 The project chooses one or more formats when requesting a round:
 
 - **GitHub issues** — filed on the project's own repository. Credit is pulled from the GitHub API by repo and contributor within the round's window. Only real `github.com/.../issues/...` items count.
-- **Written feedback** — submitted in the app by a selected tester.
-- **Recorded session** — a link submitted in the app by a selected tester.
+- **Written feedback** — posted in the app by a tester who joined the round.
+- **Recorded session** — a link posted in the app by a tester who joined the round.
 
 ### Builder profile feed
 
@@ -173,6 +190,20 @@ Not covered yet, because the shared auth plugin does not support them:
   email and a role.
 - An active team per session: sessions have an active organization but no active team.
 
+## Tipping testers on Telegram
+
+Round managers can tip a tester from the feedback table. The tester's Telegram handle comes from
+their `nearbuilders.org` builder profile (`links.telegram`) with a NEAR Social fallback
+(`linktree.telegram`), normalized to a bare handle and shown next to the author, or "no Telegram
+linked". The tip button copies the tip-bot message and opens a `t.me` link with it ready to send;
+it is disabled with an explanation when no handle is linked. If both sources are unreachable the
+lookup degrades to "unavailable" instead of failing.
+
+`GET /api/v1/builders/{accountId}/telegram` (signed-in callers only) returns
+`{ handle, source, available, message, shareUrl }`. The message comes from the
+`TIP_MESSAGE_TEMPLATE` secret (default `/tip @{handle}`; `{handle}` and `{account}` are replaced),
+so the bot's command format can change without a code change.
+
 ## Activity events
 
 feedback.nearbuilders.org is an [Activity Source](https://github.com/NEARBuilders/activity.nearbuilders.org)
@@ -210,18 +241,17 @@ manager. Never commit the key.
 ### Project owner
 
 1. Opens Feedback Rounds from the button on their project's dashboard.
-2. Fills in the request: which project, what needs testing, which feedback formats, number of testers, start and end date, what testers get, and anything not to touch or discuss publicly.
-3. Waits for the request to be approved.
-4. Reviews applicants and selects the ones they want; declines the rest.
-5. Waits while selected testers work.
-6. Closes the round and marks who contributed meaningfully.
+2. Fills in the request: which project, what needs testing, which feedback formats, an optional repo link and an optional readme for testers.
+3. Waits for the project to be approved (once per project; later rounds open right away).
+4. Watches builders join, answers feedback by resolving or dismissing it, and can broadcast updates to participants.
+5. Closes the round and marks who contributed meaningfully.
 
 ### Builder / tester
 
-1. Browses the open rounds — what is being tested, the window, and what testers get.
-2. Applies to one with a short note about why they are a fit. One application per round.
-3. If selected: tests the product, files issues on the project's GitHub, and submits any written feedback or recorded-session links in the app.
-4. Their profile shows the completed round: the round name, the project, and what they submitted.
+1. Browses the open rounds — what is being tested and in which formats.
+2. Joins one (needs a linked NEAR account), and can leave again before it closes.
+3. Tests the product, files issues on the project's GitHub, and posts any written feedback or recorded-session links in the app.
+4. Earns points for feedback the owner accepts, and their profile shows the completed round once credited: the round name, the project, and what they submitted.
 
 ### Admin
 
@@ -248,8 +278,8 @@ manager. Never commit the key.
 
 ## Success measures
 
-- A project owner can request a round, have it approved, receive signups, select testers, receive feedback in the formats they chose, close the round, and the selected testers see it on their profile afterwards.
-- The end-to-end walkthrough works on the live preview: a project owner posts a two-tester request, an admin approves it, two builders apply, the owner picks one and declines the other, the selected builder files issues and submits feedback, the owner marks the round complete, and the builder's profile then shows the round with links to their issues.
+- A project owner can request a round, have it approved, let builders join, receive feedback in the formats they chose, close the round, and the testers they credited see it on their profile afterwards.
+- The end-to-end walkthrough works on the live preview: a project owner requests a round, an admin approves the project, two builders join, they file issues and post feedback, the owner resolves it and closes the round crediting the meaningful contributors, and their profiles then show the round with links to their issues.
 
 ## Local development
 

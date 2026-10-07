@@ -10,6 +10,9 @@ const STATIC_LABELS: Record<string, string> = {
   "settings/auth-methods": "sign-in methods",
 };
 
+const ROUND_SECTIONS = new Set(["projects", "manage", "testing"]);
+const CONSOLE_TABS = new Set(["participants", "broadcast", "settings", "close"]);
+
 interface BreadcrumbOptions {
   /** Resolves an organization slug to its display name. */
   orgName?: (slug: string) => string | undefined;
@@ -27,7 +30,12 @@ export function getBreadcrumbs(pathname: string, options: BreadcrumbOptions = {}
     if (segments[0] === "orgs" && index === 1) {
       return { label: options.orgName?.(decoded) ?? decoded, href };
     }
-    if (segments[0] === "feed" && index === 1) return { label: "round", href };
+    if (ROUND_SECTIONS.has(segments[0] ?? "") && index === 2) {
+      return { label: `round ${decoded}`, href };
+    }
+    if (segments[0] === "manage" && index === 3 && !CONSOLE_TABS.has(decoded)) {
+      return { label: "feedback", href };
+    }
     return { label: decoded, href };
   });
 }

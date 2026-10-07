@@ -1,8 +1,21 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  ne,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import {
+  feedbackNotes as feedbackNotesTable,
   projectRoundCounters as projectRoundCountersTable,
   roundCredits as roundCreditsTable,
   type roundFeedbackStatus,
@@ -21,6 +34,12 @@ export type RoundFeedbackFormat = "written" | "recorded";
 export interface RoundParticipantRecord {
   accountId: string;
   joinedAt: string;
+  feedbackCount: number;
+}
+
+export interface RoundSettingsPatch {
+  readme?: string;
+  formats?: RoundFormat[];
 }
 export type RoundFeedbackStatus = (typeof roundFeedbackStatus)["enumValues"][number];
 
@@ -97,6 +116,36 @@ export interface RoundFeedbackRecord {
   nostrEventId: string | null;
 }
 
+export interface FeedbackNoteRecord {
+  id: string;
+  feedbackId: string;
+  authorAccountId: string;
+  role: "owner" | "tester";
+  body: string;
+  createdAt: string;
+}
+
+export type NewFeedbackNote = Pick<
+  FeedbackNoteRecord,
+  "feedbackId" | "authorAccountId" | "role" | "body"
+>;
+
+export interface FeedbackPageInput {
+  cursor?: string;
+  limit?: number;
+  status?: RoundFeedbackStatus;
+  author?: string;
+  /** Any of these accounts: a user's linked NEAR accounts (#121). */
+  authors?: string[];
+}
+
+export interface FeedbackPage {
+  items: RoundFeedbackRecord[];
+  nextCursor: string | null;
+}
+
+export const DEFAULT_FEEDBACK_PAGE_SIZE = 50;
+
 export interface AddFeedbackInput {
   roundId: string;
   authorAccountId: string;
@@ -142,6 +191,7 @@ export interface MyJoinedRoundRecord {
   roundId: string;
   roundTitle: string;
   projectSlug: string;
+  projectRoundNumber: number;
   status: RoundStatus;
   formats: RoundFormat[];
   readme: string;
@@ -176,21 +226,28 @@ export interface RoundsService {
    * already approved, and otherwise waits as `pending` for the project decision.
    */
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
-  updateRoundReadme(roundId: string, readme: string): Promise<RoundRecord>;
+  updateRound(roundId: string, patch: RoundSettingsPatch): Promise<RoundRecord>;
   updateRoundSettings(roundId: string, settings: RoundSettingsInput): Promise<RoundRecord>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailWithSurfaceRecord | null>;
+  getRoundDetailBySlug(slug: string, number: number): Promise<RoundDetailWithSurfaceRecord | null>;
   listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   hasParticipant(roundId: string, accountId: string): Promise<boolean>;
+  /** The first of `accountIds` that joined the round, or null when none did (#121). */
+  findParticipantAccount(roundId: string, accountIds: string[]): Promise<string | null>;
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
-  listFeedback(roundId: string): Promise<RoundFeedbackRecord[]>;
+  listFeedback(roundId: string, page?: FeedbackPageInput): Promise<FeedbackPage>;
+  getFeedback(roundId: string, feedbackId: string): Promise<RoundFeedbackRecord | null>;
   setFeedbackStatus(
     roundId: string,
     feedbackIds: string[],
     status: RoundFeedbackStatus,
+    note?: Pick<FeedbackNoteRecord, "authorAccountId" | "body">,
   ): Promise<RoundFeedbackRecord[]>;
+  addFeedbackNote(note: NewFeedbackNote): Promise<FeedbackNoteRecord>;
+  listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
   /** Accepted (resolved) feedback per author, optionally only accepted on or after `since`. */
   listAcceptedCounts(since: Date | null): Promise<AcceptedCount[]>;
@@ -202,7 +259,7 @@ export interface RoundsService {
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
   listBuilderRounds(accountId: string): Promise<BuilderRoundRecord[]>;
-  listMyJoinedRounds(accountId: string): Promise<MyJoinedRoundRecord[]>;
+  listMyJoinedRounds(accountIds: string[]): Promise<MyJoinedRoundRecord[]>;
   setRoundActivityEventId(roundId: string, eventId: string): Promise<void>;
   setFeedbackActivityEventId(feedbackId: string, eventId: string): Promise<void>;
   setFeedbackNostrEventId(feedbackId: string, nostrEventId: string): Promise<void>;
@@ -263,6 +320,13 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
 
 type RoundCreditRow = typeof roundCreditsTable.$inferSelect;
 
+function toNoteRecord(row: typeof feedbackNotesTable.$inferSelect): FeedbackNoteRecord {
+  return {
+    ...row,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+  };
+}
+
 function toCreditRecord(row: RoundCreditRow): RoundCreditRecord {
   return {
     id: row.id,
@@ -290,6 +354,35 @@ export const RoundsLive = Layer.effect(
   RoundsTag,
   Effect.gen(function* () {
     const db = yield* DatabaseTag;
+
+    const findRoundDetail = async (where: SQL | undefined) => {
+      try {
+        const [row] = await db.select().from(roundsTable).where(where).limit(1);
+        if (!row) return null;
+        const [countRow] = await db
+          .select({ value: count() })
+          .from(roundParticipantsTable)
+          .where(eq(roundParticipantsTable.roundId, row.id));
+        const previewRows = await db
+          .select({ accountId: roundParticipantsTable.accountId })
+          .from(roundParticipantsTable)
+          .where(eq(roundParticipantsTable.roundId, row.id))
+          .orderBy(asc(roundParticipantsTable.joinedAt))
+          .limit(3);
+        const [feedbackRow] = await db
+          .select({ value: count() })
+          .from(roundFeedbackTable)
+          .where(eq(roundFeedbackTable.roundId, row.id));
+        return {
+          ...toRoundRecord(row),
+          participantCount: countRow?.value ?? 0,
+          participantPreview: previewRows.map((p) => p.accountId),
+          feedbackCount: feedbackRow?.value ?? 0,
+        };
+      } catch (error) {
+        throw toOrpcError(error);
+      }
+    };
 
     const service: RoundsService = {
       createRound: async (input) => {
@@ -359,11 +452,11 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      updateRoundReadme: async (roundId, readme) => {
+      updateRound: async (roundId, patch) => {
         try {
           const [updated] = await db
             .update(roundsTable)
-            .set({ readme, updatedAt: new Date() })
+            .set({ ...patch, updatedAt: new Date() })
             .where(eq(roundsTable.id, roundId))
             .returning();
           if (!updated) {
@@ -432,34 +525,12 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      getRoundDetail: async (id) => {
-        try {
-          const [row] = await db.select().from(roundsTable).where(eq(roundsTable.id, id)).limit(1);
-          if (!row) return null;
-          const [countRow] = await db
-            .select({ value: count() })
-            .from(roundParticipantsTable)
-            .where(eq(roundParticipantsTable.roundId, id));
-          const previewRows = await db
-            .select({ accountId: roundParticipantsTable.accountId })
-            .from(roundParticipantsTable)
-            .where(eq(roundParticipantsTable.roundId, id))
-            .orderBy(asc(roundParticipantsTable.joinedAt))
-            .limit(3);
-          const [feedbackRow] = await db
-            .select({ value: count() })
-            .from(roundFeedbackTable)
-            .where(eq(roundFeedbackTable.roundId, id));
-          return {
-            ...toRoundRecord(row),
-            participantCount: countRow?.value ?? 0,
-            participantPreview: previewRows.map((p) => p.accountId),
-            feedbackCount: feedbackRow?.value ?? 0,
-          };
-        } catch (error) {
-          throw toOrpcError(error);
-        }
-      },
+      getRoundDetail: (id) => findRoundDetail(eq(roundsTable.id, id)),
+
+      getRoundDetailBySlug: (slug, number) =>
+        findRoundDetail(
+          and(eq(roundsTable.projectSlug, slug), eq(roundsTable.projectRoundNumber, number)),
+        ),
 
       addParticipant: async (roundId, accountId) => {
         try {
@@ -505,6 +576,25 @@ export const RoundsLive = Layer.effect(
         }
       },
 
+      findParticipantAccount: async (roundId, accountIds) => {
+        if (accountIds.length === 0) return null;
+        try {
+          const rows = await db
+            .select({ accountId: roundParticipantsTable.accountId })
+            .from(roundParticipantsTable)
+            .where(
+              and(
+                eq(roundParticipantsTable.roundId, roundId),
+                inArray(roundParticipantsTable.accountId, accountIds),
+              ),
+            );
+          const joined = new Set(rows.map((row) => row.accountId));
+          return accountIds.find((id) => joined.has(id)) ?? null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
       addFeedback: async (input) => {
         try {
           const [row] = await db
@@ -526,36 +616,107 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      listFeedback: async (roundId) => {
+      listFeedback: async (roundId, page = {}) => {
         try {
+          const limit = page.limit ?? DEFAULT_FEEDBACK_PAGE_SIZE;
+          const [cursorAt, cursorId] = page.cursor?.split("|") ?? [];
+          const afterCursor =
+            cursorAt && cursorId
+              ? sql`(${roundFeedbackTable.createdAt}, ${roundFeedbackTable.id}) < (${cursorAt}::timestamptz, ${cursorId}::uuid)`
+              : undefined;
           const rows = await db
-            .select()
+            .select({
+              ...getTableColumns(roundFeedbackTable),
+              cursor: sql<string>`${roundFeedbackTable.createdAt}::text || '|' || ${roundFeedbackTable.id}`,
+            })
             .from(roundFeedbackTable)
-            .where(eq(roundFeedbackTable.roundId, roundId))
-            .orderBy(asc(roundFeedbackTable.createdAt));
-          return rows.map(toFeedbackRecord);
+            .where(
+              and(
+                eq(roundFeedbackTable.roundId, roundId),
+                page.status ? eq(roundFeedbackTable.status, page.status) : undefined,
+                page.authors?.length
+                  ? inArray(roundFeedbackTable.authorAccountId, page.authors)
+                  : page.author
+                    ? eq(roundFeedbackTable.authorAccountId, page.author)
+                    : undefined,
+                afterCursor,
+              ),
+            )
+            .orderBy(desc(roundFeedbackTable.createdAt), desc(roundFeedbackTable.id))
+            .limit(limit + 1);
+          const pageRows = rows.slice(0, limit);
+          return {
+            items: pageRows.map(toFeedbackRecord),
+            nextCursor: rows.length > limit ? (pageRows.at(-1)?.cursor ?? null) : null,
+          };
         } catch (error) {
           throw toOrpcError(error);
         }
       },
 
-      setFeedbackStatus: async (roundId, feedbackIds, status) => {
+      getFeedback: async (roundId, feedbackId) => {
+        try {
+          const [row] = await db
+            .select()
+            .from(roundFeedbackTable)
+            .where(
+              and(eq(roundFeedbackTable.roundId, roundId), eq(roundFeedbackTable.id, feedbackId)),
+            )
+            .limit(1);
+          return row ? toFeedbackRecord(row) : null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setFeedbackStatus: async (roundId, feedbackIds, status, note) => {
+        try {
+          if (feedbackIds.length === 0) return [];
+          return await db.transaction(async (tx) => {
+            const rows = await tx
+              .update(roundFeedbackTable)
+              .set({ status, statusChangedAt: sql`now()` })
+              .where(
+                and(
+                  eq(roundFeedbackTable.roundId, roundId),
+                  inArray(roundFeedbackTable.id, feedbackIds),
+                  ne(roundFeedbackTable.status, status),
+                ),
+              )
+              .returning();
+            if (note && rows.length > 0) {
+              await tx
+                .insert(feedbackNotesTable)
+                .values(
+                  rows.map((row) => ({ ...note, feedbackId: row.id, role: "owner" as const })),
+                );
+            }
+            return rows.map(toFeedbackRecord);
+          });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      addFeedbackNote: async (note) => {
+        try {
+          const [row] = await db.insert(feedbackNotesTable).values(note).returning();
+          if (!row) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Note not saved" });
+          return toNoteRecord(row);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listFeedbackNotes: async (feedbackIds) => {
         try {
           if (feedbackIds.length === 0) return [];
           const rows = await db
-            .update(roundFeedbackTable)
-            .set({
-              status,
-              statusChangedAt: sql`case when ${roundFeedbackTable.status} = ${status} then ${roundFeedbackTable.statusChangedAt} else now() end`,
-            })
-            .where(
-              and(
-                eq(roundFeedbackTable.roundId, roundId),
-                inArray(roundFeedbackTable.id, feedbackIds),
-              ),
-            )
-            .returning();
-          return rows.map(toFeedbackRecord);
+            .select()
+            .from(feedbackNotesTable)
+            .where(inArray(feedbackNotesTable.feedbackId, feedbackIds))
+            .orderBy(asc(feedbackNotesTable.createdAt));
+          return rows.map(toNoteRecord);
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -567,12 +728,21 @@ export const RoundsLive = Layer.effect(
             .select({
               accountId: roundParticipantsTable.accountId,
               joinedAt: roundParticipantsTable.joinedAt,
+              feedbackCount: count(roundFeedbackTable.id),
             })
             .from(roundParticipantsTable)
+            .leftJoin(
+              roundFeedbackTable,
+              and(
+                eq(roundFeedbackTable.roundId, roundParticipantsTable.roundId),
+                eq(roundFeedbackTable.authorAccountId, roundParticipantsTable.accountId),
+              ),
+            )
             .where(eq(roundParticipantsTable.roundId, roundId))
+            .groupBy(roundParticipantsTable.accountId, roundParticipantsTable.joinedAt)
             .orderBy(asc(roundParticipantsTable.joinedAt));
           return rows.map((row) => ({
-            accountId: row.accountId,
+            ...row,
             joinedAt:
               row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
           }));
@@ -800,13 +970,15 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      listMyJoinedRounds: async (accountId) => {
+      listMyJoinedRounds: async (accountIds) => {
+        if (accountIds.length === 0) return [];
         try {
           const rows = await db
             .select({
               roundId: roundsTable.id,
               roundTitle: roundsTable.title,
               projectSlug: roundsTable.projectSlug,
+              projectRoundNumber: roundsTable.projectRoundNumber,
               status: roundsTable.status,
               formats: roundsTable.formats,
               readme: roundsTable.readme,
@@ -815,7 +987,7 @@ export const RoundsLive = Layer.effect(
             })
             .from(roundParticipantsTable)
             .innerJoin(roundsTable, eq(roundsTable.id, roundParticipantsTable.roundId))
-            .where(eq(roundParticipantsTable.accountId, accountId))
+            .where(inArray(roundParticipantsTable.accountId, accountIds))
             .orderBy(desc(roundParticipantsTable.joinedAt));
           if (rows.length === 0) return [];
           const countRows = await db
@@ -834,7 +1006,7 @@ export const RoundsLive = Layer.effect(
             .from(roundFeedbackTable)
             .where(
               and(
-                eq(roundFeedbackTable.authorAccountId, accountId),
+                inArray(roundFeedbackTable.authorAccountId, accountIds),
                 inArray(
                   roundFeedbackTable.roundId,
                   rows.map((row) => row.roundId),
@@ -847,6 +1019,7 @@ export const RoundsLive = Layer.effect(
             roundId: row.roundId,
             roundTitle: row.roundTitle,
             projectSlug: row.projectSlug,
+            projectRoundNumber: row.projectRoundNumber,
             status: row.status,
             formats: row.formats as RoundFormat[],
             readme: row.readme,

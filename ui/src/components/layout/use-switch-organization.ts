@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { sessionQueryKey, useAuthClient } from "@/app";
+import { resetViewerQueries } from "@/lib/queries/viewer";
 
 export function useSwitchOrganization() {
   const auth = useAuthClient();
@@ -19,6 +20,7 @@ export function useSwitchOrganization() {
       });
       if (error) throw new Error(error.message);
       queryClient.setQueryData(sessionQueryKey, session ?? null);
+      resetViewerQueries(queryClient);
       await queryClient.invalidateQueries({ queryKey: ["organizations"] });
       await router.invalidate();
       toast.success("Switched organization");

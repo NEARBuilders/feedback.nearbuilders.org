@@ -71,10 +71,10 @@ describe("private rounds (#101)", () => {
     await post("priv-b.near", round.id, "Secret bug B");
 
     const all = await owner.listFeedback({ id: round.id });
-    expect(all.map((f) => f.body).sort()).toEqual(["Secret bug A", "Secret bug B"]);
+    expect(all.items.map((f) => f.body).sort()).toEqual(["Secret bug A", "Secret bug B"]);
 
     const admin = await getPluginClient(adminContext());
-    expect(await admin.listFeedback({ id: round.id })).toHaveLength(2);
+    expect((await admin.listFeedback({ id: round.id })).items).toHaveLength(2);
   });
 
   it("shows a participant only their own submissions", async () => {
@@ -84,7 +84,7 @@ describe("private rounds (#101)", () => {
 
     const c = await getPluginClient(nearAuthedContext("priv-c.near"));
     const own = await c.listFeedback({ id: round.id });
-    expect(own.map((f) => f.body)).toEqual(["Mine"]);
+    expect(own.items.map((f) => f.body)).toEqual(["Mine"]);
   });
 
   it("hides every body and author from signed-out and unrelated callers", async () => {
@@ -92,15 +92,15 @@ describe("private rounds (#101)", () => {
     await post("priv-e.near", round.id, "Hidden body");
 
     const anon = await getPluginClient();
-    expect(await anon.listFeedback({ id: round.id })).toEqual([]);
+    expect((await anon.listFeedback({ id: round.id })).items).toEqual([]);
 
     const stranger = await getPluginClient(nearAuthedContext("priv-stranger.near"));
-    expect(await stranger.listFeedback({ id: round.id })).toEqual([]);
+    expect((await stranger.listFeedback({ id: round.id })).items).toEqual([]);
 
     const otherOrgMember = await getPluginClient(
       nearAuthedContext("priv-rival.near", "priv-rival-user", "some-other-org", "owner"),
     );
-    expect(await otherOrgMember.listFeedback({ id: round.id })).toEqual([]);
+    expect((await otherOrgMember.listFeedback({ id: round.id })).items).toEqual([]);
   });
 
   it("keeps public rounds readable by everyone", async () => {
@@ -108,7 +108,9 @@ describe("private rounds (#101)", () => {
     await owner.updateRoundSettings({ id: round.id, isPrivate: false });
     await post("priv-f.near", round.id, "Public body");
     const anon = await getPluginClient();
-    expect((await anon.listFeedback({ id: round.id })).map((f) => f.body)).toEqual(["Public body"]);
+    expect((await anon.listFeedback({ id: round.id })).items.map((f) => f.body)).toEqual([
+      "Public body",
+    ]);
   });
 
   it("exposes only metadata, three avatars and the submission count on the public surface", async () => {
@@ -136,15 +138,15 @@ describe("private rounds (#101)", () => {
     const teamed = await getPluginClient(
       nearAuthedContext("priv-teamed.near", "teamed-user", orgId, "member"),
     );
-    expect(await teamed.listFeedback({ id: round.id })).toHaveLength(1);
+    expect((await teamed.listFeedback({ id: round.id })).items).toHaveLength(1);
 
     const otherMember = await getPluginClient(
       nearAuthedContext("priv-plain.near", "plain-user", orgId, "member"),
     );
-    expect(await otherMember.listFeedback({ id: round.id })).toEqual([]);
+    expect((await otherMember.listFeedback({ id: round.id })).items).toEqual([]);
 
     // org owners and admins keep access
-    expect(await owner.listFeedback({ id: round.id })).toHaveLength(1);
+    expect((await owner.listFeedback({ id: round.id })).items).toHaveLength(1);
   });
 
   it("lets participants still join and post, without reading each other", async () => {

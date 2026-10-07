@@ -201,11 +201,13 @@ describe("RoundsService", () => {
     );
     expect(created.readme).toBe("# Steps");
 
-    const updated = await runService(layer, (svc) => svc.updateRoundReadme(created.id, "# New"));
+    const updated = await runService(layer, (svc) =>
+      svc.updateRound(created.id, { readme: "# New" }),
+    );
     expect(updated.readme).toBe("# New");
 
     await expect(
-      runService(layer, (svc) => svc.updateRoundReadme(MISSING_ID, "x")),
+      runService(layer, (svc) => svc.updateRound(MISSING_ID, { readme: "x" })),
     ).rejects.toThrow("Round not found");
   });
 
@@ -274,14 +276,14 @@ describe("RoundsService", () => {
       }),
     );
 
-    const thread = await runService(layer, (svc) => svc.listFeedback(round.id));
+    const { items: thread } = await runService(layer, (svc) => svc.listFeedback(round.id));
     expect(thread).toHaveLength(2);
     expect(thread.map((e) => e.authorAccountId).sort()).toEqual(["alice.near", "bob.near"]);
     expect(thread.find((e) => e.format === "written")?.body).toBe("Looks good");
     expect(thread.find((e) => e.format === "recorded")?.url).toBe("https://example.com/rec");
 
     const empty = await runService(layer, (svc) => svc.listFeedback(MISSING_ID));
-    expect(empty).toEqual([]);
+    expect(empty).toEqual({ items: [], nextCursor: null });
   });
 
   it("derives credit candidates and closes a round with credit", async () => {

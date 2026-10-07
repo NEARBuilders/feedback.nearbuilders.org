@@ -13,6 +13,9 @@ import {
   SectionHeader,
   Skeleton,
 } from "@/components";
+import { invalidateProjectQueries, projectsQueryOptions } from "@/lib/queries/projects";
+import { invalidateRoundQueries } from "@/lib/queries/rounds";
+import { roundParams } from "@/lib/round-links";
 
 export const Route = createFileRoute("/_admin/_dashboard/admin/projects")({
   head: () => ({
@@ -21,20 +24,15 @@ export const Route = createFileRoute("/_admin/_dashboard/admin/projects")({
   component: ProjectApprovalsPage,
 });
 
-const PENDING_QUERY_KEY = ["projects", "pending"] as const;
-
 function ProjectApprovalsPage() {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
 
-  const pendingQuery = useQuery({
-    queryKey: PENDING_QUERY_KEY,
-    queryFn: () => apiClient.listProjects({ status: "pending" }),
-  });
+  const pendingQuery = useQuery(projectsQueryOptions(apiClient, "pending"));
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["projects"] });
-    void queryClient.invalidateQueries({ queryKey: ["rounds"] });
+    void invalidateProjectQueries(queryClient);
+    void invalidateRoundQueries(queryClient);
   };
 
   const projects = pendingQuery.data ?? [];
@@ -111,8 +109,8 @@ function PendingProjectCard({
                 {round.status}
               </Badge>
               <Link
-                to="/feed/$roundId"
-                params={{ roundId: round.id }}
+                to="/projects/$slug/$n"
+                params={roundParams({ ...round, projectSlug: project.slug })}
                 className="text-foreground underline"
               >
                 #{round.projectRoundNumber} {round.title}
