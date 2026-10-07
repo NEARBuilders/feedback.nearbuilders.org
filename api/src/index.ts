@@ -11,6 +11,7 @@ import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
+import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
 import {
@@ -200,7 +201,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
     interface ActorContext {
       userId?: string | null;
-      near?: { primaryAccountId?: string | null } | null;
+      near?: {
+        primaryAccountId?: string | null;
+        linkedAccounts?: Array<{ accountId?: string | null }> | null;
+      } | null;
       organization?: {
         activeOrganizationId?: string | null;
         member?: { role?: string | null } | null;
@@ -218,6 +222,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const actor: RoundActor = {
         activeOrganizationId: context.organization?.activeOrganizationId,
         accountId: context.near?.primaryAccountId,
+        accountIds: linkedAccountIds(context),
         orgRole: context.organization?.member?.role,
       };
       if (project?.managingTeamId && context.userId && needsTeamCheck(project, actor)) {
@@ -640,8 +645,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       deleteRound: builder.deleteRound
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) {
+          if (linkedAccountIds(context).length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before deleting a round",
             });
@@ -677,8 +681,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
       ),
 
       joinRound: builder.joinRound.use(requireAuth).handler(async ({ input, context, errors }) => {
-        const accountId = context.near?.primaryAccountId;
-        if (!accountId) {
+        const myAccounts = linkedAccountIds(context);
+        if (myAccounts.length === 0) {
           throw new ORPCError("BAD_REQUEST", {
             message: "Link a NEAR account before joining a round",
             data: { hint: "Link a NEAR wallet in settings" },
@@ -694,7 +698,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (round.status !== "open") {
           throw new ORPCError("BAD_REQUEST", { message: "This round is no longer open" });
         }
-        if (round.ownerAccountId === accountId) {
+        if (myAccounts.includes(round.ownerAccountId)) {
           throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
         }
         const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
@@ -706,6 +710,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             message: "Your organization runs this round, so you can't join it as a tester",
           });
         }
+        // One participation per user, whichever linked wallet is primary now: if one of their
+        // accounts already joined, that stays the participation instead of adding a second.
+        const alreadyJoinedAs = await services.rounds.findParticipantAccount(round.id, myAccounts);
+        const accountId = actingAccountId(myAccounts, alreadyJoinedAs) as string;
         await services.rounds.addParticipant(round.id, accountId);
         const detail = await services.rounds.getRoundDetail(round.id);
         if (!detail) {
@@ -717,8 +725,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
       leaveRound: builder.leaveRound
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) {
+          const myAccounts = linkedAccountIds(context);
+          if (myAccounts.length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before leaving a round",
             });
@@ -730,7 +738,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          await services.rounds.removeParticipant(round.id, accountId);
+          const joinedAs = await services.rounds.findParticipantAccount(round.id, myAccounts);
+          if (joinedAs) await services.rounds.removeParticipant(round.id, joinedAs);
           const detail = await services.rounds.getRoundDetail(round.id);
           if (!detail) {
             throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
@@ -741,9 +750,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getMyParticipation: builder.getMyParticipation
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) return { joined: false };
-          return { joined: await services.rounds.hasParticipant(input.id, accountId) };
+          const joinedAs = await services.rounds.findParticipantAccount(
+            input.id,
+            linkedAccountIds(context),
+          );
+          return { joined: joinedAs !== null };
         }),
 
       getMyLegionAccess: builder.getMyLegionAccess.handler(async ({ context }) => {
@@ -756,16 +767,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listMyJoinedRounds: builder.listMyJoinedRounds
         .use(requireAuth)
         .handler(async ({ context }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) return [];
-          return services.rounds.listMyJoinedRounds(accountId);
+          return services.rounds.listMyJoinedRounds(linkedAccountIds(context));
         }),
 
       postFeedback: builder.postFeedback
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) {
+          const myAccounts = linkedAccountIds(context);
+          if (myAccounts.length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before posting feedback",
               data: { hint: "Link a NEAR wallet in settings" },
@@ -783,8 +792,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: `This round isn't collecting ${input.format} feedback`,
             });
           }
-          const joined = await services.rounds.hasParticipant(round.id, accountId);
-          if (!joined) {
+          // Post as the account that joined, which may no longer be the primary one.
+          const accountId = await services.rounds.findParticipantAccount(round.id, myAccounts);
+          if (!accountId) {
             throw new ORPCError("FORBIDDEN", {
               message: "Join the round before posting feedback",
             });
@@ -824,10 +834,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuth)
         .handler(async ({ input, context }) => {
           const round = await visibleRound(input.id, context);
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) return [];
+          const accountIds = linkedAccountIds(context);
+          if (accountIds.length === 0) return [];
           const { items } = await services.rounds.listFeedback(round.id, {
-            author: accountId,
+            authors: accountIds,
             limit: MAX_FEEDBACK_PER_TESTER,
           });
           const notes = await services.rounds.listFeedbackNotes(items.map((item) => item.id));
@@ -844,7 +854,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (!feedback) throw feedbackNotFound(input.feedbackId);
         const canSeeNotes =
           managesRound(round, context) ||
-          feedback.authorAccountId === context.near?.primaryAccountId;
+          linkedAccountIds(context).includes(feedback.authorAccountId);
         const notes = canSeeNotes ? await services.rounds.listFeedbackNotes([feedback.id]) : [];
         return { ...feedback, notes };
       }),
@@ -857,7 +867,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
           const isManager = managesRound(round, context);
-          if (!isManager && feedback.authorAccountId !== accountId) {
+          const isAuthor = linkedAccountIds(context).includes(feedback.authorAccountId);
+          if (!isManager && !isAuthor) {
             throw new ORPCError("FORBIDDEN", {
               message: "Only the author or the round owner can add a note",
             });
@@ -873,7 +884,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           return await services.rounds.addFeedbackNote({
             feedbackId: feedback.id,
-            authorAccountId: accountId,
+            authorAccountId: isManager ? accountId : feedback.authorAccountId,
             role: isManager ? "owner" : "tester",
             body: input.body,
           });
@@ -882,8 +893,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       deleteFeedback: builder.deleteFeedback
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) {
+          if (linkedAccountIds(context).length === 0) {
             throw new ORPCError("UNAUTHORIZED", {
               message: "Link a NEAR account before removing feedback",
             });
@@ -897,7 +907,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
-          if (feedback.authorAccountId !== accountId) {
+          if (!linkedAccountIds(context).includes(feedback.authorAccountId)) {
             await assertCanManageRound(
               round,
               context,
@@ -957,10 +967,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          const accountId = context.near?.primaryAccountId;
-          const isParticipant = accountId
-            ? await services.rounds.hasParticipant(round.id, accountId)
-            : false;
+          const isParticipant =
+            (await services.rounds.findParticipantAccount(round.id, linkedAccountIds(context))) !==
+            null;
           if (!isParticipant) {
             await assertCanManageRound(
               round,
@@ -999,21 +1008,21 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listNotifications: builder.listNotifications
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) return { items: [], unreadCount: 0 };
-          return await services.notifications.listForAccount(accountId, input.limit);
+          const accountIds = linkedAccountIds(context);
+          if (accountIds.length === 0) return { items: [], unreadCount: 0 };
+          return await services.notifications.listForAccount(accountIds, input.limit);
         }),
 
       markNotificationRead: builder.markNotificationRead
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) {
+          const accountIds = linkedAccountIds(context);
+          if (accountIds.length === 0) {
             throw new ORPCError("UNAUTHORIZED", {
               message: "Link a NEAR account to manage notifications",
             });
           }
-          const notification = await services.notifications.markRead(accountId, input.id);
+          const notification = await services.notifications.markRead(accountIds, input.id);
           if (!notification) {
             throw errors.NOT_FOUND({
               message: "Notification not found",
@@ -1026,9 +1035,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       markAllNotificationsRead: builder.markAllNotificationsRead
         .use(requireAuth)
         .handler(async ({ context }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) return { updated: 0 };
-          return { updated: await services.notifications.markAllRead(accountId) };
+          const accountIds = linkedAccountIds(context);
+          if (accountIds.length === 0) return { updated: 0 };
+          return { updated: await services.notifications.markAllRead(accountIds) };
         }),
 
       getRoundGithubIssues: builder.getRoundGithubIssues.handler(async ({ input, errors }) => {
@@ -1074,8 +1083,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       closeRound: builder.closeRound
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const accountId = context.near?.primaryAccountId;
-          if (!accountId) {
+          if (linkedAccountIds(context).length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before closing a round",
               data: { hint: "Link a NEAR wallet in settings" },

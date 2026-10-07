@@ -117,6 +117,8 @@ export interface FeedbackPageInput {
   limit?: number;
   status?: RoundFeedbackStatus;
   author?: string;
+  /** Any of these accounts: a user's linked NEAR accounts (#121). */
+  authors?: string[];
 }
 
 export interface FeedbackPage {
@@ -214,6 +216,8 @@ export interface RoundsService {
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   hasParticipant(roundId: string, accountId: string): Promise<boolean>;
+  /** The first of `accountIds` that joined the round, or null when none did (#121). */
+  findParticipantAccount(roundId: string, accountIds: string[]): Promise<string | null>;
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string, page?: FeedbackPageInput): Promise<FeedbackPage>;
   getFeedback(roundId: string, feedbackId: string): Promise<RoundFeedbackRecord | null>;
@@ -233,7 +237,7 @@ export interface RoundsService {
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
   listBuilderRounds(accountId: string): Promise<BuilderRoundRecord[]>;
-  listMyJoinedRounds(accountId: string): Promise<MyJoinedRoundRecord[]>;
+  listMyJoinedRounds(accountIds: string[]): Promise<MyJoinedRoundRecord[]>;
   setRoundActivityEventId(roundId: string, eventId: string): Promise<void>;
   setFeedbackActivityEventId(feedbackId: string, eventId: string): Promise<void>;
   setFeedbackNostrEventId(feedbackId: string, nostrEventId: string): Promise<void>;
@@ -511,6 +515,25 @@ export const RoundsLive = Layer.effect(
         }
       },
 
+      findParticipantAccount: async (roundId, accountIds) => {
+        if (accountIds.length === 0) return null;
+        try {
+          const rows = await db
+            .select({ accountId: roundParticipantsTable.accountId })
+            .from(roundParticipantsTable)
+            .where(
+              and(
+                eq(roundParticipantsTable.roundId, roundId),
+                inArray(roundParticipantsTable.accountId, accountIds),
+              ),
+            );
+          const joined = new Set(rows.map((row) => row.accountId));
+          return accountIds.find((id) => joined.has(id)) ?? null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
       addFeedback: async (input) => {
         try {
           const [row] = await db
@@ -550,7 +573,11 @@ export const RoundsLive = Layer.effect(
               and(
                 eq(roundFeedbackTable.roundId, roundId),
                 page.status ? eq(roundFeedbackTable.status, page.status) : undefined,
-                page.author ? eq(roundFeedbackTable.authorAccountId, page.author) : undefined,
+                page.authors?.length
+                  ? inArray(roundFeedbackTable.authorAccountId, page.authors)
+                  : page.author
+                    ? eq(roundFeedbackTable.authorAccountId, page.author)
+                    : undefined,
                 afterCursor,
               ),
             )
@@ -882,7 +909,8 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      listMyJoinedRounds: async (accountId) => {
+      listMyJoinedRounds: async (accountIds) => {
+        if (accountIds.length === 0) return [];
         try {
           const rows = await db
             .select({
@@ -898,7 +926,7 @@ export const RoundsLive = Layer.effect(
             })
             .from(roundParticipantsTable)
             .innerJoin(roundsTable, eq(roundsTable.id, roundParticipantsTable.roundId))
-            .where(eq(roundParticipantsTable.accountId, accountId))
+            .where(inArray(roundParticipantsTable.accountId, accountIds))
             .orderBy(desc(roundParticipantsTable.joinedAt));
           if (rows.length === 0) return [];
           const countRows = await db
@@ -917,7 +945,7 @@ export const RoundsLive = Layer.effect(
             .from(roundFeedbackTable)
             .where(
               and(
-                eq(roundFeedbackTable.authorAccountId, accountId),
+                inArray(roundFeedbackTable.authorAccountId, accountIds),
                 inArray(
                   roundFeedbackTable.roundId,
                   rows.map((row) => row.roundId),
