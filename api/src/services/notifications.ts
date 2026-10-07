@@ -15,6 +15,9 @@ export interface NotificationRecord {
   id: string;
   roundId: string;
   roundTitle: string;
+  projectSlug: string;
+  projectRoundNumber: number;
+  feedbackId: string | null;
   kind: NotificationKindValue;
   title: string;
   body: string;
@@ -34,11 +37,16 @@ export interface NotifyParticipantsInput {
   body: string;
 }
 
+export interface NotifyAccountsInput extends NotifyParticipantsInput {
+  recipients: Array<{ accountId: string; feedbackId?: string | null }>;
+}
+
 export interface NotificationsService {
   listForAccount(accountId: string, limit: number): Promise<NotificationList>;
   markRead(accountId: string, notificationId: string): Promise<NotificationRecord | null>;
   markAllRead(accountId: string): Promise<number>;
   notifyParticipants(input: NotifyParticipantsInput): Promise<number>;
+  notifyAccounts(input: NotifyAccountsInput): Promise<number>;
 }
 
 export class NotificationsTag extends Context.Tag("api/Notifications")<
@@ -72,6 +80,9 @@ const recordColumns = {
   id: notificationsTable.id,
   roundId: notificationsTable.roundId,
   roundTitle: roundsTable.title,
+  projectSlug: roundsTable.projectSlug,
+  projectRoundNumber: roundsTable.projectRoundNumber,
+  feedbackId: notificationsTable.feedbackId,
   kind: notificationsTable.kind,
   title: notificationsTable.title,
   body: notificationsTable.body,
@@ -79,23 +90,14 @@ const recordColumns = {
   createdAt: notificationsTable.createdAt,
 };
 
-function toRecord(row: {
-  id: string;
-  roundId: string;
-  roundTitle: string;
-  kind: NotificationKindValue;
-  title: string;
-  body: string;
-  readAt: Date | string | null;
-  createdAt: Date | string;
-}): NotificationRecord {
+function toRecord(
+  row: Omit<NotificationRecord, "readAt" | "createdAt"> & {
+    readAt: Date | string | null;
+    createdAt: Date | string;
+  },
+): NotificationRecord {
   return {
-    id: row.id,
-    roundId: row.roundId,
-    roundTitle: row.roundTitle,
-    kind: row.kind,
-    title: row.title,
-    body: row.body,
+    ...row,
     readAt: row.readAt === null ? null : iso(row.readAt),
     createdAt: iso(row.createdAt),
   };
@@ -180,20 +182,26 @@ export const NotificationsLive = Layer.effect(
             .select({ accountId: roundParticipantsTable.accountId })
             .from(roundParticipantsTable)
             .where(eq(roundParticipantsTable.roundId, input.roundId));
-          if (participants.length === 0) return 0;
-          const rows = participants.map((participant) => ({
-            recipientAccountId: participant.accountId,
-            roundId: input.roundId,
-            kind: input.kind,
-            title: input.title,
-            body: input.body,
+          return await service.notifyAccounts({ ...input, recipients: participants });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      notifyAccounts: async ({ recipients, ...input }) => {
+        try {
+          if (recipients.length === 0) return 0;
+          const rows = recipients.map(({ accountId, feedbackId }) => ({
+            ...input,
+            recipientAccountId: accountId,
+            feedbackId: feedbackId ?? null,
           }));
           await db.transaction(async (tx) => {
             for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
               await tx.insert(notificationsTable).values(batch);
             }
           });
-          return participants.length;
+          return recipients.length;
         } catch (error) {
           throw toOrpcError(error);
         }

@@ -51,10 +51,20 @@ export function canManageRound(
   project: ProjectAccessSubject | null,
   actor: RoundActor,
 ): boolean {
-  if (project?.ownerOrgId) {
-    if (actor.activeOrganizationId !== project.ownerOrgId) return false;
-    if (!project.managingTeamId) return true;
-    return isOrgAdminRole(actor.orgRole) || actor.inManagingTeam === true;
-  }
+  if (project?.ownerOrgId) return canManageOwnedProject(project, actor);
   return !!actor.accountId && actor.accountId === round.ownerAccountId;
+}
+
+export function canManageProject(
+  project: ProjectAccessSubject & { rounds: RoundAccessSubject[] },
+  actor: RoundActor,
+): boolean {
+  if (project.ownerOrgId) return canManageOwnedProject(project, actor);
+  return project.rounds.some((round) => canManageRound(round, project, actor));
+}
+
+function canManageOwnedProject(project: ProjectAccessSubject, actor: RoundActor): boolean {
+  if (actor.activeOrganizationId !== project.ownerOrgId) return false;
+  if (!project.managingTeamId) return true;
+  return isOrgAdminRole(actor.orgRole) || actor.inManagingTeam === true;
 }

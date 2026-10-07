@@ -11,7 +11,7 @@ import { createActivityEmitter } from "./services/activity-events";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
-import { notificationText } from "./services/notification-text";
+import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
 import {
   POINTS_PER_ACCEPTED_FEEDBACK,
@@ -23,12 +23,13 @@ import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
 import {
+  canManageProject,
   canManageRound,
   isOrgAdminRole,
   needsTeamCheck,
   type RoundActor,
 } from "./services/round-access";
-import { RoundsLive, RoundsTag } from "./services/rounds";
+import { type RoundDetailRecord, RoundsLive, RoundsTag } from "./services/rounds";
 import { createTeamAccess } from "./services/team-access";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
@@ -75,6 +76,13 @@ function validateAccountId(accountId: string): void {
     });
   }
 }
+
+const MAX_FEEDBACK_PER_TESTER = 500;
+
+const MAX_NOTES_PER_FEEDBACK = 20;
+
+const isPublic = (round: { status: string }) =>
+  round.status === "open" || round.status === "closed";
 
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
@@ -228,13 +236,97 @@ export default createPlugin.withPlugins<PluginsClient>()({
      */
     const assertCanManageRound = async (
       round: { ownerAccountId: string; projectRecordId: string },
-      context: ActorContext,
+      context: ViewerContext,
       message: string,
     ) => {
+      if (isSiteAdmin(context)) return;
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
       if (!allowed) throw new ORPCError("FORBIDDEN", { message });
     };
+
+    type ViewerContext = ActorContext & { user?: { role?: string | null } | null };
+
+    const isSiteAdmin = (context: ViewerContext) => context.user?.role === "admin";
+
+    const managesRound = (round: { canManage: boolean }, context: ViewerContext) =>
+      round.canManage || isSiteAdmin(context);
+
+    const nearAccountForNotes = (context: ViewerContext) => {
+      const accountId = context.near?.primaryAccountId;
+      if (!accountId) {
+        throw new ORPCError("BAD_REQUEST", { message: "Link a NEAR account to add a note" });
+      }
+      return accountId;
+    };
+
+    const roundNotFound = (resourceId: string) =>
+      new ORPCError("NOT_FOUND", {
+        message: "Round not found",
+        data: { resource: "round", resourceId },
+      });
+
+    const viewRoundDetail = async (
+      round: RoundDetailRecord | null,
+      context: ViewerContext,
+      resourceId: string,
+    ) => {
+      if (!round) throw roundNotFound(resourceId);
+      const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+      const canManage = canManageRound(round, project, await resolveActor(project, context));
+      const hidden = round.status === "pending" || round.status === "rejected";
+      if (hidden && !managesRound({ canManage }, context)) throw roundNotFound(resourceId);
+      return { ...round, canManage };
+    };
+
+    const requireRound = async (id: string) => {
+      const round = await services.rounds.resolveRoundById(id);
+      if (!round) throw roundNotFound(id);
+      return round;
+    };
+
+    const visibleRound = async (id: string, context: ViewerContext) =>
+      viewRoundDetail(await services.rounds.getRoundDetail(id), context, id);
+
+    const notifyAuthors = async (
+      round: { id: string; title: string },
+      feedback: Array<{ id: string; authorAccountId: string }>,
+      kind: FeedbackStatusKind,
+      note?: string,
+    ) => {
+      const byAuthor = new Map<string, string[]>();
+      for (const item of feedback) {
+        byAuthor.set(item.authorAccountId, [
+          ...(byAuthor.get(item.authorAccountId) ?? []),
+          item.id,
+        ]);
+      }
+      try {
+        await services.notifications.notifyAccounts({
+          roundId: round.id,
+          kind,
+          ...notificationText(kind, round.title, note),
+          recipients: [...byAuthor].map(([accountId, ids]) => ({
+            accountId,
+            feedbackId: ids.length === 1 ? (ids[0] ?? null) : null,
+          })),
+        });
+      } catch (error) {
+        console.warn(`[notifications] ${kind} for round ${round.id} failed`, error);
+      }
+    };
+
+    const projectNotFound = (resourceId: string) =>
+      new ORPCError("NOT_FOUND", {
+        message: "Project not found",
+        data: { resource: "project", resourceId },
+      });
+
+    const feedbackNotFound = (resourceId: string) =>
+      new ORPCError("NOT_FOUND", {
+        message: "Feedback not found",
+        data: { resource: "feedback", resourceId },
+      });
 
     return {
       ping: builder.ping.handler(async () => ({
@@ -407,19 +499,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return round;
         }),
 
-      updateRoundReadme: builder.updateRoundReadme
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const round = await services.rounds.resolveRoundById(input.id);
-          if (!round) {
-            throw errors.NOT_FOUND({
-              message: "Round not found",
-              data: { resource: "round", resourceId: input.id },
-            });
-          }
-          await assertCanManageRound(round, context, "Only the round owner can edit the readme");
-          return await services.rounds.updateRoundReadme(round.id, input.readme);
-        }),
+      updateRound: builder.updateRound.use(requireAuth).handler(async ({ input, context }) => {
+        const round = await requireRound(input.id);
+        await assertCanManageRound(
+          round,
+          context,
+          "Only the round owner can change round settings",
+        );
+        if (input.formats?.includes("issues") && !round.repoUrl) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "A repo URL is required when the issues format is selected",
+          });
+        }
+        return await services.rounds.updateRound(round.id, {
+          readme: input.readme,
+          formats: input.formats,
+        });
+      }),
 
       listRounds: builder.listRounds.handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
@@ -432,7 +528,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (input.status) return rounds;
         // No filter: this is the public browse listing, so pending/rejected
         // rounds — visible only to their owning org or an admin — never appear in it.
-        return rounds.filter((r) => r.status === "open" || r.status === "closed");
+        return rounds.filter(isPublic);
       }),
 
       listProjects: builder.listProjects
@@ -568,27 +664,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return round;
         }),
 
-      getRound: builder.getRound.handler(async ({ input, context, errors }) => {
-        const round = await services.rounds.getRoundDetail(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
-          });
-        }
-        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
-        const canManage = canManageRound(round, project, await resolveActor(project, context));
-        if (round.status === "pending" || round.status === "rejected") {
-          const isAdmin = context.user?.role === "admin";
-          if (!canManage && !isAdmin) {
-            throw errors.NOT_FOUND({
-              message: "Round not found",
-              data: { resource: "round", resourceId: input.id },
-            });
-          }
-        }
-        return { ...round, canManage };
-      }),
+      getRound: builder.getRound.handler(async ({ input, context }) =>
+        viewRoundDetail(await services.rounds.getRoundDetail(input.id), context, input.id),
+      ),
+
+      getRoundBySlug: builder.getRoundBySlug.handler(async ({ input, context }) =>
+        viewRoundDetail(
+          await services.rounds.getRoundDetailBySlug(input.slug, input.number),
+          context,
+          `${input.slug}/${input.number}`,
+        ),
+      ),
 
       joinRound: builder.joinRound.use(requireAuth).handler(async ({ input, context, errors }) => {
         const accountId = context.near?.primaryAccountId;
@@ -729,16 +815,69 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return { ...feedback, nostrEventId: nostrEventId ?? feedback.nostrEventId };
         }),
 
-      listFeedback: builder.listFeedback.handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
-          });
-        }
-        return await services.rounds.listFeedback(round.id);
+      listFeedback: builder.listFeedback.handler(async ({ input, context }) => {
+        const round = await visibleRound(input.id, context);
+        return await services.rounds.listFeedback(round.id, input);
       }),
+
+      listMyFeedback: builder.listMyFeedback
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const round = await visibleRound(input.id, context);
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) return [];
+          const { items } = await services.rounds.listFeedback(round.id, {
+            author: accountId,
+            limit: MAX_FEEDBACK_PER_TESTER,
+          });
+          const notes = await services.rounds.listFeedbackNotes(items.map((item) => item.id));
+          return items.map((feedback) => ({
+            ...feedback,
+            notes: notes.filter((note) => note.feedbackId === feedback.id),
+            points: pointsForAccepted(feedback.status === "resolved" ? 1 : 0),
+          }));
+        }),
+
+      getFeedback: builder.getFeedback.handler(async ({ input, context }) => {
+        const round = await visibleRound(input.id, context);
+        const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+        if (!feedback) throw feedbackNotFound(input.feedbackId);
+        const canSeeNotes =
+          managesRound(round, context) ||
+          feedback.authorAccountId === context.near?.primaryAccountId;
+        const notes = canSeeNotes ? await services.rounds.listFeedbackNotes([feedback.id]) : [];
+        return { ...feedback, notes };
+      }),
+
+      addFeedbackNote: builder.addFeedbackNote
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const accountId = nearAccountForNotes(context);
+          const round = await visibleRound(input.id, context);
+          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+          if (!feedback) throw feedbackNotFound(input.feedbackId);
+          const isManager = managesRound(round, context);
+          if (!isManager && feedback.authorAccountId !== accountId) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the author or the round owner can add a note",
+            });
+          }
+          const notes = await services.rounds.listFeedbackNotes([feedback.id]);
+          if (notes.length >= MAX_NOTES_PER_FEEDBACK) {
+            throw new ORPCError("BAD_REQUEST", { message: "This thread is full" });
+          }
+          if (!isManager && !notes.some((note) => note.role === "owner")) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "You can reply once the round owner leaves a note",
+            });
+          }
+          return await services.rounds.addFeedbackNote({
+            feedbackId: feedback.id,
+            authorAccountId: accountId,
+            role: isManager ? "owner" : "tester",
+            body: input.body,
+          });
+        }),
 
       deleteFeedback: builder.deleteFeedback
         .use(requireAuth)
@@ -756,13 +895,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          await assertCanManageRound(round, context, "Only the round owner can remove feedback");
-          const feedbackList = await services.rounds.listFeedback(round.id);
-          const feedback = feedbackList.find((f) => f.id === input.feedbackId);
-          if (!feedback) {
-            throw errors.NOT_FOUND({
-              message: "Feedback not found",
-              data: { resource: "feedback", resourceId: input.feedbackId },
+          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+          if (!feedback) throw feedbackNotFound(input.feedbackId);
+          if (feedback.authorAccountId !== accountId) {
+            await assertCanManageRound(
+              round,
+              context,
+              "Only the author or the round owner can remove feedback",
+            );
+          } else if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "This round is closed, so its feedback can no longer be deleted",
             });
           }
           const result = await services.rounds.deleteFeedback(input.feedbackId);
@@ -782,22 +925,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       setFeedbackStatus: builder.setFeedbackStatus
         .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const round = await services.rounds.resolveRoundById(input.id);
-          if (!round) {
-            throw errors.NOT_FOUND({
-              message: "Round not found",
-              data: { resource: "round", resourceId: input.id },
-            });
+        .handler(async ({ input, context }) => {
+          const round = await requireRound(input.id);
+          await assertCanManageRound(
+            round,
+            context,
+            "Only the round owner can resolve or dismiss feedback",
+          );
+          const note = input.note
+            ? { authorAccountId: nearAccountForNotes(context), body: input.note }
+            : undefined;
+          const changed = await services.rounds.setFeedbackStatus(
+            round.id,
+            input.feedbackIds,
+            input.status,
+            note,
+          );
+          if (input.status !== "unresolved") {
+            await notifyAuthors(round, changed, `feedback_${input.status}`, input.note);
           }
-          if (context.user?.role !== "admin") {
-            await assertCanManageRound(
-              round,
-              context,
-              "Only the round owner can resolve or dismiss feedback",
-            );
-          }
-          return await services.rounds.setFeedbackStatus(round.id, input.feedbackIds, input.status);
+          return changed;
         }),
 
       listParticipants: builder.listParticipants
@@ -814,7 +961,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const isParticipant = accountId
             ? await services.rounds.hasParticipant(round.id, accountId)
             : false;
-          if (!isParticipant && context.user?.role !== "admin") {
+          if (!isParticipant) {
             await assertCanManageRound(
               round,
               context,
@@ -834,9 +981,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          if (context.user?.role !== "admin") {
-            await assertCanManageRound(round, context, "Only the round owner can send a broadcast");
-          }
+          await assertCanManageRound(round, context, "Only the round owner can send a broadcast");
           if (round.status !== "open") {
             throw new ORPCError("BAD_REQUEST", {
               message: "Broadcasts can only be sent while the round is open",
@@ -1024,6 +1169,52 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getProjectSearchStatus: builder.getProjectSearchStatus.handler(async () => ({
         enabled: services.projectsLookup.enabled,
       })),
+
+      listPublicProjects: builder.listPublicProjects.handler(async () => {
+        const projects = await services.projectRecords.listProjects("approved");
+        return projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) }));
+      }),
+
+      getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, context }) => {
+        const record = await services.projectRecords.resolveProjectBySlug(input.slug);
+        const project = record && (await services.projectRecords.getProjectWithRounds(record.id));
+        if (!project) throw projectNotFound(input.slug);
+        const canManage = canManageProject(project, await resolveActor(project, context));
+        const canSeeAll = managesRound({ canManage }, context);
+        if (project.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
+        return {
+          ...project,
+          rounds: canSeeAll ? project.rounds : project.rounds.filter(isPublic),
+          canManage,
+          nearbuilders: await services.projectsLookup.resolveBySlug(project.slug),
+        };
+      }),
+
+      inviteTesters: builder.inviteTesters.use(requireAuth).handler(async ({ input, context }) => {
+        const round = await requireRound(input.id);
+        await assertCanManageRound(round, context, "Only the round owner can invite testers");
+        if (round.status !== "open") {
+          throw new ORPCError("BAD_REQUEST", { message: "Invite testers once the round is open" });
+        }
+        const from = await requireRound(input.fromRoundId);
+        if (from.projectRecordId !== round.projectRecordId) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Invite testers from a round of the same project",
+          });
+        }
+        const [previous, current] = await Promise.all([
+          services.rounds.listParticipants(from.id),
+          services.rounds.listParticipants(round.id),
+        ]);
+        const joined = new Set(current.map((participant) => participant.accountId));
+        const recipients = await services.notifications.notifyAccounts({
+          roundId: round.id,
+          kind: "round_opened",
+          ...notificationText("round_opened", round.title),
+          recipients: previous.filter((participant) => !joined.has(participant.accountId)),
+        });
+        return { recipients };
+      }),
 
       resolveProjectBySlug: builder.resolveProjectBySlug.handler(async ({ input }) => {
         return await services.projectsLookup.resolveBySlug(input.slug);

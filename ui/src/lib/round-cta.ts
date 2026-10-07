@@ -1,5 +1,5 @@
 export type RoundCtaInput = {
-  roundId: string;
+  redirectTo: string;
   canJoin: boolean;
   sessionPending: boolean;
   signedIn: boolean;
@@ -14,13 +14,6 @@ export type RoundCta =
   | { kind: "link-account" }
   | { kind: "none" };
 
-export function signInToJoinLink(roundId: string) {
-  return {
-    to: "/login" as const,
-    search: { redirect: `/feed/${roundId}` },
-  };
-}
-
 export function roundCta(input: RoundCtaInput): RoundCta {
   if (!input.canJoin) return { kind: "none" };
   if (input.sessionPending) {
@@ -28,7 +21,7 @@ export function roundCta(input: RoundCtaInput): RoundCta {
     return input.joined ? { kind: "leave" } : { kind: "join" };
   }
   if (!input.signedIn) {
-    return { kind: "signin", loginTo: signInToJoinLink(input.roundId) };
+    return { kind: "signin", loginTo: { to: "/login", search: { redirect: input.redirectTo } } };
   }
   if (!input.nearAccountId) return { kind: "link-account" };
   return input.joined ? { kind: "leave" } : { kind: "join" };

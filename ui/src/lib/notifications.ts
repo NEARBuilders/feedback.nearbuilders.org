@@ -54,3 +54,9 @@ export function broadcastConfirmation(participantCount: number): string {
     participantCount === 1 ? "participant" : "participants"
   }. It can't be unsent.`;
 }
+
+export function notificationTarget(kind: string) {
+  return kind.startsWith("feedback_")
+    ? ("/testing/$slug/$n" as const)
+    : ("/projects/$slug/$n" as const);
+}

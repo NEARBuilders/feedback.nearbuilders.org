@@ -30,10 +30,13 @@ All endpoints are under `/api/v1`. Open rounds and leaderboards are public; ever
 | `POST` | `/rounds` | Request a feedback round for a project your active organization owns, with an optional markdown `readme` for testers. A new project is created `pending`; on an approved project the round opens immediately. |
 | `GET` | `/rounds` | List rounds, filtered by status (open and closed rounds are public; pending and rejected are admin only). |
 | `GET` | `/rounds/{id}` | Read one round. Pending and rejected rounds are visible only to the owning organization and admins. |
-| `PATCH` | `/rounds/{id}/readme` | Owning organization: edit the round's markdown readme for testers. |
+| `GET` | `/projects/{slug}/rounds/{number}` | Read a round by its readable address, e.g. `/projects/near-wallet/rounds/3`. |
+| `PATCH` | `/rounds/{id}` | Owning organization: edit the round's markdown readme for testers and its feedback formats. |
 | `DELETE` | `/rounds/{id}` | Owning organization: delete a round. |
 | `GET` | `/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
 | `GET` | `/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
+| `GET` | `/projects/approved` | Public: approved projects with their rounds. |
+| `GET` | `/projects/{slug}/detail` | Public: a project, its rounds and its nearbuilders.org metadata. |
 | `POST` | `/projects/{id}/approve` | Admin: approve a project; its pending rounds open. |
 | `POST` | `/projects/{id}/reject` | Admin: reject a project with a required reason; its pending rounds are rejected with it. |
 | `POST` | `/projects/{id}/managing-team` | Org owner or admin: delegate the project's rounds to a team (or clear it). |
@@ -41,8 +44,12 @@ All endpoints are under `/api/v1`. Open rounds and leaderboards are public; ever
 | `GET` | `/rounds/{id}/join` | Whether you have joined. |
 | `GET` | `/rounds/joined` | Rounds you have joined. |
 | `GET` | `/rounds/{id}/participants` | Participants, for the owner, admins and joined testers. |
+| `POST` | `/rounds/{id}/invite` | Owner: notify the testers of an earlier round of the same project. |
 | `POST` | `/rounds/{id}/feedback` | Joined tester: post written feedback or a recorded-session link while the round is open. |
-| `GET` | `/rounds/{id}/feedback` | Read a round's feedback. |
+| `GET` | `/rounds/{id}/feedback` | Read a round's feedback, newest first, cursor-paged and filterable by `status` and `author`. |
+| `GET` | `/rounds/{id}/feedback/{feedbackId}` | One feedback item; owner notes are included for its author and the round's managers. |
+| `POST` | `/rounds/{id}/feedback/{feedbackId}/notes` | Owner note on feedback, or the author's reply to one. |
+| `GET` | `/rounds/{id}/my-feedback` | Tester: your feedback in a round, with status, points and notes. |
 | `DELETE` | `/rounds/{id}/feedback/{feedbackId}` | Owning organization: remove a feedback item. |
 | `PATCH` | `/rounds/{id}/feedback/status` | Owning organization or admin: resolve, dismiss or reopen feedback (bulk). |
 | `POST` | `/rounds/{id}/broadcast` | Owning organization: send an in-app notification to the round's participants. |

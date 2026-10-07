@@ -30,6 +30,21 @@ describe("notificationText", () => {
   });
 });
 
+describe("feedback status notifications (#118)", () => {
+  it("uses the owner's note as the body when there is one", () => {
+    expect(notificationText("feedback_dismissed", "Onboarding", "Works as intended")).toEqual({
+      title: "Feedback dismissed: Onboarding",
+      body: "Works as intended",
+    });
+  });
+
+  it("falls back to a default body", () => {
+    expect(notificationText("feedback_resolved", "Onboarding").body).toBe(
+      "The round owner resolved your feedback. Thanks for testing.",
+    );
+  });
+});
+
 describe("chunk", () => {
   it("splits a list into batches of at most the given size", () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);

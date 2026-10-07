@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import type { ApiClient } from "@/app";
 import { Badge, Button } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
+import { RoundStatusBadge } from "@/components/round-status-badge";
 import {
   Table,
   TableBody,
@@ -21,14 +22,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FORMAT_LABELS } from "@/lib/round-fields";
+import { roundParams } from "@/lib/round-links";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
-
-export const FORMAT_LABELS: Record<string, string> = {
-  issues: "GitHub issues",
-  written: "Written feedback",
-  recorded: "Recorded session",
-};
 
 /** Columns that collapse on narrow screens; the title column is always visible. */
 const COLUMN_VISIBILITY: Record<string, string> = {
@@ -46,10 +43,11 @@ interface RoundsTableProps {
   rounds: RoundDetail[];
   /** Endorsement counts keyed by round id. */
   endorsements?: Record<string, { totalCount: number }>;
-  pageSize?: number;
+  page: number;
+  onPageChange: (page: number) => void;
 }
 
-export function RoundsTable({ rounds, endorsements, pageSize = PAGE_SIZE }: RoundsTableProps) {
+export function RoundsTable({ rounds, endorsements, page, onPageChange }: RoundsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const columns = useMemo<ColumnDef<RoundDetail>[]>(
@@ -60,8 +58,8 @@ export function RoundsTable({ rounds, endorsements, pageSize = PAGE_SIZE }: Roun
         accessorFn: (round) => round.title.toLowerCase(),
         cell: ({ row }) => (
           <Link
-            to="/feed/$roundId"
-            params={{ roundId: row.original.id }}
+            to="/projects/$slug/$n"
+            params={roundParams(row.original)}
             className="font-medium text-foreground hover:underline"
           >
             {row.original.title}
@@ -82,11 +80,7 @@ export function RoundsTable({ rounds, endorsements, pageSize = PAGE_SIZE }: Roun
         id: "status",
         header: "Status",
         accessorKey: "status",
-        cell: ({ row }) => (
-          <Badge variant={row.original.status === "open" ? "secondary" : "outline"}>
-            {row.original.status}
-          </Badge>
-        ),
+        cell: ({ row }) => <RoundStatusBadge status={row.original.status} />,
       },
       {
         id: "formats",
@@ -130,12 +124,17 @@ export function RoundsTable({ rounds, endorsements, pageSize = PAGE_SIZE }: Roun
   const table = useReactTable({
     data: rounds,
     columns,
-    state: { sorting },
+    state: { sorting, pagination: { pageIndex: page - 1, pageSize: PAGE_SIZE } },
     onSortingChange: setSorting,
+    onPaginationChange: (updater) => {
+      const current = { pageIndex: page - 1, pageSize: PAGE_SIZE };
+      const next = typeof updater === "function" ? updater(current) : updater;
+      onPageChange(next.pageIndex + 1);
+    },
+    autoResetPageIndex: false,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize } },
   });
 
   const { pageIndex } = table.getState().pagination;
