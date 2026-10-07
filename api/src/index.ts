@@ -32,6 +32,7 @@ import {
 } from "./services/round-access";
 import { type RoundDetailRecord, RoundsLive, RoundsTag } from "./services/rounds";
 import { createTeamAccess } from "./services/team-access";
+import { createTelegramTipLookup } from "./services/telegram-tip";
 import { TenantsLive, TenantsTag } from "./services/tenants";
 
 const SUBDOMAIN_SEGMENT_REGEX = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
@@ -109,6 +110,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
     // GitHub-issue credit (#49). Public repos work unauthenticated too, just
     // rate-limited to 60/hr instead of 5000/hr. See services/github-issues.ts.
     GITHUB_API_TOKEN: z.string().default(""),
+    // Tip-bot message a round manager sends to tip a tester (#105). `{handle}` and
+    // `{account}` are replaced. Config-driven because the bot's command format may change.
+    TIP_MESSAGE_TEMPLATE: z.string().default("/tip @{handle}"),
   }),
 
   context: ContextSchema,
@@ -151,6 +155,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       const legionAccess = createLegionAccess(plugins.legion);
 
+      const telegramTip = createTelegramTipLookup({
+        baseUrl: config.secrets.PROJECTS_API_BASE_URL,
+        messageTemplate: config.secrets.TIP_MESSAGE_TEMPLATE,
+      });
+
       const githubIssuesLookup = createGithubIssuesLookup({
         token: config.secrets.GITHUB_API_TOKEN,
       });
@@ -169,6 +178,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         projectsLookup,
         teamAccess,
         legionAccess,
+        telegramTip,
         githubIssuesLookup,
       };
     }),
@@ -1173,6 +1183,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const results = await services.projectsLookup.search(input.query);
         return { available: results !== null, results: results ?? [] };
       }),
+
+      getTelegramTip: builder.getTelegramTip
+        .use(requireAuth)
+        .handler(async ({ input }) => services.telegramTip.getTip(input.accountId)),
 
       getProjectSearchStatus: builder.getProjectSearchStatus.handler(async () => ({
         enabled: services.projectsLookup.enabled,

@@ -176,6 +176,20 @@ Not covered yet, because the shared auth plugin does not support them:
   email and a role.
 - An active team per session: sessions have an active organization but no active team.
 
+## Tipping testers on Telegram
+
+Round managers can tip a tester from the feedback table. The tester's Telegram handle comes from
+their `nearbuilders.org` builder profile (`links.telegram`) with a NEAR Social fallback
+(`linktree.telegram`), normalized to a bare handle and shown next to the author, or "no Telegram
+linked". The tip button copies the tip-bot message and opens a `t.me` link with it ready to send;
+it is disabled with an explanation when no handle is linked. If both sources are unreachable the
+lookup degrades to "unavailable" instead of failing.
+
+`GET /api/v1/builders/{accountId}/telegram` (signed-in callers only) returns
+`{ handle, source, available, message, shareUrl }`. The message comes from the
+`TIP_MESSAGE_TEMPLATE` secret (default `/tip @{handle}`; `{handle}` and `{account}` are replaced),
+so the bot's command format can change without a code change.
+
 ## Activity events
 
 feedback.nearbuilders.org is an [Activity Source](https://github.com/NEARBuilders/activity.nearbuilders.org)
