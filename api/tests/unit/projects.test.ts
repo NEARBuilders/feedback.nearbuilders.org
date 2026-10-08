@@ -140,6 +140,83 @@ describe("createProjectsLookup (enabled)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("normalizes omitted nullable fields to null (a registry that drops logoUrl must not 500 round reads)", async () => {
+    const raw = {
+      id: "proj_1",
+      slug: "onboarding-flow",
+      title: "Onboarding Flow",
+      description: "A NEAR builders project",
+      kind: "project",
+      status: "active",
+      visibility: "public",
+      domain: "https://onboarding.example",
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: raw }),
+    } as Response);
+    const lookup = createProjectsLookup({ ...config, fetch: fetchMock, logger: { warn } });
+
+    expect(await lookup.resolveBySlug("onboarding-flow")).toEqual({
+      ...raw,
+      description: "A NEAR builders project",
+      repository: null,
+      logoUrl: null,
+    });
+  });
+
+  it("normalizes search results the same way", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          {
+            id: "proj_1",
+            slug: "onboarding-flow",
+            title: "Onboarding Flow",
+            description: null,
+            kind: "project",
+            status: "active",
+            visibility: "public",
+          },
+        ],
+        meta: { total: 1, hasMore: false, nextCursor: null },
+      }),
+    } as Response);
+    const lookup = createProjectsLookup({ ...config, fetch: fetchMock, logger: { warn } });
+
+    expect(await lookup.search("onboarding")).toEqual([
+      {
+        id: "proj_1",
+        slug: "onboarding-flow",
+        title: "Onboarding Flow",
+        description: null,
+        kind: "project",
+        status: "active",
+        visibility: "public",
+        domain: null,
+        repository: null,
+        logoUrl: null,
+      },
+    ]);
+  });
+
+  it("returns null and logs when a registry response fails validation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { ...project, kind: "something-new" },
+      }),
+    } as Response);
+    const lookup = createProjectsLookup({ ...config, fetch: fetchMock, logger: { warn } });
+
+    expect(await lookup.resolveBySlug("onboarding-flow")).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("returns null and logs when the resolve request rejects with a non-404 error", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
