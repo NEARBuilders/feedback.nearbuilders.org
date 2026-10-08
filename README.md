@@ -111,6 +111,31 @@ section on their `nearbuilders.org` profile.
 
 An account with no credited closed rounds returns `[]`.
 
+## GitHub issue credit and activity's poller
+
+Decision for #29: **keep reading filed issues straight from the GitHub API
+(`GET /rounds/{id}/github-issues`); do not register round repos with activity's GitHub poller for
+the "tester filed an issue" signal.** The poller (`github.pr.merged`, `github.issue.closed`) does
+not fit that signal:
+
+- It only sees **merged pull requests and closed issues**, never opened issues, and credits the
+  GitHub user who **merged or closed**, not the one who filed. A tester's issue is credited to the
+  maintainer who later closes it.
+- Every GitHub login needs an **explicit mapping to a NEAR account**, and unmapped events sit in
+  quarantine. Testers don't register their logins with the polling source, so almost nothing
+  would be credited.
+- It reads GitHub's Events API, which keeps **300 events from the last 30 days** and can lag by up
+  to six hours, and the repo must be enabled by an approved Source Owner. That is a setup step per
+  repo, not something a round request can do on its own.
+
+The direct read has none of these limits: it lists issues filed on the round's repo during the
+round's window, grouped by contributor, with the filer's login.
+
+Where the poller could still help is the other side, crediting **maintainers** who close
+tester-filed issues or merge fixes. That would register a project's repo once (not per round) and
+map the maintainers' GitHub logins to NEAR accounts. It adds credit nothing awards today, so it
+should only be built if the project owners want it; open question for #29.
+
 ## Reputation
 
 This app keeps no points ledger. `activity.nearbuilders.org` is the single source of a tester's
