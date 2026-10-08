@@ -757,11 +757,24 @@ describe("deleteRound", () => {
     await expect(anon.getRound({ id: round.id })).rejects.toThrow();
   });
 
-  it("rejects deleting an already-closed round", async () => {
+  it("deletes a closed round that never got feedback", async () => {
     const round = await createOpenRound("del3.near", { title: "Round for del3.near" });
     const owner = await getPluginClient(nearAuthedContext("del3.near"));
     await owner.closeRound({ id: round.id });
-    await expect(owner.deleteRound({ id: round.id })).rejects.toThrow("can't be deleted");
+    const deleted = await owner.deleteRound({ id: round.id });
+    expect(deleted.id).toBe(round.id);
+  });
+
+  it("rejects deleting a round that has feedback", async () => {
+    const round = await createOpenRound("del5.near", { title: "Round for del5.near" });
+    const owner = await getPluginClient(nearAuthedContext("del5.near"));
+    const builder = await getPluginClient(nearAuthedContext("del5-builder.near"));
+    await builder.joinRound({ id: round.id });
+    await builder.postFeedback({ id: round.id, format: "written", body: "Found a bug" });
+
+    await expect(owner.deleteRound({ id: round.id })).rejects.toThrow(
+      "Rounds with feedback can't be deleted",
+    );
   });
 
   it("fails with NOT_FOUND deleting an unknown round", async () => {
@@ -769,6 +782,69 @@ describe("deleteRound", () => {
     await expect(
       owner.deleteRound({ id: "00000000-0000-0000-0000-000000000000" }),
     ).rejects.toThrow();
+  });
+});
+
+describe("rejectRound and restoreRound", () => {
+  it("lets an admin hide an open round from everyone but its managers", async () => {
+    const round = await createOpenRound("mod1.near", { title: "Round for mod1.near" });
+    const admin = await getPluginClient(adminContext());
+    const owner = await getPluginClient(nearAuthedContext("mod1.near"));
+    const anon = await getPluginClient();
+
+    const hidden = await admin.rejectRound({ id: round.id, reason: "Spam round" });
+    expect(hidden).toMatchObject({ status: "rejected", rejectionReason: "Spam round" });
+    expect(hidden.rejectedAt).toEqual(expect.any(String));
+
+    await expect(anon.getRound({ id: round.id })).rejects.toThrow();
+    // The owner manages the round, so they can still see it and its reason.
+    const seenByOwner = await owner.getRound({ id: round.id });
+    expect(seenByOwner).toMatchObject({ status: "rejected", rejectionReason: "Spam round" });
+
+    const publicRounds = await anon.listRounds({});
+    expect(publicRounds.some((r) => r.id === round.id)).toBe(false);
+  });
+
+  it("restores a hidden open round back to open", async () => {
+    const round = await createOpenRound("mod2.near", { title: "Round for mod2.near" });
+    const admin = await getPluginClient(adminContext());
+    await admin.rejectRound({ id: round.id, reason: "Looks off" });
+
+    const restored = await admin.restoreRound({ id: round.id });
+    expect(restored).toMatchObject({ status: "open", rejectedAt: null, rejectionReason: null });
+
+    const anon = await getPluginClient();
+    expect((await anon.getRound({ id: round.id })).status).toBe("open");
+  });
+
+  it("restores a hidden closed round to closed", async () => {
+    const round = await createOpenRound("mod3.near", { title: "Round for mod3.near" });
+    const owner = await getPluginClient(nearAuthedContext("mod3.near"));
+    const admin = await getPluginClient(adminContext());
+    await owner.closeRound({ id: round.id });
+    await admin.rejectRound({ id: round.id, reason: "Reviewing credits" });
+
+    const restored = await admin.restoreRound({ id: round.id });
+    expect(restored).toMatchObject({ status: "closed" });
+  });
+
+  it("refuses to hide an already hidden round and to restore a visible one", async () => {
+    const round = await createOpenRound("mod4.near", { title: "Round for mod4.near" });
+    const admin = await getPluginClient(adminContext());
+
+    await admin.rejectRound({ id: round.id, reason: "Once" });
+    await expect(admin.rejectRound({ id: round.id, reason: "Twice" })).rejects.toThrow(
+      "already hidden",
+    );
+    await admin.restoreRound({ id: round.id });
+    await expect(admin.restoreRound({ id: round.id })).rejects.toThrow("isn't hidden");
+  });
+
+  it("refuses non-admins", async () => {
+    const round = await createOpenRound("mod5.near", { title: "Round for mod5.near" });
+    const stranger = await getPluginClient(nearAuthedContext("mod5-stranger.near"));
+    await expect(stranger.rejectRound({ id: round.id, reason: "Nope" })).rejects.toThrow();
+    await expect(stranger.restoreRound({ id: round.id })).rejects.toThrow();
   });
 });
 

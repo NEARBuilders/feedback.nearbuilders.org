@@ -110,15 +110,23 @@ describe("feedback images", () => {
     expect((await owner.listFeedback({ id: round.id })).items).toEqual([]);
   });
 
-  it("cleans up the images of every feedback item and the banner when a round is deleted", async () => {
+  it("refuses to delete a round that has feedback and leaves its images alone", async () => {
+    const { owner, round } = await openRound();
+    await post("img-tester-7.near", round.id, "![x](https://cdn.test/f.png)");
+    await post("img-tester-8.near", round.id, "![x](https://cdn.test/g.png)");
+
+    await expect(owner.deleteRound({ id: round.id })).rejects.toThrow(
+      "Rounds with feedback can't be deleted",
+    );
+    expect(storageDeleteByOwner).not.toHaveBeenCalled();
+  });
+
+  it("deletes the banner asset when a round without feedback is deleted", async () => {
     const { n, owner, round } = await openRound();
-    const first = await post("img-tester-7.near", round.id, "![x](https://cdn.test/f.png)");
-    const second = await post("img-tester-8.near", round.id, "![x](https://cdn.test/g.png)");
 
     await owner.deleteRound({ id: round.id });
 
-    const owners = storageDeleteByOwner.mock.calls.map(([input]) => input.ownerId);
-    expect(owners.sort()).toEqual([first.feedback.id, second.feedback.id, round.id].sort());
+    expect(storageDeleteByOwner).toHaveBeenCalledWith({ ownerId: round.id });
     expect(storageContexts.at(-1)).toMatchObject({
       near: { primaryAccountId: `img-owner-${n}.near` },
     });

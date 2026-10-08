@@ -748,8 +748,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           await assertCanManageRound(round, context, "Only the round owner can delete it");
-          if (round.status === "closed") {
-            throw new ORPCError("BAD_REQUEST", { message: "Closed rounds can't be deleted" });
+          // Feedback is testers' work and carries their credits; deleting a round with
+          // submissions would destroy that attribution. Hide it instead (admin action).
+          const feedbackCount = await services.rounds.countFeedback(round.id);
+          if (feedbackCount > 0) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Rounds with feedback can't be deleted — an admin can hide it instead",
+            });
           }
           const owners = await services.rounds.listFeedbackOwners(round.id);
           const result = await services.rounds.deleteRound(round.id);
@@ -763,6 +768,38 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           return round;
         }),
+
+      rejectRound: builder.rejectRound.use(requireAdmin).handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        const updated = await services.rounds.rejectRound(round.id, input.reason);
+        // The round leaves feeds the same way a deleted one does; restoring re-emits.
+        if (round.activityEventId) {
+          await services.activityEvents.retract(round.activityEventId, "round hidden");
+        }
+        return updated;
+      }),
+
+      restoreRound: builder.restoreRound.use(requireAdmin).handler(async ({ input, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        const restored = await services.rounds.restoreRound(round.id);
+        if (restored.status === "open") {
+          const eventId = await services.activityEvents.emitRoundOpened(restored);
+          if (eventId) await services.rounds.setRoundActivityEventId(restored.id, eventId);
+        }
+        return restored;
+      }),
 
       getRound: builder.getRound.handler(async ({ input, context }) =>
         viewRoundDetail(await services.rounds.getRoundDetail(input.id), context, input.id),
