@@ -101,7 +101,7 @@ export function canReadAllFeedback(
  * submissions authored by any of `accountIds` (none when logged out), matching how a user's
  * submissions may come from any of their linked wallets (#121).
  */
-export function filterVisibleFeedback<T extends { authorAccountId: string }>(
+export function filterVisibleFeedback<T extends { authorAccountId: string | null }>(
   feedback: T[],
   canReadAll: boolean,
   accountIds: string[] | null | undefined,
@@ -109,5 +109,8 @@ export function filterVisibleFeedback<T extends { authorAccountId: string }>(
   if (canReadAll) return feedback;
   if (!accountIds || accountIds.length === 0) return [];
   const authors = new Set(accountIds);
-  return feedback.filter((item) => authors.has(item.authorAccountId));
+  // Anonymous submissions (#89) have no author, so only readers of the round see them.
+  return feedback.filter(
+    (item) => item.authorAccountId !== null && authors.has(item.authorAccountId),
+  );
 }

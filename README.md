@@ -175,6 +175,24 @@ the queued row rather than emitting and immediately retracting it.
   [activity.nearbuilders.org#66](https://github.com/NEARBuilders/activity.nearbuilders.org/issues/66);
   until the gateway configures one, starring something does not change anyone's standing.
 
+## Anonymous feedback and the project feedback stream
+
+- **Anonymous feedback:** a round can opt in at creation (`allowAnonymous`, off by default).
+  Anyone, signed in or not, can then post with `anonymous: true` without joining and without an
+  identity: the row stores no author (`author_type = anonymous`). It is rejected on rounds that
+  didn't opt in, on closed rounds and on Legion-only rounds. Anonymous posts never reach the
+  activity gateway (so they can't create a fake actor or earn points), are never credited or
+  notified, and their Nostr copy has no `near_account` tag. Managers can still resolve, star and
+  export them, where the author shows as "Anonymous". There is no rate limiting yet, which is why
+  it is opt-in.
+- **Project feedback stream:** `GET /api/v1/projects/{slug}/feedback` is public and returns
+  `{ items, nextSince }`: feedback across every round of a project, oldest first, each item with
+  its round context (`roundId`, `roundNumber`, `roundTitle`, `projectSlug`). Filter with
+  `roundNumber`, `format` and `authorType`, page with `limit` (default 50, max 200), and poll with
+  `since` set to the previous `nextSince`. It follows the per-round visibility: unapproved
+  projects and pending or rejected rounds are for their managers, and on a private round a caller
+  only gets their own submissions unless they manage the round or are a platform admin.
+
 ## Teams and delegated round management
 
 Organizations can group members into teams and delegate a project's rounds to a team. Teams

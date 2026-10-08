@@ -7,6 +7,7 @@ import { Button, ConfirmDialog } from "@/components";
 import { FeedbackContent } from "@/components/feedback-content";
 import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
+import { authorLabel } from "@/lib/feedback-author";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 
@@ -47,7 +48,7 @@ export function FeedbackList<T extends FeedbackEntry>({
         data-testid="feedback-list"
       >
         {entries.map((entry) => {
-          const isOwn = entry.authorAccountId === currentAccountId;
+          const isOwn = !!entry.authorAccountId && entry.authorAccountId === currentAccountId;
           return (
             <li
               key={entry.id}
@@ -56,7 +57,9 @@ export function FeedbackList<T extends FeedbackEntry>({
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0 truncate text-xs text-muted-foreground">
-                  <span className="font-mono">{entry.authorAccountId}</span>
+                  <span className={entry.authorAccountId ? "font-mono" : "italic"}>
+                    {authorLabel(entry)}
+                  </span>
                   {isOwn && " (you)"} · {new Date(entry.createdAt).toLocaleDateString()}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">

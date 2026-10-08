@@ -4,6 +4,7 @@ import { Lock, MessageSquare, PenLine } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card, EmptyState } from "@/components";
 import { ActionCard } from "@/components/action-card";
+import { AnonymousFeedbackForm } from "@/components/anonymous-feedback-form";
 import { FeedbackList } from "@/components/feedback-list";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { RoundRepoLinks } from "@/components/round-repo-links";
@@ -53,6 +54,10 @@ function RoundFeedbackPage() {
             )}
           </div>
         </ActionCard>
+      )}
+
+      {round.allowAnonymous && round.status === "open" && !round.legionOnly && (
+        <AnonymousFeedbackForm roundId={round.id} formats={round.formats} />
       )}
 
       {round.isPrivate && (

@@ -339,14 +339,24 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const visibleRound = async (id: string, context: ViewerContext) =>
       viewRoundDetail(await services.rounds.getRoundDetail(id), context, id);
 
+    /** Whether the caller wrote this feedback with one of their linked NEAR accounts (#121). */
+    const isFeedbackAuthor = (
+      context: ViewerContext,
+      feedback: { authorAccountId: string | null },
+    ) =>
+      feedback.authorAccountId !== null &&
+      linkedAccountIds(context).includes(feedback.authorAccountId);
+
     const notifyAuthors = async (
       round: { id: string; title: string },
-      feedback: Array<{ id: string; authorAccountId: string }>,
+      feedback: Array<{ id: string; authorAccountId: string | null }>,
       kind: FeedbackStatusKind,
       note?: string,
     ) => {
       const byAuthor = new Map<string, string[]>();
       for (const item of feedback) {
+        // Anonymous feedback (#89) has no one to notify.
+        if (!item.authorAccountId) continue;
         byAuthor.set(item.authorAccountId, [
           ...(byAuthor.get(item.authorAccountId) ?? []),
           item.id,
@@ -415,6 +425,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             repoUrl: input.repoUrl,
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
+            allowAnonymous: input.allowAnonymous,
           });
           // A round on a not-yet-approved project waits as "pending" until an admin
           // decides the project (#69); round.opened fires then. On an already
@@ -727,69 +738,118 @@ export default createPlugin.withPlugins<PluginsClient>()({
           services.rounds.getOwnerSummary(context.organization.activeOrganizationId),
         ),
 
-      postFeedback: builder.postFeedback
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const myAccounts = linkedAccountIds(context);
-          if (myAccounts.length === 0) {
+      postFeedback: builder.postFeedback.handler(async ({ input, context, errors }) => {
+        const round = await services.rounds.resolveRoundById(input.id);
+        if (!round) {
+          throw errors.NOT_FOUND({
+            message: "Round not found",
+            data: { resource: "round", resourceId: input.id },
+          });
+        }
+        if (!round.formats.includes(input.format)) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: `This round isn't collecting ${input.format} feedback`,
+          });
+        }
+        const body = input.format === "written" ? (input.body?.trim() ?? null) : null;
+        const url = input.format === "recorded" ? (input.url ?? null) : null;
+        const content = (input.format === "written" ? body : url) ?? "";
+
+        // Opt-in anonymous feedback (#89): no session, no NEAR account, no join, and no
+        // identity stored. It never reaches activity, so a fake actor can't pollute
+        // leaderboards, and the Nostr copy carries no `near_account` tag.
+        if (input.anonymous) {
+          if (!round.allowAnonymous) {
             throw new ORPCError("BAD_REQUEST", {
-              message: "Link a NEAR account before posting feedback",
-              data: { hint: "Link a NEAR wallet in settings" },
+              message: "This round doesn't accept anonymous feedback",
             });
           }
-          const round = await services.rounds.resolveRoundById(input.id);
-          if (!round) {
-            throw errors.NOT_FOUND({
-              message: "Round not found",
-              data: { resource: "round", resourceId: input.id },
-            });
+          if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", { message: "This round is no longer open" });
           }
-          if (!round.formats.includes(input.format)) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: `This round isn't collecting ${input.format} feedback`,
-            });
-          }
-          // Post as the account that joined, which may no longer be the primary one.
-          const accountId = await services.rounds.findParticipantAccount(round.id, myAccounts);
-          if (!accountId) {
+          if (round.legionOnly) {
             throw new ORPCError("FORBIDDEN", {
-              message: "Join the round before posting feedback",
+              message: "Anonymous feedback isn't available on Legion-only rounds",
             });
           }
-          await assertLegionAccess(round, accountId, context, "post in");
-          const body = input.format === "written" ? (input.body?.trim() ?? null) : null;
-          const url = input.format === "recorded" ? (input.url ?? null) : null;
-          const feedback = await services.rounds.addFeedback({
+          const anonymous = await services.rounds.addFeedback({
             roundId: round.id,
-            authorAccountId: accountId,
+            authorAccountId: null,
+            authorType: "anonymous",
             format: input.format,
             body,
             url,
           });
-          // The activity event never carries the feedback body, so it's safe for private
-          // rounds too (#101).
-          const eventId = await services.activityEvents.emitFeedbackPosted({
-            ...feedback,
-            roundTitle: round.title,
-          });
-          if (eventId) await services.rounds.setFeedbackActivityEventId(feedback.id, eventId);
-          // A Nostr comment can't be retracted, so a private round's feedback never goes there.
-          const nostrEventId = round.isPrivate
+          const anonymousNostrId = round.isPrivate
             ? null
             : await services.feedbackNostr.publish(
                 {
                   projectSlug: round.projectSlug,
                   roundNumber: round.projectRoundNumber,
                   format: input.format,
-                  content: (input.format === "written" ? body : url) ?? "",
-                  authorAccountId: accountId,
+                  content,
+                  authorAccountId: null,
                 },
                 context,
               );
-          if (nostrEventId)
-            await services.rounds.setFeedbackNostrEventId(feedback.id, nostrEventId);
-          return { ...feedback, nostrEventId: nostrEventId ?? feedback.nostrEventId };
-        }),
+          if (anonymousNostrId) {
+            await services.rounds.setFeedbackNostrEventId(anonymous.id, anonymousNostrId);
+          }
+          return { ...anonymous, nostrEventId: anonymousNostrId ?? anonymous.nostrEventId };
+        }
+
+        if (!context.user || !context.userId) {
+          throw new ORPCError("UNAUTHORIZED", {
+            message: "Authentication required",
+            data: { hint: "Sign in to continue" },
+          });
+        }
+        const myAccounts = linkedAccountIds(context);
+        if (myAccounts.length === 0) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Link a NEAR account before posting feedback",
+            data: { hint: "Link a NEAR wallet in settings" },
+          });
+        }
+        // Post as the account that joined, which may no longer be the primary one.
+        const accountId = await services.rounds.findParticipantAccount(round.id, myAccounts);
+        if (!accountId) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "Join the round before posting feedback",
+          });
+        }
+        await assertLegionAccess(round, accountId, context, "post in");
+        const feedback = await services.rounds.addFeedback({
+          roundId: round.id,
+          authorAccountId: accountId,
+          format: input.format,
+          body,
+          url,
+        });
+        // The activity event never carries the feedback body, so it's safe for private
+        // rounds too (#101).
+        const eventId = await services.activityEvents.emitFeedbackPosted({
+          ...feedback,
+          authorAccountId: accountId,
+          roundTitle: round.title,
+        });
+        if (eventId) await services.rounds.setFeedbackActivityEventId(feedback.id, eventId);
+        // A Nostr comment can't be retracted, so a private round's feedback never goes there.
+        const nostrEventId = round.isPrivate
+          ? null
+          : await services.feedbackNostr.publish(
+              {
+                projectSlug: round.projectSlug,
+                roundNumber: round.projectRoundNumber,
+                format: input.format,
+                content,
+                authorAccountId: accountId,
+              },
+              context,
+            );
+        if (nostrEventId) await services.rounds.setFeedbackNostrEventId(feedback.id, nostrEventId);
+        return { ...feedback, nostrEventId: nostrEventId ?? feedback.nostrEventId };
+      }),
 
       listFeedback: builder.listFeedback.handler(async ({ input, context }) => {
         const round = await visibleRound(input.id, context);
@@ -833,9 +893,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const round = await visibleRound(input.id, context);
         const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
         if (!feedback) throw feedbackNotFound(input.feedbackId);
-        const canSeeNotes =
-          managesRound(round, context) ||
-          linkedAccountIds(context).includes(feedback.authorAccountId);
+        const canSeeNotes = managesRound(round, context) || isFeedbackAuthor(context, feedback);
         const notes = canSeeNotes ? await services.rounds.listFeedbackNotes([feedback.id]) : [];
         return { ...feedback, notes };
       }),
@@ -848,7 +906,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
           const isManager = managesRound(round, context);
-          const isAuthor = linkedAccountIds(context).includes(feedback.authorAccountId);
+          const isAuthor = isFeedbackAuthor(context, feedback);
           if (!isManager && !isAuthor) {
             throw new ORPCError("FORBIDDEN", {
               message: "Only the author or the round owner can add a note",
@@ -865,7 +923,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           return await services.rounds.addFeedbackNote({
             feedbackId: feedback.id,
-            authorAccountId: isManager ? accountId : feedback.authorAccountId,
+            authorAccountId: isManager ? accountId : (feedback.authorAccountId ?? accountId),
             role: isManager ? "owner" : "tester",
             body: input.body,
           });
@@ -888,7 +946,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
-          if (!linkedAccountIds(context).includes(feedback.authorAccountId)) {
+          if (!isFeedbackAuthor(context, feedback)) {
             await assertCanManageRound(
               round,
               context,
@@ -1218,6 +1276,47 @@ export default createPlugin.withPlugins<PluginsClient>()({
           ...(await withIdentity(project)),
           rounds: canSeeAll ? project.rounds : project.rounds.filter(isPublic),
           canManage,
+        };
+      }),
+
+      listProjectFeedback: builder.listProjectFeedback.handler(async ({ input, context }) => {
+        // Same visibility as the per-round list (#101): unapproved projects and pending or
+        // rejected rounds are for their managers, private rounds only show the caller's own
+        // submissions to anyone outside the reader set.
+        const record = await services.projectRecords.resolveProjectBySlug(input.slug);
+        if (!record) throw projectNotFound(input.slug);
+        const actor = await resolveActor(record, context);
+        const canSeeAll = managesRound(
+          { canManage: canManageProject({ ...record, rounds: [] }, actor) },
+          context,
+        );
+        if (record.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
+
+        const readableRoundIds: string[] = [];
+        const ownRoundIds: string[] = [];
+        for (const round of await services.rounds.listRoundsByProject(record.id)) {
+          if (!isPublic(round) && !canSeeAll) continue;
+          if (canReadAllFeedback(round, record, actor, isSiteAdmin(context))) {
+            readableRoundIds.push(round.id);
+          } else {
+            ownRoundIds.push(round.id);
+          }
+        }
+        const items = await services.rounds.listProjectFeedback(record.id, {
+          roundNumber: input.roundNumber,
+          format: input.format,
+          authorType: input.authorType,
+          since: input.since ? new Date(input.since) : undefined,
+          limit: input.limit,
+          readableRoundIds,
+          ownRoundIds,
+          ownAuthors: linkedAccountIds(context),
+        });
+        return {
+          items: items.map(
+            ({ starredByAccountId: _starredBy, activityEventId: _event, ...item }) => item,
+          ),
+          nextSince: items.at(-1)?.createdAt ?? null,
         };
       }),
 

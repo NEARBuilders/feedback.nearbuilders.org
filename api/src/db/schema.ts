@@ -116,6 +116,9 @@ export const rounds = pgTable(
     isPrivate: boolean("is_private").default(false).notNull(),
     // Only holders of a Legion SBT can join and post (#103).
     legionOnly: boolean("legion_only").default(false).notNull(),
+    // Opt-in: anyone, signed in or not, can post feedback without joining and without an
+    // identity attached (#89).
+    allowAnonymous: boolean("allow_anonymous").default(false).notNull(),
     status: roundStatus("status").default("pending").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
@@ -159,6 +162,13 @@ export const roundParticipants = pgTable(
 
 export const roundFeedbackFormat = pgEnum("round_feedback_format", ["written", "recorded"]);
 
+// `agent` is reserved for a future AI write path (#89); only `near` and `anonymous` are written.
+export const roundFeedbackAuthorType = pgEnum("round_feedback_author_type", [
+  "near",
+  "anonymous",
+  "agent",
+]);
+
 export const roundFeedbackStatus = pgEnum("round_feedback_status", [
   "unresolved",
   "resolved",
@@ -172,7 +182,9 @@ export const roundFeedback = pgTable(
     roundId: uuid("round_id")
       .notNull()
       .references(() => rounds.id, { onDelete: "cascade" }),
-    authorAccountId: text("author_account_id").notNull(),
+    // Null for anonymous (and future agent) submissions (#89).
+    authorAccountId: text("author_account_id"),
+    authorType: roundFeedbackAuthorType("author_type").default("near").notNull(),
     format: roundFeedbackFormat("format").notNull(),
     body: text("body"),
     url: text("url"),
@@ -190,6 +202,8 @@ export const roundFeedback = pgTable(
   },
   (table) => ({
     roundCreatedIdx: index("round_feedback_round_created_idx").on(table.roundId, table.createdAt),
+    // Backs the `since` cursor of the project-level feedback stream (#89).
+    createdIdx: index("round_feedback_created_idx").on(table.createdAt),
   }),
 );
 

@@ -156,6 +156,21 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
               </span>
             </span>
           </label>
+          <label className="flex cursor-pointer items-start gap-2.5" htmlFor="round-anonymous">
+            <Checkbox
+              id="round-anonymous"
+              checked={value.allowAnonymous}
+              onCheckedChange={(checked) => set("allowAnonymous", checked === true)}
+              disabled={disabled || value.legionOnly}
+            />
+            <span className="text-sm">
+              <span className="font-medium text-foreground">Allow anonymous feedback</span>
+              <span className="block text-xs text-muted-foreground">
+                Anyone can post without joining or signing in, with no identity attached. Anonymous
+                posts earn no points or credit, and can't be used on Legion-only rounds.
+              </span>
+            </span>
+          </label>
         </div>
       </Field>
     </>

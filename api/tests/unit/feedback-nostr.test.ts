@@ -81,4 +81,18 @@ describe("createFeedbackNostrEmitter (enabled)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain("relay unavailable");
   });
+
+  it("leaves out the near_account tag for anonymous feedback (#89)", async () => {
+    const createComment = vi.fn().mockResolvedValue({ eventId: "evt_anon", statuses: [] });
+    const nostr = vi.fn().mockReturnValue({ createComment });
+    const emitter = createFeedbackNostrEmitter({ nostr, secretKeyHex, logger: { warn } });
+
+    await emitter.publish({ ...input, authorAccountId: null }, {});
+
+    const { event } = createComment.mock.calls[0]![0];
+    expect(verifyEvent(event)).toBe(true);
+    expect(event.tags.some((tag: string[]) => tag[0] === "near_account")).toBe(false);
+    expect(event.tags).toContainEqual(["round", "3"]);
+    expect(event.tags).toContainEqual(["format", "written"]);
+  });
 });

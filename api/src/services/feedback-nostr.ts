@@ -33,7 +33,8 @@ export interface FeedbackNostrInput {
   roundNumber: number;
   format: "written" | "recorded";
   content: string;
-  authorAccountId: string;
+  /** Null for anonymous feedback: the `near_account` tag is then left out (#89). */
+  authorAccountId: string | null;
 }
 
 export interface FeedbackNostrEmitter {
@@ -72,7 +73,7 @@ export function createFeedbackNostrEmitter(options: FeedbackNostrOptions): Feedb
           ["p", pubkey],
           ["client", clientName],
           ["near_target", `${TARGET_TYPE}:${input.projectSlug}`],
-          ["near_account", input.authorAccountId],
+          ...(input.authorAccountId ? [["near_account", input.authorAccountId]] : []),
           ["round", String(input.roundNumber)],
           ["format", input.format],
         ];

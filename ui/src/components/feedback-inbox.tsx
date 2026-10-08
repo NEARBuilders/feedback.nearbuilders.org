@@ -5,6 +5,7 @@ import { Button, Checkbox, ConfirmDialog } from "@/components";
 import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
+import { authorLabel } from "@/lib/feedback-author";
 import { exportFeedback, feedbackText } from "@/lib/feedback-export";
 import { inboxKeyAction, isTypingTarget } from "@/lib/inbox-keys";
 import type { FeedbackEntry, FeedbackStatus } from "@/lib/queries/feedback";
@@ -138,7 +139,7 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
           >
             <Checkbox
               className="mt-1"
-              aria-label={`Select feedback from ${entry.authorAccountId}`}
+              aria-label={`Select feedback from ${authorLabel(entry)}`}
               checked={selected.has(entry.id)}
               onCheckedChange={(checked) => toggle(entry.id, checked === true)}
             />
@@ -162,7 +163,7 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="truncate font-mono text-xs text-muted-foreground">
-                  {entry.authorAccountId}
+                  {authorLabel(entry)}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
                   {entry.starredAt && <StarBadge data-testid="star-badge" />}

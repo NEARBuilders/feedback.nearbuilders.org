@@ -10,6 +10,8 @@ export interface RoundFields {
   isPrivate: boolean;
   /** Only holders of a Legion SBT can join and post (#103). */
   legionOnly: boolean;
+  /** Anyone can post feedback without joining or signing in, with no identity attached (#89). */
+  allowAnonymous: boolean;
 }
 
 export const EMPTY_ROUND_FIELDS: RoundFields = {
@@ -20,6 +22,7 @@ export const EMPTY_ROUND_FIELDS: RoundFields = {
   repoUrl: "",
   isPrivate: false,
   legionOnly: false,
+  allowAnonymous: false,
 };
 
 export const FORMAT_OPTIONS: Array<{ value: RoundFormat; label: string; hint: string }> = [
@@ -53,6 +56,7 @@ export function nextRoundFields(
     repoUrl: previous.repoUrl ?? "",
     isPrivate: previous.isPrivate,
     legionOnly: previous.legionOnly,
+    allowAnonymous: previous.allowAnonymous,
   };
 }
 
@@ -65,5 +69,6 @@ export function toCreateRoundInput(fields: RoundFields) {
     repoUrl: fields.repoUrl.trim() || undefined,
     isPrivate: fields.isPrivate || undefined,
     legionOnly: fields.legionOnly || undefined,
+    allowAnonymous: fields.allowAnonymous || undefined,
   };
 }

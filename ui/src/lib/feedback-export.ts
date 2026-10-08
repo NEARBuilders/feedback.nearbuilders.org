@@ -1,3 +1,4 @@
+import { authorLabel } from "@/lib/feedback-author";
 import type { FeedbackEntry } from "@/lib/queries/feedback";
 
 export type ExportableFeedback = Pick<
@@ -30,7 +31,7 @@ export function feedbackToCsv(entries: ExportableFeedback[]): string {
   const rows = entries.map((entry) =>
     [
       entry.id,
-      entry.authorAccountId,
+      authorLabel(entry),
       entry.format,
       feedbackText(entry),
       entry.status,
@@ -47,7 +48,7 @@ export function feedbackToJson(entries: ExportableFeedback[]): string {
   return JSON.stringify(
     entries.map((entry) => ({
       id: entry.id,
-      author: entry.authorAccountId,
+      author: authorLabel(entry),
       format: entry.format,
       content: feedbackText(entry),
       status: entry.status,

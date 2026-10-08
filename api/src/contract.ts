@@ -90,6 +90,8 @@ export const RoundSchema = z.object({
   isPrivate: z.boolean(),
   /** Only holders of a Legion SBT can join and post (#103). */
   legionOnly: z.boolean(),
+  /** Anyone can post feedback without joining or signing in, with no identity attached (#89). */
+  allowAnonymous: z.boolean(),
   status: RoundStatusSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -131,10 +133,16 @@ export const RoundFeedbackStatusSchema = z.enum(["unresolved", "resolved", "dism
 
 export type RoundFeedbackStatus = z.infer<typeof RoundFeedbackStatusSchema>;
 
+export const RoundFeedbackAuthorTypeSchema = z.enum(["near", "anonymous", "agent"]);
+
+export type RoundFeedbackAuthorType = z.infer<typeof RoundFeedbackAuthorTypeSchema>;
+
 export const RoundFeedbackSchema = z.object({
   id: z.string(),
   roundId: z.string(),
-  authorAccountId: z.string(),
+  /** Null for anonymous submissions (#89). */
+  authorAccountId: z.string().nullable(),
+  authorType: RoundFeedbackAuthorTypeSchema,
   format: RoundFeedbackFormatSchema,
   body: z.string().nullable(),
   url: z.string().nullable(),
@@ -146,6 +154,23 @@ export const RoundFeedbackSchema = z.object({
 });
 
 export type RoundFeedback = z.infer<typeof RoundFeedbackSchema>;
+
+export const ProjectFeedbackItemSchema = RoundFeedbackSchema.extend({
+  /** The round's per-project number (the `n` in `/projects/{slug}/{n}`). */
+  roundNumber: z.number().int().positive(),
+  roundTitle: z.string(),
+  projectSlug: z.string(),
+});
+
+export type ProjectFeedbackItem = z.infer<typeof ProjectFeedbackItemSchema>;
+
+export const ProjectFeedbackStreamSchema = z.object({
+  items: z.array(ProjectFeedbackItemSchema),
+  /** Pass as `since` to read what came after this page; null when the page was empty. */
+  nextSince: z.string().nullable(),
+});
+
+export type ProjectFeedbackStream = z.infer<typeof ProjectFeedbackStreamSchema>;
 
 export const FeedbackNoteSchema = z.object({
   id: z.string(),
@@ -436,6 +461,8 @@ const PostFeedbackInputSchema = z
     format: RoundFeedbackFormatSchema,
     body: z.string().max(5000).optional(),
     url: z.string().url("Must be a valid URL").optional(),
+    /** Post without an identity; only on rounds that opted in (#89). */
+    anonymous: z.boolean().optional(),
   })
   .refine((v) => v.format !== "written" || !!v.body?.trim(), {
     message: "Written feedback needs a non-empty body",
@@ -464,6 +491,8 @@ const CreateRoundInputSchema = z
     isPrivate: z.boolean().optional(),
     /** Only Legion SBT holders can join and post (#103). */
     legionOnly: z.boolean().optional(),
+    /** Let anyone post feedback without joining or signing in (#89). */
+    allowAnonymous: z.boolean().optional(),
   })
   .refine((val) => !val.formats.includes("issues") || !!val.repoUrl, {
     message: "A repo URL is required when the issues format is selected",
@@ -665,6 +694,27 @@ export const contract = oc.router({
     .errors({ NOT_FOUND }),
   // Visibility-aware (#101): on a private round only the managing org/team and admins
   // get every submission; anyone else gets just their own.
+
+  listProjectFeedback: oc
+    .route({
+      method: "GET",
+      path: "/projects/{slug}/feedback",
+      summary: "Stream a project's feedback across its rounds",
+      description:
+        "Public, oldest first, with round context. Poll it with `since` (the previous `nextSince`) to read only new feedback (#89). It follows the same visibility as the per-round list: rounds that are pending, rejected or private only contribute what the caller may read.",
+    })
+    .input(
+      z.object({
+        slug: z.string().min(1).max(100),
+        roundNumber: z.number().int().positive().optional(),
+        format: RoundFeedbackFormatSchema.optional(),
+        authorType: RoundFeedbackAuthorTypeSchema.optional(),
+        since: z.iso.datetime().optional(),
+        limit: z.number().int().min(1).max(200).default(50),
+      }),
+    )
+    .output(ProjectFeedbackStreamSchema)
+    .errors({ NOT_FOUND }),
 
   listMyFeedback: oc
     .route({ method: "GET", path: "/rounds/{id}/my-feedback" })

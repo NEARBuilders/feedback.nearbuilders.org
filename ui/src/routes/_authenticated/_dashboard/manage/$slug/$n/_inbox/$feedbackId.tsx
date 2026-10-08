@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, Filter, Star } from "lucide-react";
+import { ArrowLeft, Filter, Star, UserRound } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
@@ -11,6 +11,7 @@ import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { RouteNotFound } from "@/components/route-states";
 import { TelegramHandle, TipButtons } from "@/components/tip-tester";
+import { ANONYMOUS_LABEL } from "@/lib/feedback-author";
 import { feedbackItemQueryOptions } from "@/lib/queries/feedback";
 import { orNotFound } from "@/lib/queries/not-found";
 import { loadRound, useRound } from "@/lib/round-route";
@@ -55,23 +56,39 @@ function FeedbackDetailPane() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <AccountAvatar accountId={feedback.authorAccountId} className="h-9 w-9" />
-          <div className="min-w-0">
-            <Link
-              to="/$accountId"
-              params={{ accountId: feedback.authorAccountId }}
-              className="block truncate font-mono text-sm text-foreground hover:underline"
-            >
-              {feedback.authorAccountId}
-            </Link>
-            <TelegramHandle accountId={feedback.authorAccountId} enabled />
-            <p className="text-xs text-muted-foreground">
-              {new Date(feedback.createdAt).toLocaleString()} · {feedback.format}
-            </p>
-          </div>
+          {feedback.authorAccountId ? (
+            <>
+              <AccountAvatar accountId={feedback.authorAccountId} className="h-9 w-9" />
+              <div className="min-w-0">
+                <Link
+                  to="/$accountId"
+                  params={{ accountId: feedback.authorAccountId }}
+                  className="block truncate font-mono text-sm text-foreground hover:underline"
+                >
+                  {feedback.authorAccountId}
+                </Link>
+                <TelegramHandle accountId={feedback.authorAccountId} enabled />
+                <p className="text-xs text-muted-foreground">
+                  {new Date(feedback.createdAt).toLocaleString()} · {feedback.format}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <UserRound className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-sm italic text-foreground">{ANONYMOUS_LABEL}</span>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(feedback.createdAt).toLocaleString()} · {feedback.format}
+                </p>
+              </div>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <TipButtons accountId={feedback.authorAccountId} />
+          {feedback.authorAccountId && <TipButtons accountId={feedback.authorAccountId} />}
           <Button
             variant="ghost"
             size="sm"
@@ -84,16 +101,18 @@ function FeedbackDetailPane() {
             <Star className={`h-3.5 w-3.5 ${feedback.starredAt ? "fill-current" : ""}`} />
             {feedback.starredAt ? "starred" : "star"}
           </Button>
-          <Button asChild size="sm" variant="ghost">
-            <Link
-              to="/manage/$slug/$n"
-              params={params}
-              search={{ ...inboxSearch, author: feedback.authorAccountId }}
-            >
-              <Filter className="h-3.5 w-3.5" />
-              more from this tester
-            </Link>
-          </Button>
+          {feedback.authorAccountId && (
+            <Button asChild size="sm" variant="ghost">
+              <Link
+                to="/manage/$slug/$n"
+                params={params}
+                search={{ ...inboxSearch, author: feedback.authorAccountId }}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                more from this tester
+              </Link>
+            </Button>
+          )}
           {feedback.starredAt && <StarBadge />}
           <FeedbackStatusBadge status={feedback.status} />
         </div>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_ROUND_FIELDS, nextRoundFields, roundFieldsComplete } from "./round-fields";
+import {
+  EMPTY_ROUND_FIELDS,
+  nextRoundFields,
+  roundFieldsComplete,
+  toCreateRoundInput,
+} from "./round-fields";
 
 const complete = {
   title: "Checkout",
@@ -9,6 +14,7 @@ const complete = {
   repoUrl: "",
   isPrivate: false,
   legionOnly: false,
+  allowAnonymous: false,
 };
 
 describe("roundFieldsComplete", () => {
@@ -37,6 +43,7 @@ describe("nextRoundFields", () => {
         repoUrl: "https://github.com/a/b",
         isPrivate: true,
         legionOnly: false,
+        allowAnonymous: true,
       }),
     ).toEqual({
       title: "Checkout",
@@ -46,10 +53,18 @@ describe("nextRoundFields", () => {
       repoUrl: "https://github.com/a/b",
       isPrivate: true,
       legionOnly: false,
+      allowAnonymous: true,
     });
   });
 
   it("starts empty without a previous round", () => {
     expect(nextRoundFields(null)).toEqual(EMPTY_ROUND_FIELDS);
+  });
+});
+
+describe("toCreateRoundInput", () => {
+  it("sends allowAnonymous only when it is on", () => {
+    expect(toCreateRoundInput(complete).allowAnonymous).toBeUndefined();
+    expect(toCreateRoundInput({ ...complete, allowAnonymous: true }).allowAnonymous).toBe(true);
   });
 });

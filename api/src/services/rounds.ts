@@ -8,6 +8,7 @@ import {
   inArray,
   isNotNull,
   ne,
+  or,
   type SQL,
   sql,
 } from "drizzle-orm";
@@ -20,6 +21,7 @@ import {
   projectRoundCounters as projectRoundCountersTable,
   projects as projectsTable,
   roundCredits as roundCreditsTable,
+  type roundFeedbackAuthorType,
   type roundFeedbackStatus,
   roundFeedback as roundFeedbackTable,
   roundParticipants as roundParticipantsTable,
@@ -62,6 +64,8 @@ export interface RoundRecord {
   isPrivate: boolean;
   /** Only Legion SBT holders can join and post (#103). */
   legionOnly: boolean;
+  /** Anyone can post feedback without joining or signing in, with no identity attached (#89). */
+  allowAnonymous: boolean;
   status: RoundStatus;
   createdAt: string;
   updatedAt: string;
@@ -86,6 +90,7 @@ export interface CreateRoundInput {
   repoUrl?: string | null;
   isPrivate?: boolean;
   legionOnly?: boolean;
+  allowAnonymous?: boolean;
 }
 
 export interface RoundSettingsInput {
@@ -104,10 +109,14 @@ export interface RoundDetailWithSurfaceRecord extends RoundDetailRecord {
   feedbackCount: number;
 }
 
+export type RoundFeedbackAuthorType = (typeof roundFeedbackAuthorType)["enumValues"][number];
+
 export interface RoundFeedbackRecord {
   id: string;
   roundId: string;
-  authorAccountId: string;
+  /** Null for anonymous submissions (#89). */
+  authorAccountId: string | null;
+  authorType: RoundFeedbackAuthorType;
   format: RoundFeedbackFormat;
   body: string | null;
   url: string | null;
@@ -145,6 +154,27 @@ export interface FeedbackPageInput {
   starred?: boolean;
 }
 
+export interface ProjectFeedbackQuery {
+  roundNumber?: number;
+  format?: RoundFeedbackFormat;
+  authorType?: RoundFeedbackAuthorType;
+  /** Only feedback created strictly after this moment: the polling cursor. */
+  since?: Date;
+  limit: number;
+  /** Rounds whose feedback the caller may read in full. */
+  readableRoundIds: string[];
+  /** Rounds where the caller may only read their own submissions (private rounds). */
+  ownRoundIds?: string[];
+  /** The caller's own NEAR accounts, for `ownRoundIds`. */
+  ownAuthors?: string[];
+}
+
+export interface ProjectFeedbackItem extends RoundFeedbackRecord {
+  roundNumber: number;
+  roundTitle: string;
+  projectSlug: string;
+}
+
 export interface FeedbackPage {
   items: RoundFeedbackRecord[];
   nextCursor: string | null;
@@ -154,7 +184,9 @@ export const DEFAULT_FEEDBACK_PAGE_SIZE = 50;
 
 export interface AddFeedbackInput {
   roundId: string;
-  authorAccountId: string;
+  /** Null for an anonymous submission (#89). */
+  authorAccountId: string | null;
+  authorType?: RoundFeedbackAuthorType;
   format: RoundFeedbackFormat;
   body: string | null;
   url: string | null;
@@ -252,6 +284,16 @@ export interface RoundsService {
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string, page?: FeedbackPageInput): Promise<FeedbackPage>;
   getFeedback(roundId: string, feedbackId: string): Promise<RoundFeedbackRecord | null>;
+  /**
+   * Feedback across every round of a project, oldest first from `since`, with each item's
+   * round context (#89). Callers decide which rounds they may read.
+   */
+  listProjectFeedback(
+    projectRecordId: string,
+    query: ProjectFeedbackQuery,
+  ): Promise<ProjectFeedbackItem[]>;
+  /** Every round of a project, whatever its status. */
+  listRoundsByProject(projectRecordId: string): Promise<RoundRecord[]>;
   setFeedbackStatus(
     roundId: string,
     feedbackIds: string[],
@@ -305,6 +347,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     repoUrl: row.repoUrl,
     isPrivate: row.isPrivate,
     legionOnly: row.legionOnly,
+    allowAnonymous: row.allowAnonymous,
     status: row.status,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
@@ -322,6 +365,7 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     id: row.id,
     roundId: row.roundId,
     authorAccountId: row.authorAccountId,
+    authorType: row.authorType,
     format: row.format,
     body: row.body,
     url: row.url,
@@ -370,6 +414,8 @@ async function queueAcceptanceEvents(
     if (wasAccepted === isAccepted) continue;
 
     if (isAccepted) {
+      // Anonymous feedback has no one to credit (#89).
+      if (!row.authorAccountId) continue;
       await enqueueActivity(tx, {
         operation: "emit",
         eventType: "feedback.accepted",
@@ -517,6 +563,7 @@ export const RoundsLive = Layer.effect(
                 repoUrl: input.repoUrl ?? null,
                 isPrivate: input.isPrivate ?? false,
                 legionOnly: input.legionOnly ?? false,
+                allowAnonymous: input.allowAnonymous ?? false,
                 status: project.status === "approved" ? "open" : "pending",
               })
               .returning();
@@ -666,6 +713,7 @@ export const RoundsLive = Layer.effect(
             .values({
               roundId: input.roundId,
               authorAccountId: input.authorAccountId,
+              authorType: input.authorType ?? "near",
               format: input.format,
               body: input.body,
               url: input.url,
@@ -675,6 +723,71 @@ export const RoundsLive = Layer.effect(
             throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to post feedback" });
           }
           return toFeedbackRecord(row);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listRoundsByProject: async (projectRecordId) => {
+        try {
+          const rows = await db
+            .select()
+            .from(roundsTable)
+            .where(eq(roundsTable.projectRecordId, projectRecordId))
+            .orderBy(asc(roundsTable.projectRoundNumber));
+          return rows.map(toRoundRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listProjectFeedback: async (projectRecordId, query) => {
+        try {
+          const ownRoundIds = query.ownRoundIds ?? [];
+          const ownAuthors = query.ownAuthors ?? [];
+          const readable = [
+            query.readableRoundIds.length > 0
+              ? inArray(roundFeedbackTable.roundId, query.readableRoundIds)
+              : undefined,
+            ownRoundIds.length > 0 && ownAuthors.length > 0
+              ? and(
+                  inArray(roundFeedbackTable.roundId, ownRoundIds),
+                  inArray(roundFeedbackTable.authorAccountId, ownAuthors),
+                )
+              : undefined,
+          ].filter((condition): condition is SQL => !!condition);
+          if (readable.length === 0) return [];
+          const rows = await db
+            .select({
+              feedback: getTableColumns(roundFeedbackTable),
+              roundNumber: roundsTable.projectRoundNumber,
+              roundTitle: roundsTable.title,
+              projectSlug: roundsTable.projectSlug,
+            })
+            .from(roundFeedbackTable)
+            .innerJoin(roundsTable, eq(roundsTable.id, roundFeedbackTable.roundId))
+            .where(
+              and(
+                eq(roundsTable.projectRecordId, projectRecordId),
+                or(...readable),
+                query.roundNumber !== undefined
+                  ? eq(roundsTable.projectRoundNumber, query.roundNumber)
+                  : undefined,
+                query.format ? eq(roundFeedbackTable.format, query.format) : undefined,
+                query.authorType ? eq(roundFeedbackTable.authorType, query.authorType) : undefined,
+                query.since
+                  ? sql`${roundFeedbackTable.createdAt} > ${query.since.toISOString()}::timestamptz`
+                  : undefined,
+              ),
+            )
+            .orderBy(asc(roundFeedbackTable.createdAt), asc(roundFeedbackTable.id))
+            .limit(query.limit);
+          return rows.map((row) => ({
+            ...toFeedbackRecord(row.feedback as RoundFeedbackRow),
+            roundNumber: row.roundNumber,
+            roundTitle: row.roundTitle,
+            projectSlug: row.projectSlug,
+          }));
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -867,6 +980,8 @@ export const RoundsLive = Layer.effect(
 
           const byAccount = new Map<string, CreditCandidate>();
           for (const row of rows) {
+            // Anonymous feedback (#89) has no one to credit.
+            if (!row.accountId) continue;
             const entry = byAccount.get(row.accountId) ?? {
               accountId: row.accountId,
               writtenCount: 0,
@@ -907,6 +1022,7 @@ export const RoundsLive = Layer.effect(
 
             const counts = new Map<string, { written: number; recorded: number }>();
             for (const row of feedbackRows) {
+              if (!row.accountId) continue;
               const entry = counts.get(row.accountId) ?? { written: 0, recorded: 0 };
               if (row.format === "written") entry.written += 1;
               else entry.recorded += 1;
