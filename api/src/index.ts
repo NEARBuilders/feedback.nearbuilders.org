@@ -10,6 +10,7 @@ import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createActivityOutboxWorker } from "./services/activity-outbox";
+import { createFeedbackAssets } from "./services/feedback-assets";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
@@ -129,6 +130,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       const legionAccess = createLegionAccess(plugins.legion);
 
+      const feedbackAssets = createFeedbackAssets(plugins.storage);
+
       const telegramTip = createTelegramTipLookup({
         baseUrl: config.secrets.PROJECTS_API_BASE_URL,
         messageTemplate: config.secrets.TIP_MESSAGE_TEMPLATE,
@@ -157,6 +160,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         projectsLookup,
         teamAccess,
         legionAccess,
+        feedbackAssets,
         telegramTip,
         githubIssuesLookup,
       };
@@ -651,7 +655,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (round.status === "closed") {
             throw new ORPCError("BAD_REQUEST", { message: "Closed rounds can't be deleted" });
           }
+          const owners = await services.rounds.listFeedbackOwners(round.id);
           const result = await services.rounds.deleteRound(round.id);
+          for (const owner of owners) await services.feedbackAssets.deleteForFeedback(owner);
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "round deleted");
           }
@@ -807,6 +813,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
             body,
             url,
           });
+          // Link the images in the body to this feedback so they go away with it.
+          await services.feedbackAssets.attachForFeedback({
+            id: feedback.id,
+            authorAccountId: accountId,
+            body,
+          });
           // The activity event never carries the feedback body, so it's safe for private
           // rounds too (#101).
           const eventId = await services.activityEvents.emitFeedbackPosted({
@@ -942,6 +954,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const result = await services.rounds.deleteFeedback(input.feedbackId);
+          await services.feedbackAssets.deleteForFeedback(feedback);
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "feedback invalidated");
           }

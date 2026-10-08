@@ -82,6 +82,30 @@ export const contract = oc.router({
     .output(AssetSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE }),
 
+  attachByUrls: oc
+    .route({
+      method: "POST",
+      path: "/owners/{ownerId}/attach",
+      summary: "Attach the caller's uploaded files to an owner by their public URLs",
+      description:
+        "Records `ownerId` (e.g. a feedback id) on the caller's own assets whose public URL appears in `urls`, so they can be removed with the owner later. URLs that are not the caller's assets are ignored.",
+    })
+    .input(z.object({ ownerId: z.string().min(1), urls: z.array(z.string().min(1)).max(50) }))
+    .output(z.object({ attached: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, SERVICE_UNAVAILABLE }),
+
+  deleteByOwner: oc
+    .route({
+      method: "POST",
+      path: "/owners/{ownerId}/delete",
+      summary: "Delete every file the caller attached to an owner",
+      description:
+        "Deletes the objects and records of the caller's own assets attached to `ownerId` (e.g. when the feedback they belong to is removed). Assets uploaded by others are never touched.",
+    })
+    .input(z.object({ ownerId: z.string().min(1) }))
+    .output(z.object({ deleted: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, SERVICE_UNAVAILABLE }),
+
   deleteFile: oc
     .route({
       method: "DELETE",

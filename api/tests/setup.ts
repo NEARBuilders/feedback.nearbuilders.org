@@ -61,6 +61,18 @@ export const legionCheckAccess = vi.fn().mockResolvedValue({ hasAccess: false })
 
 const mockLegionClient = { checkAccess: legionCheckAccess };
 
+// Tests decide what the storage plugin does when feedback images are linked and cleaned up.
+export const storageAttachByUrls = vi.fn().mockResolvedValue({ attached: 0 });
+export const storageDeleteByOwner = vi.fn().mockResolvedValue({ deleted: 0 });
+
+const mockStorageClient = {
+  attachByUrls: storageAttachByUrls,
+  deleteByOwner: storageDeleteByOwner,
+};
+
+// The context each storage call was made with, to check it acts as the feedback's author.
+export const storageContexts: Array<Record<string, unknown> | undefined> = [];
+
 export const runtime = createPluginRuntime({
   registry: TEST_REGISTRY,
   secrets: {},
@@ -76,6 +88,10 @@ export async function getPluginClient(context?: Record<string, unknown>) {
       nostr: () => mockNostrClient,
       auth: () => mockAuthClient,
       legion: () => mockLegionClient,
+      storage: (context?: Record<string, unknown>) => {
+        storageContexts.push(context);
+        return mockStorageClient;
+      },
     });
     const rpcHandler = new RPCHandler(router);
 

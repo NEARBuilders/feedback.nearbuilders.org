@@ -110,6 +110,25 @@ export default createPlugin({
           });
         }),
 
+      attachByUrls: builder.attachByUrls
+        .use(requireNearAccount)
+        .handler(async ({ input, context }) => {
+          return await services.storage.attachByUrls({
+            uploaderAccountId: context.uploaderAccountId,
+            ownerId: input.ownerId,
+            urls: input.urls,
+          });
+        }),
+
+      deleteByOwner: builder.deleteByOwner
+        .use(requireNearAccount)
+        .handler(async ({ input, context }) => {
+          return await services.storage.deleteByOwner({
+            uploaderAccountId: context.uploaderAccountId,
+            ownerId: input.ownerId,
+          });
+        }),
+
       deleteFile: builder.deleteFile.use(requireNearAccount).handler(async ({ input, context }) => {
         return await services.storage.deleteFile({
           uploaderAccountId: context.uploaderAccountId,
