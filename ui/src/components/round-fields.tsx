@@ -110,7 +110,8 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
           disabled={disabled}
         />
         <span className="text-xs text-muted-foreground">
-          Shown at the top of the round page. PNG, JPEG, WebP or GIF up to 5 MB.
+          Shown at the top of the round page. 1600×512 recommended, at least 1200px wide; PNG, JPEG,
+          WebP or GIF up to 5 MB. Key content near the center — narrow screens crop the sides.
         </span>
       </Field>
 

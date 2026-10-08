@@ -51,7 +51,12 @@ function RoundBanner({ src }: { src: string }) {
       className="overflow-hidden rounded-xl border border-border bg-muted"
       data-testid="round-banner"
     >
-      <img src={src} alt="" loading="lazy" className="h-40 w-full object-cover sm:h-52 md:h-64" />
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        className="aspect-[2.75/1] w-full object-cover sm:aspect-[3/1] md:aspect-[7/2]"
+      />
     </div>
   );
 }
@@ -69,7 +74,7 @@ function RoundLayout() {
     <PageContainer className={cn(compact && "py-4 sm:py-4")}>
       <div className="space-y-6">
         {!compact && (
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Link
               to="/rounds"
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -77,7 +82,7 @@ function RoundLayout() {
               <ArrowLeft className="h-3.5 w-3.5" />
               rounds
             </Link>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <ProductLink identity={round.identity} />
               {canSubmit && (
                 <Button variant="outline" size="sm" onClick={popOut}>
