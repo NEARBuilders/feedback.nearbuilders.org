@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   type ColumnDef,
@@ -10,10 +11,11 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { ApiClient } from "@/app";
+import { type ApiClient, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Badge, Button, LegionMark } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { ProjectLabel } from "@/components/project-identity";
+import { RoundJoinCta } from "@/components/round-join-cta";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import {
   Table,
@@ -23,8 +25,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
+import { roundCta } from "@/lib/round-cta";
 import { FORMAT_LABELS } from "@/lib/round-fields";
-import { roundParams } from "@/lib/round-links";
+import { roundHref, roundParams } from "@/lib/round-links";
+import { useNearAccountStatus } from "@/lib/use-near-account";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
 
@@ -36,6 +41,7 @@ const COLUMN_VISIBILITY: Record<string, string> = {
   formats: "hidden lg:table-cell",
   participantCount: "hidden md:table-cell",
   endorsements: "hidden md:table-cell",
+  actions: "",
 };
 
 const PAGE_SIZE = 10;
@@ -50,6 +56,30 @@ interface RoundsTableProps {
 
 export function RoundsTable({ rounds, endorsements, page, onPageChange }: RoundsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const apiClient = useApiClient();
+  const auth = useAuthClient();
+  const { accountId, isDetecting } = useNearAccountStatus();
+  const session = useQuery(sessionQueryOptions(auth));
+  const joinedRounds = useQuery({
+    ...joinedRoundsQueryOptions(apiClient),
+    enabled: !!accountId,
+  });
+  // One joined-rounds query backs every row, instead of a participation check each.
+  const joinedIds = useMemo(
+    () => new Set((joinedRounds.data ?? []).map((joined) => joined.roundId)),
+    [joinedRounds.data],
+  );
+  const sessionPending = session.isPending || isDetecting;
+
+  const rowCta = (round: RoundDetail) =>
+    roundCta({
+      redirectTo: roundHref(round),
+      canJoin: round.status === "open" && accountId !== round.ownerAccountId,
+      sessionPending,
+      signedIn: !!session.data?.user,
+      nearAccountId: accountId,
+      joined: joinedIds.has(round.id),
+    });
 
   const columns = useMemo<ColumnDef<RoundDetail>[]>(
     () => [
@@ -126,8 +156,29 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
             <span className="text-muted-foreground">—</span>
           ),
       },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const cta = rowCta(row.original);
+          if (cta.kind === "none") return null;
+          // A Legion-gated round needs the full SBT check, which only the round
+          // page renders — send the tester there to join.
+          if (cta.kind === "join" && row.original.legionOnly) {
+            return (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/projects/$slug/$n" params={roundParams(row.original)}>
+                  view to join
+                </Link>
+              </Button>
+            );
+          }
+          return <RoundJoinCta round={row.original} cta={cta} size="sm" />;
+        },
+      },
     ],
-    [endorsements],
+    [endorsements, accountId, sessionPending, session.data?.user, joinedIds],
   );
 
   const table = useReactTable({
@@ -161,15 +212,19 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
                   sorted === "asc" ? ArrowUp : sorted === "desc" ? ArrowDown : ArrowUpDown;
                 return (
                   <TableHead key={header.id} className={COLUMN_VISIBILITY[header.column.id]}>
-                    <button
-                      type="button"
-                      onClick={header.column.getToggleSortingHandler()}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                      aria-label={`Sort by ${String(header.column.columnDef.header)}`}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      <SortIcon className="h-3 w-3 opacity-60" />
-                    </button>
+                    {header.column.getCanSort() ? (
+                      <button
+                        type="button"
+                        onClick={header.column.getToggleSortingHandler()}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                        aria-label={`Sort by ${String(header.column.columnDef.header)}`}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        <SortIcon className="h-3 w-3 opacity-60" />
+                      </button>
+                    ) : (
+                      flexRender(header.column.columnDef.header, header.getContext())
+                    )}
                   </TableHead>
                 );
               })}

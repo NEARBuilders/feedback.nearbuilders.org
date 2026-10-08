@@ -1,4 +1,5 @@
 import { Checkbox, Field, FieldLabel, Input, MarkdownEditor, Textarea } from "@/components";
+import { BannerUploader } from "@/components/banner-uploader";
 import {
   FORMAT_OPTIONS,
   type RoundFields,
@@ -91,6 +92,18 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
           required
           disabled={disabled}
         />
+      </Field>
+
+      <Field>
+        <FieldLabel htmlFor="round-banner">banner (optional)</FieldLabel>
+        <BannerUploader
+          value={value.bannerUrl}
+          onChange={(bannerUrl) => set("bannerUrl", bannerUrl)}
+          disabled={disabled}
+        />
+        <span className="text-xs text-muted-foreground">
+          Shown at the top of the round page. PNG, JPEG, WebP or GIF up to 5 MB.
+        </span>
       </Field>
 
       <Field>

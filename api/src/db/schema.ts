@@ -116,6 +116,8 @@ export const rounds = pgTable(
     repoUrl: text("repo_url"),
     // Markdown shown to testers at the top of the round workspace (#71).
     readme: text("readme").default("").notNull(),
+    // Wide image shown as the round page hero; uploaded through the storage plugin.
+    bannerUrl: text("banner_url"),
     // Private rounds: feedback is readable only by the managing org/team, admins and each
     // submission's author (#101).
     isPrivate: boolean("is_private").default(false).notNull(),

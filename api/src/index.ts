@@ -442,10 +442,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
             title: input.title,
             description: input.description,
             readme: input.readme,
+            bannerUrl: input.bannerUrl,
             formats: input.formats,
             repoUrl: input.repoUrl,
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
+          });
+          // Best effort: the banner is already saved on the round, the asset link just
+          // lets a later round delete clean it up.
+          await services.feedbackAssets.attachRoundBanner({
+            roundId: round.id,
+            ownerAccountId,
+            bannerUrl: input.bannerUrl ?? null,
           });
           // A round on a not-yet-approved project waits as "pending" until an admin
           // decides the project (#69); round.opened fires then. On an already
@@ -472,10 +480,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "A repo URL is required when the issues format is selected",
             });
           }
-          return await services.rounds.updateRound(round.id, {
+          const updated = await services.rounds.updateRound(round.id, {
             readme: input.readme,
+            bannerUrl: input.bannerUrl,
             formats: input.formats,
           });
+          // A removed banner loses its asset link; a new one gains it. Best effort either
+          // way: the round record is already saved.
+          if (input.bannerUrl === null && round.bannerUrl) {
+            await services.feedbackAssets.deleteRoundBanner({
+              roundId: round.id,
+              ownerAccountId: round.ownerAccountId,
+            });
+          } else if (input.bannerUrl && input.bannerUrl !== round.bannerUrl) {
+            await services.feedbackAssets.attachRoundBanner({
+              roundId: round.id,
+              ownerAccountId: round.ownerAccountId,
+              bannerUrl: input.bannerUrl,
+            });
+          }
+          return updated;
         }),
 
       updateRoundSettings: builder.updateRoundSettings
@@ -710,6 +734,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const owners = await services.rounds.listFeedbackOwners(round.id);
           const result = await services.rounds.deleteRound(round.id);
           for (const owner of owners) await services.feedbackAssets.deleteForFeedback(owner);
+          await services.feedbackAssets.deleteRoundBanner({
+            roundId: round.id,
+            ownerAccountId: round.ownerAccountId,
+          });
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "round deleted");
           }

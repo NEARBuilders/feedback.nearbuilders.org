@@ -110,15 +110,18 @@ describe("feedback images", () => {
     expect((await owner.listFeedback({ id: round.id })).items).toEqual([]);
   });
 
-  it("cleans up the images of every feedback item when a round is deleted", async () => {
-    const { owner, round } = await openRound();
+  it("cleans up the images of every feedback item and the banner when a round is deleted", async () => {
+    const { n, owner, round } = await openRound();
     const first = await post("img-tester-7.near", round.id, "![x](https://cdn.test/f.png)");
     const second = await post("img-tester-8.near", round.id, "![x](https://cdn.test/g.png)");
 
     await owner.deleteRound({ id: round.id });
 
     const owners = storageDeleteByOwner.mock.calls.map(([input]) => input.ownerId);
-    expect(owners.sort()).toEqual([first.feedback.id, second.feedback.id].sort());
+    expect(owners.sort()).toEqual([first.feedback.id, second.feedback.id, round.id].sort());
+    expect(storageContexts.at(-1)).toMatchObject({
+      near: { primaryAccountId: `img-owner-${n}.near` },
+    });
   });
 
   it("doesn't touch storage when the removal is refused", async () => {
