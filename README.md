@@ -19,7 +19,7 @@ Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs
 - **No pasted links for GitHub credit.** When credit needs to reflect issues filed, it is pulled from the GitHub API by repository and contributor.
 - **Open to join.** Any signed-in builder with a linked NEAR account can join an open round and leave again before it closes. There is no application queue or slot limit.
 - **Portable credit.** Participation shows on the builder's NEAR Builders profile — which round, which project, and what they submitted.
-- **No money.** No payments handling. Points are derived from accepted feedback (see Points below), not from any quality scoring.
+- **No money.** No payments handling. Reputation comes from [activity.nearbuilders.org](#reputation), not from any quality scoring kept here.
 
 ## API
 
@@ -36,7 +36,7 @@ All endpoints are under `/api/v1`. Open rounds and leaderboards are public; ever
 | `GET` | `/projects` | Admin: list projects, optionally by status (the approval queue is `status=pending`). |
 | `GET` | `/projects/mine` | List your active organization's projects with approval status and any rejection reason. |
 | `GET` | `/projects/approved` | Public: approved projects with their rounds. |
-| `GET` | `/projects/{slug}/detail` | Public: a project, its rounds and its nearbuilders.org metadata. |
+| `GET` | `/projects/{slug}/detail` | Public: a project, its rounds and its identity from the nearbuilders.org registry (domain, logo, description). |
 | `POST` | `/projects/{id}/approve` | Admin: approve a project; its pending rounds open. |
 | `POST` | `/projects/{id}/reject` | Admin: reject a project with a required reason; its pending rounds are rejected with it. |
 | `POST` | `/projects/{id}/managing-team` | Org owner or admin: delegate the project's rounds to a team (or clear it). |
@@ -49,7 +49,7 @@ All endpoints are under `/api/v1`. Open rounds and leaderboards are public; ever
 | `GET` | `/rounds/{id}/feedback` | Read a round's feedback, newest first, cursor-paged and filterable by `status` and `author`. |
 | `GET` | `/rounds/{id}/feedback/{feedbackId}` | One feedback item; owner notes are included for its author and the round's managers. |
 | `POST` | `/rounds/{id}/feedback/{feedbackId}/notes` | Owner note on feedback, or the author's reply to one. |
-| `GET` | `/rounds/{id}/my-feedback` | Tester: your feedback in a round, with status, points and notes. |
+| `GET` | `/rounds/{id}/my-feedback` | Tester: your feedback in a round, with status and notes. |
 | `DELETE` | `/rounds/{id}/feedback/{feedbackId}` | Owning organization: remove a feedback item. |
 | `PATCH` | `/rounds/{id}/feedback/status` | Owning organization or admin: resolve, dismiss or reopen feedback (bulk). |
 | `POST` | `/rounds/{id}/broadcast` | Owning organization: send an in-app notification to the round's participants. |
@@ -59,7 +59,8 @@ All endpoints are under `/api/v1`. Open rounds and leaderboards are public; ever
 | `POST` | `/rounds/{id}/close` | Owner: close the round and mark who contributed meaningfully. |
 | `GET` | `/rounds/{id}/credits` | The credit records of a closed round. |
 | `GET` | `/builders/{accountId}/rounds` | Public: completed rounds a builder was credited on, for their profile. |
-| `GET` | `/points/leaderboard`, `/builders/{accountId}/points` | Public: points standings and one builder's points. |
+| `GET` | `/builders/{accountId}/standing`, `/activity/leaderboard` | Public: one builder's rank and the leaderboard, both read from [activity.nearbuilders.org](#reputation). |
+| `GET` | `/my/owner-summary` | Owner: open rounds, unresolved feedback and pending-approval projects across the active organization, for the dashboard overview. |
 
 ### Round lifecycle
 
@@ -110,42 +111,49 @@ section on their `nearbuilders.org` profile.
 
 An account with no credited closed rounds returns `[]`.
 
-## Points
+## Reputation
 
-Testers earn points when a round owner **accepts** their feedback, not for every submission.
-Points are derived from feedback status, so there is no separate ledger to keep in sync.
+This app keeps no points ledger. `activity.nearbuilders.org` is the single source of a tester's
+standing — the leaderboard, a builder's rank, and the "Earned credit" card on a profile all read
+from it, with no local fallback. A reachability problem with the gateway shows up as an empty
+leaderboard, not a locally-computed stand-in.
 
-| Feedback status | Points |
-| --- | --- |
-| `resolved` (accepted by the round owner or an admin) | **10** |
-| `unresolved` (not reviewed yet) | 0 |
-| `dismissed` | 0 |
+- `GET /api/v1/activity/leaderboard?period=weekly|monthly|all-time&limit=` is public and proxies
+  activity's leaderboard for this app's Activity Source, unfiltered by event type — the gateway's
+  own per-type scoring (see below) decides what counts, not this app.
+- `GET /api/v1/builders/{accountId}/standing` is public and returns one builder's entry from that
+  same all-time board — `{ accountId, rank, score, eventCount }`, or `null` if they have not
+  scored yet.
 
-- **What earns points:** each feedback item whose status is `resolved`. The status is set with
-  `setFeedbackStatus` (the owner's resolve action, or the bulk resolve in the feedback table).
-- **What does not:** posting feedback, GitHub issues filed on the repo, joining a round, and
-  feedback that is dismissed or still unresolved.
-- **No self-service:** members of the project's owning organization can't join its rounds as
-  testers, so nobody can accept their own feedback to earn points.
-- **Taking points back:** moving an item from `resolved` to `unresolved` or `dismissed` removes
-  its points. Accepting an item twice never counts twice. Deleting a round removes the points
-  its feedback earned.
-- **Periods:** the weekly and monthly boards count feedback accepted in the last 7 and 30 days
-  (a rolling window, based on when the status last changed). All-time counts every accepted item.
-- **Ranking:** by points, highest first. Builders with equal points share a rank, then the
-  next rank skips ahead (1, 2, 2, 4). Builders with no accepted feedback are not listed.
+### What this app emits
 
-Where points show up:
+| Event type | Actor | When |
+| --- | --- | --- |
+| `round.opened` | round owner | a round is created or its project is approved |
+| `feedback.posted` | feedback author | a written or recorded post is submitted |
+| `feedback.accepted` | feedback author | the round owner marks a submission `resolved` |
+| `round.closed` | round owner | the owner closes the round |
+| `credit.awarded` | builder | the round owner marks them a meaningful contributor at close |
 
-- `GET /api/v1/points/leaderboard?period=weekly|monthly|all-time&limit=` is public and returns
-  `{ period, pointsPerAcceptedFeedback, data: [{ rank, actor, points, acceptedCount }] }`.
-  The leaderboard page switches between submissions and points with the `metric` toggle.
-- `GET /api/v1/builders/{accountId}/points` is public and returns
-  `{ accountId, points, acceptedCount, submittedCount, rank }` (`rank` is the all-time rank, or
-  `null` with no points). It backs the "Earned credit" card on a builder's profile.
+What each is worth is configured on the gateway for this app's Activity Source, not in this
+codebase — see [NEARBuilders/activity.nearbuilders.org#66](https://github.com/NEARBuilders/activity.nearbuilders.org/issues/66)
+for the live configuration and the reasoning behind it (`feedback.accepted` and `credit.awarded`
+scored, `feedback.posted` and `round.opened`/`round.closed` not, so standing follows what a round
+owner judged worth something, not raw submission volume).
 
-The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
-`api/src/services/points.ts`.
+### Delivery
+
+`round.opened`, `round.closed` and `credit.awarded` are emitted best-effort
+(`services/activity-events.ts`): a failed, rejected, or unreachable gateway is logged and
+swallowed, and never blocks the local action that triggered it.
+
+`feedback.accepted` is different, because it is the event the leaderboard actually depends on
+with no local fallback to catch a loss. It goes through a durable outbox
+(`services/activity-outbox.ts`, table `activity_outbox`) instead: the emit (or retraction, if an
+owner un-accepts something) is written in the same transaction as the status change, and a
+worker drains the queue against the gateway with exponential backoff. A gateway outage delays the
+event; it does not lose it. Un-accepting something whose emit has not been delivered yet cancels
+the queued row rather than emitting and immediately retracting it.
 
 ## Private rounds, Legion gating and stars
 
@@ -161,10 +169,11 @@ The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
   posting are rejected for non-holders, a failed holder lookup counts as "not a holder", and the
   round page shows signed-in builders whether they are eligible before they try to join.
 - **Stars:** round managers (and admins) can star standout submissions
-  (`PATCH /rounds/{id}/feedback/star`), independent of resolve/dismiss. A star on an **accepted**
-  submission adds a **5 point** bonus (`BONUS_POINTS_PER_STARRED_FEEDBACK`), shown on the
-  leaderboard and builder profiles. Stars on unresolved or dismissed feedback earn nothing, and
-  un-starring or un-accepting takes the bonus back.
+  (`PATCH /rounds/{id}/feedback/star`), independent of resolve/dismiss. Stars are curation today —
+  they filter and badge the owner's inbox and the public feedback list — and are not yet scored
+  by activity. A `feedback.starred` event is an open question on
+  [activity.nearbuilders.org#66](https://github.com/NEARBuilders/activity.nearbuilders.org/issues/66);
+  until the gateway configures one, starring something does not change anyone's standing.
 
 ## Teams and delegated round management
 
@@ -209,37 +218,25 @@ lookup degrades to "unavailable" instead of failing.
 `TIP_MESSAGE_TEMPLATE` secret (default `/tip @{handle}`; `{handle}` and `{account}` are replaced),
 so the bot's command format can change without a code change.
 
-## Activity events
+### Configuration
 
 feedback.nearbuilders.org is an [Activity Source](https://github.com/NEARBuilders/activity.nearbuilders.org)
-for `activity.nearbuilders.org`, so its feed and leaderboard pick this app up. This is a
-**producer integration only** — feedback keeps its own database; there are no shared tables and
-no Nostr or Redis here.
-
-The service emits one event when a round is created and one when feedback is posted:
-
-| Event type | Actor | When |
-| --- | --- | --- |
-| `round.opened` | round owner | a round is created |
-| `feedback.posted` | feedback author | a written or recorded post is accepted |
-
-Each emit is a best-effort `POST` to activity's `/api/v1/events` with the Source API Key as a
-bearer token and an idempotency key scoped to the round or feedback id (`round.opened:{roundId}`,
-`feedback.posted:{feedbackId}`). A failed, rejected, or unreachable gateway is logged and never
-blocks or fails the local action.
-
-### Configuration
+(id `feedback-rounds`) for `activity.nearbuilders.org`. This is a **producer integration** for
+submission and a **read dependency** for standing — feedback keeps its own database for
+everything else; there are no shared tables and no Nostr or Redis here.
 
 | Env var | Purpose |
 | --- | --- |
 | `ACTIVITY_API_BASE_URL` | Activity API gateway base URL, e.g. `https://activity.nearbuilders.org/api` |
-| `ACTIVITY_API_KEY` | Source API Key (`act_…`), a server-side bearer secret |
+| `ACTIVITY_API_KEY` | Source API Key (`act_…`), a server-side bearer secret, required to emit |
+| `ACTIVITY_SOURCE_ID` | This app's registered Activity Source id, scopes leaderboard/standing reads |
 
-Leave both blank to disable emission (the default in local development and tests). Registering the
-Activity Source and obtaining its API key is a manual step against activity.nearbuilders.org's
-onboarding flow — register the source id with event types `round.opened` and `feedback.posted`,
-bind a Signing Identity, then create the key and store it in the deployment platform's secret
-manager. Never commit the key.
+Leave `ACTIVITY_API_BASE_URL` and `ACTIVITY_API_KEY` blank to disable emission (the default in
+local development and tests) — reads still work with just `ACTIVITY_API_BASE_URL` set, since
+leaderboard/standing are public on the gateway. Registering the Activity Source and obtaining its
+API key is a manual step against activity.nearbuilders.org's onboarding flow — register the
+source id with all five event types above, bind a Signing Identity, then create the key and store
+it in the deployment platform's secret manager. Never commit the key.
 
 ## User flows
 
@@ -256,7 +253,7 @@ manager. Never commit the key.
 1. Browses the open rounds — what is being tested and in which formats.
 2. Joins one (needs a linked NEAR account), and can leave again before it closes.
 3. Tests the product, files issues on the project's GitHub, and posts any written feedback or recorded-session links in the app.
-4. Earns points for feedback the owner accepts, and their profile shows the completed round once credited: the round name, the project, and what they submitted.
+4. Earns activity credit for feedback the owner accepts, and their profile shows the completed round once credited: the round name, the project, and what they submitted.
 
 ### Admin
 
