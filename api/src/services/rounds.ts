@@ -63,6 +63,7 @@ export interface RoundRecord {
   /** Only Legion SBT holders can join and post (#103). */
   legionOnly: boolean;
   status: RoundStatus;
+  closesAt: string | null;
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
@@ -86,11 +87,26 @@ export interface CreateRoundInput {
   repoUrl?: string | null;
   isPrivate?: boolean;
   legionOnly?: boolean;
+  closesAt?: Date | null;
 }
 
 export interface RoundSettingsInput {
   isPrivate?: boolean;
   legionOnly?: boolean;
+  closesAt?: Date | null;
+}
+
+/**
+ * Whether feedback can still be posted, edited or removed by its author: the round is open
+ * and its optional deadline hasn't passed. The round itself stays open after the deadline
+ * until its owner closes it and awards credits.
+ */
+export function acceptsFeedback(
+  round: Pick<RoundRecord, "status" | "closesAt">,
+  now: Date = new Date(),
+): boolean {
+  if (round.status !== "open") return false;
+  return !round.closesAt || new Date(round.closesAt).getTime() > now.getTime();
 }
 
 export interface RoundDetailRecord extends RoundRecord {
@@ -316,6 +332,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     isPrivate: row.isPrivate,
     legionOnly: row.legionOnly,
     status: row.status,
+    closesAt: row.closesAt instanceof Date ? row.closesAt.toISOString() : null,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
     closedAt: row.closedAt instanceof Date ? row.closedAt.toISOString() : null,
@@ -528,6 +545,7 @@ export const RoundsLive = Layer.effect(
                 repoUrl: input.repoUrl ?? null,
                 isPrivate: input.isPrivate ?? false,
                 legionOnly: input.legionOnly ?? false,
+                closesAt: input.closesAt ?? null,
                 status: project.status === "approved" ? "open" : "pending",
               })
               .returning();
@@ -568,6 +586,7 @@ export const RoundsLive = Layer.effect(
             .set({
               ...(settings.isPrivate !== undefined ? { isPrivate: settings.isPrivate } : {}),
               ...(settings.legionOnly !== undefined ? { legionOnly: settings.legionOnly } : {}),
+              ...(settings.closesAt !== undefined ? { closesAt: settings.closesAt } : {}),
               updatedAt: new Date(),
             })
             .where(eq(roundsTable.id, roundId))

@@ -5,7 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, Lock, PenLine, Users } from "lucide-react";
+import { Clock, ExternalLink, Lock, PenLine, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Badge, Button, Card, LegionMark } from "@/components";
@@ -23,6 +23,7 @@ import {
   roundEndorsementsQueryOptions,
   roundParticipantsQueryOptions,
 } from "@/lib/queries/rounds";
+import { formatDeadline } from "@/lib/round-deadline";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { roundParams } from "@/lib/round-links";
 import { type RoundDetail, useRound } from "@/lib/round-route";
@@ -70,6 +71,14 @@ function RoundOverviewPage() {
           <Badge variant="secondary" className="gap-1 text-xs" data-testid="private-badge">
             <Lock className="h-3 w-3" />
             Private feedback
+          </Badge>
+        )}
+        {round.status === "open" && round.closesAt && (
+          <Badge variant="outline" className="gap-1 text-xs" data-testid="deadline-badge">
+            <Clock className="h-3 w-3" />
+            {viewer.pastDeadline
+              ? "Feedback closed"
+              : `Feedback closes ${formatDeadline(round.closesAt)}`}
           </Badge>
         )}
         {round.legionOnly && (
