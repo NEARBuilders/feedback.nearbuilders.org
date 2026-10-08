@@ -15,3 +15,7 @@ export function roundParams(round: RoundRef): RoundParams {
 export function roundHref(round: RoundRef): string {
   return `/projects/${encodeURIComponent(round.projectSlug)}/${round.projectRoundNumber}`;
 }
+
+export function myFeedbackHref(round: RoundRef, accountId: string): string {
+  return `${roundHref(round)}/feedback?author=${encodeURIComponent(accountId)}`;
+}

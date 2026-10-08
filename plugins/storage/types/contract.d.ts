@@ -171,6 +171,59 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
+    attachByUrls: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        ownerId: z.ZodString;
+        urls: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        attached: z.ZodNumber;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        SERVICE_UNAVAILABLE: {
+            readonly status: 503;
+            readonly data: z.ZodObject<{
+                retryAfter: z.ZodOptional<z.ZodNumber>;
+                maintenanceWindow: z.ZodDefault<z.ZodBoolean>;
+                estimatedUptime: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
+    deleteByOwner: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        ownerId: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        deleted: z.ZodNumber;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        SERVICE_UNAVAILABLE: {
+            readonly status: 503;
+            readonly data: z.ZodObject<{
+                retryAfter: z.ZodOptional<z.ZodNumber>;
+                maintenanceWindow: z.ZodDefault<z.ZodBoolean>;
+                estimatedUptime: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
     deleteFile: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         key: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
