@@ -153,7 +153,7 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
             <span className="text-sm">
               <span className="font-medium text-foreground">Legion members only</span>
               <span className="block text-xs text-muted-foreground">
-                Only holders of a Legion SBT can join and post. Pairs well with private feedback.
+                Only holders of a Legion SBT can join and post.
               </span>
             </span>
           </label>
