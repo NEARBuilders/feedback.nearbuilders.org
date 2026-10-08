@@ -17,9 +17,9 @@ describe("listMyFeedback (#117)", () => {
     });
 
     const mine = await client.listMyFeedback({ id: round.id });
-    expect(mine.map((f) => [f.body, f.status, f.points])).toEqual([
-      ["two", "unresolved", 0],
-      ["one", "resolved", 10],
+    expect(mine.map((f) => [f.body, f.status])).toEqual([
+      ["two", "unresolved"],
+      ["one", "resolved"],
     ]);
   });
 

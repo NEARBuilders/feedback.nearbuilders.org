@@ -161,9 +161,7 @@ export const FeedbackDetailSchema = RoundFeedbackSchema.extend({
 
 export type FeedbackDetail = z.infer<typeof FeedbackDetailSchema>;
 
-export const MyFeedbackSchema = FeedbackDetailSchema.extend({
-  points: z.number().int().nonnegative(),
-});
+export const MyFeedbackSchema = FeedbackDetailSchema;
 
 export type MyFeedback = z.infer<typeof MyFeedbackSchema>;
 
@@ -323,40 +321,21 @@ export const LeaderboardSchema = z.object({
 
 export type Leaderboard = z.infer<typeof LeaderboardSchema>;
 
-export const PointsEntrySchema = z.object({
-  rank: z.number().int().positive(),
-  actor: z.string(),
-  points: z.number().int().nonnegative(),
-  acceptedCount: z.number().int().positive(),
-  /** Accepted submissions a round manager also starred (#104). */
-  starredCount: z.number().int().nonnegative(),
-  /** The part of `points` that came from stars. */
-  bonusPoints: z.number().int().nonnegative(),
-});
+/**
+ * One builder's all-time standing, read from activity rather than computed here.
+ * `null` when the gateway is unreachable or the builder has not scored yet.
+ */
+export const BuilderStandingSchema = z
+  .object({
+    accountId: z.string(),
+    rank: z.number().int().positive(),
+    score: z.number(),
+    /** Scored events behind the score: accepted feedback and round credits. */
+    eventCount: z.number().int().nonnegative(),
+  })
+  .nullable();
 
-export const PointsLeaderboardSchema = z.object({
-  period: LeaderboardPeriodSchema,
-  /** Points awarded for each feedback item the round owner accepts (marks resolved). */
-  pointsPerAcceptedFeedback: z.number().int().positive(),
-  /** Extra points when a round manager stars an accepted item (#104). */
-  bonusPointsPerStarredFeedback: z.number().int().positive(),
-  data: z.array(PointsEntrySchema),
-});
-
-export type PointsLeaderboard = z.infer<typeof PointsLeaderboardSchema>;
-
-export const BuilderPointsSchema = z.object({
-  accountId: z.string(),
-  points: z.number().int().nonnegative(),
-  acceptedCount: z.number().int().nonnegative(),
-  starredCount: z.number().int().nonnegative(),
-  bonusPoints: z.number().int().nonnegative(),
-  submittedCount: z.number().int().nonnegative(),
-  /** All-time rank by points, or null when the builder has no points yet. */
-  rank: z.number().int().positive().nullable(),
-});
-
-export type BuilderPoints = z.infer<typeof BuilderPointsSchema>;
+export type BuilderStanding = z.infer<typeof BuilderStandingSchema>;
 
 export const RoundEndorsementSchema = z.object({
   eventId: z.string(),
@@ -897,20 +876,10 @@ export const contract = oc.router({
     .input(z.object({ slug: z.string().min(1).max(100) }))
     .output(NearBuildersProjectSchema.nullable()),
 
-  getPointsLeaderboard: oc
-    .route({ method: "GET", path: "/points/leaderboard" })
-    .input(
-      z.object({
-        period: LeaderboardPeriodSchema.default("all-time"),
-        limit: z.number().int().positive().max(100).optional(),
-      }),
-    )
-    .output(PointsLeaderboardSchema),
-
-  getBuilderPoints: oc
-    .route({ method: "GET", path: "/builders/{accountId}/points" })
-    .input(z.object({ accountId: z.string() }))
-    .output(BuilderPointsSchema),
+  getBuilderStanding: oc
+    .route({ method: "GET", path: "/builders/{accountId}/standing" })
+    .input(z.object({ accountId: z.string().min(1) }))
+    .output(BuilderStandingSchema),
 
   getLeaderboard: oc
     .route({ method: "GET", path: "/activity/leaderboard" })

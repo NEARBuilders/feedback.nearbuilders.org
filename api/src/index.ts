@@ -3,25 +3,18 @@ import { Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
-import { DatabaseLive } from "./db/layer";
+import { DatabaseLive, DatabaseTag } from "./db/layer";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
+import { createActivityOutboxWorker } from "./services/activity-outbox";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
 import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
-import {
-  BONUS_POINTS_PER_STARRED_FEEDBACK,
-  bonusPointsForStarred,
-  POINTS_PER_ACCEPTED_FEEDBACK,
-  periodStart,
-  rankStandings,
-  totalPoints,
-} from "./services/points";
 import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
@@ -85,6 +78,13 @@ function validateAccountId(accountId: string): void {
 
 const MAX_FEEDBACK_PER_TESTER = 500;
 
+/**
+ * How deep to scan the activity board when resolving one builder's standing.
+ * The gateway has no per-actor lookup, so an unranked builder is one who does
+ * not appear this far down.
+ */
+const BUILDER_STANDING_SCAN_LIMIT = 100;
+
 const MAX_NOTES_PER_FEEDBACK = 20;
 
 const isPublic = (round: { status: string }) =>
@@ -126,6 +126,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
   initialize: (config, plugins, tools) =>
     Effect.gen(function* () {
       const database = DatabaseLive(config.secrets.API_DATABASE_URL);
+      const db = yield* tools.buildService(DatabaseTag, database);
       const tenantsLayer = TenantsLive.pipe(Layer.provide(database));
       const roundsLayer = RoundsLive.pipe(Layer.provide(database));
       const projectRecordsLayer = ProjectRecordsLive.pipe(Layer.provide(database));
@@ -168,6 +169,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
         token: config.secrets.GITHUB_API_TOKEN,
       });
 
+      // activity is the only source of reputation, so its reputation-bearing
+      // events are queued durably and drained here rather than fired and forgotten.
+      const activityOutbox = createActivityOutboxWorker({ db, emitter: activityEvents });
+      activityOutbox.start();
+
       console.log(
         `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"}, projects lookup ${projectsLookup.enabled ? "enabled" : "disabled"}, github issues token ${config.secrets.GITHUB_API_TOKEN ? "configured" : "anonymous"})`,
       );
@@ -178,6 +184,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         projectRecords: projectRecordsService,
         notifications: notificationsService,
         activityEvents,
+        activityOutbox,
         feedbackNostr,
         projectsLookup,
         teamAccess,
@@ -187,7 +194,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       };
     }),
 
-  shutdown: () => Effect.log("[API] Shutdown"),
+  shutdown: (services) =>
+    Effect.sync(() => {
+      services.activityOutbox.stop();
+      console.log("[API] Shutdown");
+    }),
 
   createRouter: (services, builder) => {
     const { requireAuth, requireAdmin, requireOrganization, requireOrgRole } =
@@ -930,12 +941,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return items.map((feedback) => ({
             ...feedback,
             notes: notes.filter((note) => note.feedbackId === feedback.id),
-            // Points include the star bonus (#104): 10 per accepted item, +5 if a manager
-            // starred it, so a tester's own view matches their builder-profile total.
-            points: totalPoints(
-              feedback.status === "resolved" ? 1 : 0,
-              feedback.status === "resolved" && feedback.starredAt ? 1 : 0,
-            ),
           }));
         }),
 
@@ -1360,43 +1365,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.projectsLookup.resolveBySlug(input.slug);
       }),
 
-      getPointsLeaderboard: builder.getPointsLeaderboard.handler(async ({ input }) => {
-        const counts = await services.rounds.listAcceptedCounts(periodStart(input.period));
-        const standings = rankStandings(counts).slice(0, input.limit ?? 50);
-        return {
-          period: input.period,
-          pointsPerAcceptedFeedback: POINTS_PER_ACCEPTED_FEEDBACK,
-          bonusPointsPerStarredFeedback: BONUS_POINTS_PER_STARRED_FEEDBACK,
-          data: standings.map((entry) => ({
-            rank: entry.rank,
-            actor: entry.accountId,
-            points: entry.points,
-            acceptedCount: entry.acceptedCount,
-            starredCount: entry.starredCount,
-            bonusPoints: entry.bonusPoints,
-          })),
-        };
-      }),
-
-      getBuilderPoints: builder.getBuilderPoints.handler(async ({ input }) => {
-        const totals = await services.rounds.getFeedbackTotals(input.accountId);
-        const standings = rankStandings(await services.rounds.listAcceptedCounts(null));
-        const rank = standings.find((entry) => entry.accountId === input.accountId)?.rank ?? null;
+      getBuilderStanding: builder.getBuilderStanding.handler(async ({ input }) => {
+        // activity owns the scoring, so a builder's standing is read back off
+        // the same board the leaderboard page renders rather than recomputed.
+        const board = await services.activityEvents.leaderboard({
+          period: "all-time",
+          limit: BUILDER_STANDING_SCAN_LIMIT,
+        });
+        const entry = board?.data.find((row) => row.actor === input.accountId);
+        if (!entry) return null;
         return {
           accountId: input.accountId,
-          points: totalPoints(totals.acceptedCount, totals.starredCount),
-          acceptedCount: totals.acceptedCount,
-          starredCount: Math.min(totals.starredCount, totals.acceptedCount),
-          bonusPoints: bonusPointsForStarred(totals.starredCount, totals.acceptedCount),
-          submittedCount: totals.submittedCount,
-          rank,
+          rank: entry.rank,
+          score: entry.score,
+          eventCount: entry.eventCount,
         };
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
+        // No `type` filter: activity scores the whole source, so credit.awarded
+        // and feedback.accepted count alongside (unscored) feedback.posted.
         const result = await services.activityEvents.leaderboard({
           period: input.period,
-          type: "feedback.posted",
           limit: input.limit,
         });
         return result

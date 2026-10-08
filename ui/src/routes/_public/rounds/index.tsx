@@ -13,7 +13,6 @@ import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundsTable } from "@/components/rounds-table";
 import { RouteError, RoutePending } from "@/components/route-states";
-import { TopTesters } from "@/components/top-testers";
 import { pageHead } from "@/lib/page-title";
 import { roundEndorsementsQueryOptions, roundsQueryOptions } from "@/lib/queries/rounds";
 import { oneOf, positiveInt } from "@/lib/search";
@@ -97,8 +96,6 @@ function RoundsPage() {
             </div>
           </div>
         </div>
-
-        <TopTesters />
 
         {filtered.length === 0 ? (
           <EmptyState

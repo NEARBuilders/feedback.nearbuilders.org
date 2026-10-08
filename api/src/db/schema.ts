@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -167,6 +168,9 @@ export const roundFeedback = pgTable(
     starredByAccountId: text("starred_by_account_id"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     activityEventId: text("activity_event_id"),
+    // Gateway id of the `feedback.accepted` event, so un-accepting can retract it.
+    // Distinct from `activityEventId`, which holds the `feedback.posted` event.
+    acceptedActivityEventId: text("accepted_activity_event_id"),
     nostrEventId: text("nostr_event_id"),
   },
   (table) => ({
@@ -255,5 +259,58 @@ export const notifications = pgTable(
       table.readAt,
     ),
     roundIdx: index("notifications_round_idx").on(table.roundId),
+  }),
+);
+
+export const activityOutboxOperation = pgEnum("activity_outbox_operation", ["emit", "retract"]);
+
+export const activityOutboxStatus = pgEnum("activity_outbox_status", [
+  "pending",
+  "sent",
+  "failed",
+  "cancelled",
+]);
+
+/**
+ * Durable queue for activity.nearbuilders.org submissions.
+ *
+ * activity is the sole source of truth for tester reputation, so emission can
+ * no longer be fire-and-forget: rows are written in the same transaction as the
+ * domain change that caused them, and a worker drains them with retry. A
+ * gateway outage delays events, it never loses them.
+ *
+ * `subjectKind`/`subjectId` tell the worker where to write the gateway's event
+ * id back to, so a later retraction can reference it.
+ */
+export const activityOutbox = pgTable(
+  "activity_outbox",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    operation: activityOutboxOperation("operation").notNull(),
+    // Set for `emit`; null for `retract`.
+    eventType: text("event_type"),
+    actor: text("actor"),
+    payload: jsonb("payload"),
+    // Set for `retract`: the gateway event id being hidden, and why.
+    targetEventId: text("target_event_id"),
+    reason: text("reason"),
+    // Deduped by the gateway, and used here to cancel a still-pending emit.
+    idempotencyKey: text("idempotency_key").notNull(),
+    // Where to write `eventId` back to: "round" | "feedback" | "feedback_accepted".
+    subjectKind: text("subject_kind"),
+    subjectId: uuid("subject_id"),
+    status: activityOutboxStatus("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    eventId: text("event_id"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    sentAt: timestamp("sent_at", { mode: "date", withTimezone: true }),
+  },
+  (table) => ({
+    idempotencyKeyIdx: uniqueIndex("activity_outbox_idempotency_key_idx").on(table.idempotencyKey),
+    dueIdx: index("activity_outbox_due_idx").on(table.status, table.nextAttemptAt),
   }),
 );

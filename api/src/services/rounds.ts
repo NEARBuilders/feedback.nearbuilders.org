@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
+import type { Database } from "../db";
 import { DatabaseTag } from "../db/layer";
 import {
   feedbackNotes as feedbackNotesTable,
@@ -24,7 +25,7 @@ import {
   type roundStatus,
   rounds as roundsTable,
 } from "../db/schema";
-import type { AcceptedCount } from "./points";
+import { cancelPendingActivity, enqueueActivity } from "./activity-outbox";
 import { ensureProject } from "./project-records";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
@@ -261,13 +262,6 @@ export interface RoundsService {
   addFeedbackNote(note: NewFeedbackNote): Promise<FeedbackNoteRecord>;
   listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
-  /** Accepted (resolved) feedback per author, optionally only accepted on or after `since`. */
-  listAcceptedCounts(since: Date | null): Promise<AcceptedCount[]>;
-  getFeedbackTotals(accountId: string): Promise<{
-    acceptedCount: number;
-    starredCount: number;
-    submittedCount: number;
-  }>;
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
@@ -331,6 +325,73 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     activityEventId: row.activityEventId,
     nostrEventId: row.nostrEventId,
   };
+}
+
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/**
+ * Scopes an acceptance to the moment it happened, so re-accepting a previously
+ * retracted item is a new event to the gateway rather than a deduped replay.
+ */
+function acceptanceKey(row: RoundFeedbackRow): string {
+  const at =
+    row.statusChangedAt instanceof Date
+      ? row.statusChangedAt.toISOString()
+      : String(row.statusChangedAt);
+  return `feedback.accepted:${row.id}:${at}`;
+}
+
+/**
+ * Queue the reputation events for feedback that crossed the accepted boundary.
+ *
+ * activity scores `feedback.accepted`, so both directions matter: accepting
+ * enqueues an emit, un-accepting cancels that emit if it is still queued and
+ * otherwise retracts the delivered event.
+ */
+async function queueAcceptanceEvents(
+  tx: Transaction,
+  roundId: string,
+  before: RoundFeedbackRow[],
+  after: RoundFeedbackRow[],
+): Promise<void> {
+  const previous = new Map(before.map((row) => [row.id, row]));
+
+  for (const row of after) {
+    const prior = previous.get(row.id);
+    if (!prior) continue;
+
+    const wasAccepted = prior.status === "resolved";
+    const isAccepted = row.status === "resolved";
+    if (wasAccepted === isAccepted) continue;
+
+    if (isAccepted) {
+      await enqueueActivity(tx, {
+        operation: "emit",
+        eventType: "feedback.accepted",
+        actor: row.authorAccountId,
+        idempotencyKey: acceptanceKey(row),
+        // Never the body: private rounds must not leak through activity (#101).
+        payload: { feedbackId: row.id, roundId, format: row.format },
+        subjectKind: "feedback_accepted",
+        subjectId: row.id,
+      });
+      continue;
+    }
+
+    const cancelled = await cancelPendingActivity(tx, acceptanceKey(prior));
+    if (!cancelled && prior.acceptedActivityEventId) {
+      await enqueueActivity(tx, {
+        operation: "retract",
+        idempotencyKey: `retract:${prior.acceptedActivityEventId}`,
+        targetEventId: prior.acceptedActivityEventId,
+        reason: "feedback no longer accepted",
+      });
+    }
+    await tx
+      .update(roundFeedbackTable)
+      .set({ acceptedActivityEventId: null })
+      .where(eq(roundFeedbackTable.id, row.id));
+  }
 }
 
 type RoundCreditRow = typeof roundCreditsTable.$inferSelect;
@@ -689,14 +750,27 @@ export const RoundsLive = Layer.effect(
         try {
           if (feedbackIds.length === 0) return [];
           return await db.transaction(async (tx) => {
-            const rows = await tx
-              .update(roundFeedbackTable)
-              .set({ status, statusChangedAt: sql`now()` })
+            // Read first so the activity intents below can tell which items
+            // crossed the accepted boundary, which `.returning()` alone can't.
+            const before = await tx
+              .select()
+              .from(roundFeedbackTable)
               .where(
                 and(
                   eq(roundFeedbackTable.roundId, roundId),
                   inArray(roundFeedbackTable.id, feedbackIds),
                   ne(roundFeedbackTable.status, status),
+                ),
+              );
+            if (before.length === 0) return [];
+
+            const rows = await tx
+              .update(roundFeedbackTable)
+              .set({ status, statusChangedAt: sql`now()` })
+              .where(
+                inArray(
+                  roundFeedbackTable.id,
+                  before.map((row) => row.id),
                 ),
               )
               .returning();
@@ -707,6 +781,9 @@ export const RoundsLive = Layer.effect(
                   rows.map((row) => ({ ...note, feedbackId: row.id, role: "owner" as const })),
                 );
             }
+
+            await queueAcceptanceEvents(tx, roundId, before, rows);
+
             return rows.map(toFeedbackRecord);
           });
         } catch (error) {
@@ -785,53 +862,6 @@ export const RoundsLive = Layer.effect(
             joinedAt:
               row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
           }));
-        } catch (error) {
-          throw toOrpcError(error);
-        }
-      },
-
-      listAcceptedCounts: async (since) => {
-        try {
-          const acceptedAt = sql`coalesce(${roundFeedbackTable.statusChangedAt}, ${roundFeedbackTable.createdAt})`;
-          const rows = await db
-            .select({
-              accountId: roundFeedbackTable.authorAccountId,
-              acceptedCount: count(),
-              starredCount: sql<number>`count(*) filter (where ${roundFeedbackTable.starredAt} is not null)::int`,
-            })
-            .from(roundFeedbackTable)
-            .where(
-              and(
-                eq(roundFeedbackTable.status, "resolved"),
-                since ? sql`${acceptedAt} >= ${since.toISOString()}::timestamptz` : undefined,
-              ),
-            )
-            .groupBy(roundFeedbackTable.authorAccountId);
-          return rows.map((row) => ({
-            accountId: row.accountId,
-            acceptedCount: row.acceptedCount,
-            starredCount: row.starredCount,
-          }));
-        } catch (error) {
-          throw toOrpcError(error);
-        }
-      },
-
-      getFeedbackTotals: async (accountId) => {
-        try {
-          const [row] = await db
-            .select({
-              submittedCount: count(),
-              acceptedCount: sql<number>`count(*) filter (where ${roundFeedbackTable.status} = 'resolved')::int`,
-              starredCount: sql<number>`count(*) filter (where ${roundFeedbackTable.status} = 'resolved' and ${roundFeedbackTable.starredAt} is not null)::int`,
-            })
-            .from(roundFeedbackTable)
-            .where(eq(roundFeedbackTable.authorAccountId, accountId));
-          return {
-            submittedCount: row?.submittedCount ?? 0,
-            acceptedCount: row?.acceptedCount ?? 0,
-            starredCount: row?.starredCount ?? 0,
-          };
         } catch (error) {
           throw toOrpcError(error);
         }

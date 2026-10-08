@@ -61,7 +61,7 @@ afterAll(async () => {
 });
 
 describe("getLeaderboard (activity gateway configured, no API key)", () => {
-  it("returns standings from the gateway, scoped to feedback.posted and this source", async () => {
+  it("returns standings from the gateway, scoped to this source and every scored type", async () => {
     gatewayStatus = 200;
     requestedUrls = [];
     const client = await clientFor(gatewayUrl);
@@ -79,7 +79,9 @@ describe("getLeaderboard (activity gateway configured, no API key)", () => {
     });
     const requested = new URL(requestedUrls[0] ?? "", gatewayUrl);
     expect(requested.pathname).toBe("/v1/leaderboard");
-    expect(requested.searchParams.get("type")).toBe("feedback.posted");
+    // No type filter: the gateway weighs credit.awarded and feedback.accepted
+    // above (unscored) feedback.posted, and filtering would discard that.
+    expect(requested.searchParams.get("type")).toBeNull();
     expect(requested.searchParams.get("source")).toBe("feedback.test");
     expect(requested.searchParams.get("period")).toBe("monthly");
     expect(requested.searchParams.get("limit")).toBe("25");

@@ -8,19 +8,6 @@ export const LEADERBOARD_PERIODS: Array<{ value: LeaderboardPeriod; label: strin
 
 export const DEFAULT_LEADERBOARD_PERIOD: LeaderboardPeriod = "weekly";
 
-export type LeaderboardMetric = "submissions" | "points";
-
-export const LEADERBOARD_METRICS: Array<{ value: LeaderboardMetric; label: string }> = [
-  { value: "submissions", label: "Submissions" },
-  { value: "points", label: "Points" },
-];
-
-export const DEFAULT_LEADERBOARD_METRIC: LeaderboardMetric = "submissions";
-
-export function isLeaderboardMetric(value: unknown): value is LeaderboardMetric {
-  return LEADERBOARD_METRICS.some((metric) => metric.value === value);
-}
-
 export function isLeaderboardPeriod(value: unknown): value is LeaderboardPeriod {
   return LEADERBOARD_PERIODS.some((period) => period.value === value);
 }
@@ -29,8 +16,12 @@ export function periodLabel(period: LeaderboardPeriod): string {
   return LEADERBOARD_PERIODS.find((entry) => entry.value === period)?.label ?? period;
 }
 
-export function submissionsLabel(count: number): string {
-  return `${count} ${count === 1 ? "submission" : "submissions"}`;
+/**
+ * activity scores several event types per builder (accepted feedback, round
+ * credits), so the count behind a score is contributions, not submissions.
+ */
+export function contributionsLabel(count: number): string {
+  return `${count} ${count === 1 ? "contribution" : "contributions"}`;
 }
 
 export interface Standing {
