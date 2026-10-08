@@ -52,6 +52,17 @@ export interface StorageService {
     ownerId: string;
   }): Promise<AssetRecord>;
   deleteFile(input: { uploaderAccountId: string; key: string }): Promise<{ success: boolean }>;
+  /** Attaches the uploader's own assets whose public URL is in `urls` to `ownerId`. */
+  attachByUrls(input: {
+    uploaderAccountId: string;
+    ownerId: string;
+    urls: string[];
+  }): Promise<{ attached: number }>;
+  /** Deletes the uploader's own assets attached to `ownerId`; others' assets are never touched. */
+  deleteByOwner(input: {
+    uploaderAccountId: string;
+    ownerId: string;
+  }): Promise<{ deleted: number }>;
 }
 
 export class StorageTag extends Context.Tag("Storage")<StorageTag, StorageService>() {}
@@ -265,6 +276,40 @@ export const StorageLive = (config: StorageConfig) =>
           if (r2) await r2.deleteObject(input.key);
           await db.delete(storageAssets).where(eq(storageAssets.id, row.id));
           return { success: true };
+        },
+
+        attachByUrls: async (input) => {
+          if (input.urls.length === 0) return { attached: 0 };
+          const wanted = new Set(input.urls);
+          const rows = await db
+            .select()
+            .from(storageAssets)
+            .where(eq(storageAssets.uploaderAccountId, input.uploaderAccountId));
+          const matching = rows.filter((row) => wanted.has(`${publicUrlBase}/${row.key}`));
+          for (const row of matching) {
+            await db
+              .update(storageAssets)
+              .set({ ownerId: input.ownerId })
+              .where(eq(storageAssets.id, row.id));
+          }
+          return { attached: matching.length };
+        },
+
+        deleteByOwner: async (input) => {
+          const rows = await db
+            .select()
+            .from(storageAssets)
+            .where(
+              and(
+                eq(storageAssets.ownerId, input.ownerId),
+                eq(storageAssets.uploaderAccountId, input.uploaderAccountId),
+              ),
+            );
+          for (const row of rows) {
+            if (r2) await r2.deleteObject(row.key);
+            await db.delete(storageAssets).where(eq(storageAssets.id, row.id));
+          }
+          return { deleted: rows.length };
         },
       };
 

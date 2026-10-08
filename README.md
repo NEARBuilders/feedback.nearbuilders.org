@@ -186,6 +186,15 @@ and deleting are refused. A key is denied for projects owned by other organizati
 `api_…` keys are not covered. Access is decided in one place (the round-access actor), so HTTP and
 MCP behave identically.
 
+## Feedback images
+
+Images pasted or dropped into the feedback editor are uploaded to the storage plugin and live in
+the feedback body as markdown. When the feedback is posted, the API links the images in its body
+to the feedback (`attachByUrls`), and when the feedback is removed, or its round is deleted, it
+deletes them again (`deleteByOwner`). Both calls are made as the feedback's author, because assets
+belong to whoever uploaded them, and both are best effort: a storage failure is logged and never
+blocks posting or removing feedback.
+
 ## Teams and delegated round management
 
 Organizations can group members into teams and delegate a project's rounds to a team. Teams
