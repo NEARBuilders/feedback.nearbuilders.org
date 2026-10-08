@@ -302,6 +302,15 @@ export const MyJoinedRoundSchema = z.object({
   joinedAt: z.string(),
 });
 
+/** Counts for the owner's home-page overview; nothing here is scoped to one round. */
+export const OwnerSummarySchema = z.object({
+  openRounds: z.number().int().nonnegative(),
+  unresolvedFeedback: z.number().int().nonnegative(),
+  pendingProjects: z.number().int().nonnegative(),
+});
+
+export type OwnerSummary = z.infer<typeof OwnerSummarySchema>;
+
 export type MyJoinedRound = z.infer<typeof MyJoinedRoundSchema>;
 
 export const CreditCandidateSchema = z.object({
@@ -582,6 +591,11 @@ export const contract = oc.router({
   listMyJoinedRounds: oc
     .route({ method: "GET", path: "/rounds/joined" })
     .output(z.array(MyJoinedRoundSchema))
+    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+
+  getOwnerSummary: oc
+    .route({ method: "GET", path: "/my/owner-summary" })
+    .output(OwnerSummarySchema)
     .errors({ UNAUTHORIZED, BAD_REQUEST }),
 
   getMyLegionAccess: oc

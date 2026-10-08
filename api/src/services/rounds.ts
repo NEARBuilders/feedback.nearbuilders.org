@@ -18,6 +18,7 @@ import { DatabaseTag } from "../db/layer";
 import {
   feedbackNotes as feedbackNotesTable,
   projectRoundCounters as projectRoundCountersTable,
+  projects as projectsTable,
   roundCredits as roundCreditsTable,
   type roundFeedbackStatus,
   roundFeedback as roundFeedbackTable,
@@ -208,6 +209,13 @@ export interface MyJoinedRoundRecord {
   joinedAt: string;
 }
 
+/** Counts behind the owner's home-page overview; see `getOwnerSummary`. */
+export interface OwnerSummary {
+  openRounds: number;
+  unresolvedFeedback: number;
+  pendingProjects: number;
+}
+
 export interface CloseRoundCreditInput {
   builderAccountId: string;
   contributedMeaningfully: boolean;
@@ -267,6 +275,8 @@ export interface RoundsService {
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
   listBuilderRounds(accountId: string): Promise<BuilderRoundRecord[]>;
   listMyJoinedRounds(accountIds: string[]): Promise<MyJoinedRoundRecord[]>;
+  /** Counts for the owner's home-page summary: nothing here is scoped to one round. */
+  getOwnerSummary(orgId: string): Promise<OwnerSummary>;
   setRoundActivityEventId(roundId: string, eventId: string): Promise<void>;
   setFeedbackActivityEventId(feedbackId: string, eventId: string): Promise<void>;
   setFeedbackNostrEventId(feedbackId: string, nostrEventId: string): Promise<void>;
@@ -1102,6 +1112,30 @@ export const RoundsLive = Layer.effect(
             joinedAt:
               row.joinedAt instanceof Date ? row.joinedAt.toISOString() : String(row.joinedAt),
           }));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      getOwnerSummary: async (orgId) => {
+        try {
+          // One grouped query: without the distinct-filter count, the round
+          // and feedback joins would multiply each other's rows.
+          const [row] = await db
+            .select({
+              openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundsTable.status} = 'open')::int`,
+              unresolvedFeedback: sql<number>`count(distinct ${roundFeedbackTable.id}) filter (where ${roundFeedbackTable.status} = 'unresolved')::int`,
+              pendingProjects: sql<number>`count(distinct ${projectsTable.id}) filter (where ${projectsTable.status} = 'pending')::int`,
+            })
+            .from(projectsTable)
+            .leftJoin(roundsTable, eq(roundsTable.projectRecordId, projectsTable.id))
+            .leftJoin(roundFeedbackTable, eq(roundFeedbackTable.roundId, roundsTable.id))
+            .where(eq(projectsTable.ownerOrgId, orgId));
+          return {
+            openRounds: row?.openRounds ?? 0,
+            unresolvedFeedback: row?.unresolvedFeedback ?? 0,
+            pendingProjects: row?.pendingProjects ?? 0,
+          };
         } catch (error) {
           throw toOrpcError(error);
         }

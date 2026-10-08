@@ -154,8 +154,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     }),
 
   createRouter: (services, builder) => {
-    const { requireAuth, requireAdmin, requireOrganization, requireOrgRole } =
-      createAuthMiddleware(builder);
+    const { requireAuth, requireAdmin, requireOrganization } = createAuthMiddleware(builder);
 
     /**
      * Project identity lives in the nearbuilders.org registry, not here. These
@@ -706,6 +705,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .handler(async ({ context }) => {
           return services.rounds.listMyJoinedRounds(linkedAccountIds(context));
         }),
+
+      getOwnerSummary: builder.getOwnerSummary
+        .use(requireAuth)
+        .use(requireOrganization)
+        .handler(async ({ context }) =>
+          services.rounds.getOwnerSummary(context.organization.activeOrganizationId),
+        ),
 
       postFeedback: builder.postFeedback
         .use(requireAuth)

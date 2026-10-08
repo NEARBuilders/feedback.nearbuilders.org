@@ -16,7 +16,7 @@ describe("dashboard navigation", () => {
     const memberPaths = filterSidebarByRole(NAV_ITEMS, "member").map((item) => item.to);
 
     expect(memberPaths).toEqual(
-      expect.arrayContaining(["/testing", "/manage/new", "/orgs", "/rounds"]),
+      expect.arrayContaining(["/dashboard", "/testing", "/manage/new", "/orgs", "/rounds"]),
     );
   });
 

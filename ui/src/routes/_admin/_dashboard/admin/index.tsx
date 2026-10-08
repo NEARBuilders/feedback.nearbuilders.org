@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ClipboardCheck, Settings, Users } from "lucide-react";
 import { getAccount } from "@/app";
 import { Button, Card, SectionHeader } from "@/components";
+import { StatCard } from "@/components/stat-card";
 import { pageHead } from "@/lib/page-title";
 import { useNearAccount } from "@/lib/use-near-account";
 
@@ -68,29 +69,6 @@ function AdminDashboard() {
           </Card>
         </div>
       </section>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="border border-border bg-card p-4 rounded-md space-y-1">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={`text-base font-bold text-foreground leading-tight ${mono ? "font-mono" : ""}`}
-      >
-        {value}
-      </div>
     </div>
   );
 }
