@@ -175,6 +175,17 @@ the queued row rather than emitting and immediately retracting it.
   [activity.nearbuilders.org#66](https://github.com/NEARBuilders/activity.nearbuilders.org/issues/66);
   until the gateway configures one, starring something does not change anyone's standing.
 
+## Organization API keys (read-only)
+
+An organization API key (`org_…`, created from an organization's API Keys tab) is the
+organization's own credential. Over HTTP and `/api/mcp` it can list its organization's rounds
+(including its pending and rejected ones) and read their feedback, **including private
+feedback**, for projects the organization owns. It behaves like an organization admin, so it
+**bypasses team delegation**, and it is **read-only**: closing, resolving, dismissing, starring
+and deleting are refused. A key is denied for projects owned by other organizations, and personal
+`api_…` keys are not covered. Access is decided in one place (the round-access actor), so HTTP and
+MCP behave identically.
+
 ## Teams and delegated round management
 
 Organizations can group members into teams and delegate a project's rounds to a team. Teams

@@ -16,6 +16,7 @@ import { createLegionAccess } from "./services/legion-access";
 import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
+import { orgKeyOrganizationId } from "./services/org-key";
 import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
@@ -228,6 +229,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         activeOrganizationId?: string | null;
         member?: { role?: string | null } | null;
       } | null;
+      principal?: { type?: string | null; organizationId?: string | null } | null;
+      apiKey?: unknown;
     }
 
     /**
@@ -238,6 +241,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
       project: ProjectRecord | null,
       context: ActorContext,
     ): Promise<RoundActor> => {
+      // An organization API key acts as its organization's admin (#111): it reads everything
+      // the org owns, bypassing team delegation. Writes are refused in assertCanManageRound.
+      const keyOrganizationId = orgKeyOrganizationId(context);
+      if (keyOrganizationId) {
+        return { activeOrganizationId: keyOrganizationId, orgRole: "owner", accountIds: [] };
+      }
       const actor: RoundActor = {
         activeOrganizationId: context.organization?.activeOrganizationId,
         accountId: context.near?.primaryAccountId,
@@ -263,6 +272,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       context: ViewerContext,
       message: string,
     ) => {
+      if (orgKeyOrganizationId(context)) {
+        throw new ORPCError("FORBIDDEN", { message: "Organization API keys are read-only" });
+      }
       if (isSiteAdmin(context)) return;
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
@@ -467,10 +479,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listRounds: builder.listRounds.handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
+        const keyOrganizationId = orgKeyOrganizationId(context);
         if ((input.status === "pending" || input.status === "rejected") && !isAdmin) {
-          throw new ORPCError("FORBIDDEN", {
-            message: "Only admins can list pending or rejected rounds",
-          });
+          if (!keyOrganizationId) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only admins can list pending or rejected rounds",
+            });
+          }
+          // An org key may list its own organization's pending and rejected rounds (#111).
+          const rounds = await services.rounds.listRounds(input.status);
+          const owners = new Map<string, string | null>();
+          for (const projectRecordId of new Set(rounds.map((round) => round.projectRecordId))) {
+            const project = await services.projectRecords.resolveProjectById(projectRecordId);
+            owners.set(projectRecordId, project?.ownerOrgId ?? null);
+          }
+          return withRoundIdentities(
+            rounds.filter((round) => owners.get(round.projectRecordId) === keyOrganizationId),
+          );
         }
         const rounds = await services.rounds.listRounds(input.status);
         // No filter: this is the public browse listing, so pending/rejected
