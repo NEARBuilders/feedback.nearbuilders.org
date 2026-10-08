@@ -1,7 +1,35 @@
 import { ClientOnly } from "@tanstack/react-router";
+import { useCallback } from "react";
 
-import { Editor, type ImageUploadResult } from "@/components/ui/editor";
+import { Editor, type ImagePickerResult, type ImageUploadResult } from "@/components/ui/editor";
 import { useFileUpload } from "@/hooks";
+
+const pickImageFile = (): Promise<File | null> =>
+  new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+
+    let settled = false;
+    const finish = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      input.removeEventListener("change", onChange);
+      input.removeEventListener("cancel", onCancel);
+      input.remove();
+      resolve(file);
+    };
+
+    const onChange = () => {
+      const file = input.files?.[0] ?? null;
+      finish(file);
+    };
+    const onCancel = () => finish(null);
+
+    input.addEventListener("change", onChange);
+    input.addEventListener("cancel", onCancel);
+    input.click();
+  });
 
 interface MarkdownEditorProps {
   value: string;
@@ -35,6 +63,11 @@ function MarkdownEditorSurface({
     return { src: uploaded.url };
   };
 
+  const handleRequestImage = useCallback(async (): Promise<ImagePickerResult | null> => {
+    const file = await pickImageFile();
+    return file ? { kind: "file", file } : null;
+  }, []);
+
   const handleChange = (next: string) => {
     if (maxLength != null && next.length > maxLength) return;
     onChange(next);
@@ -51,6 +84,7 @@ function MarkdownEditorSurface({
       enableImages
       enableImagePasteDrop
       onUploadImage={handleUploadImage}
+      onRequestImage={handleRequestImage}
       onPendingUploadsChange={onPendingUploadsChange}
       className={className}
       editorClassName={editorClassName}
