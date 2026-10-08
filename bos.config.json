@@ -13,10 +13,10 @@
   "app": {
     "ui": {
       "development": "local:ui",
-      "production": "https://elliot-braem-9036-ui-feedback-nearbuilders-org-ne-2a08caa13-ze.zephyrcloud.app",
-      "integrity": "sha384-GDxuC6US7in3qogML3QayUzjmDnZBFkgMmGu22AbKj+AZqOhPT40k+ACv/KuKWaT",
-      "ssr": "https://elliot-braem-9037-ui-feedback-nearbuilders-org-ne-1413a3658-ze.zephyrcloud.app",
-      "ssrIntegrity": "sha384-LUnMzGPmPPvLLbn3G/pJ749HVajpTKHw3hk/vSjY187nRMhri89ergyR6u2Zwc0c"
+      "production": "https://elliot-braem-9043-ui-feedback-nearbuilders-org-ne-6c142568a-ze.zephyrcloud.app",
+      "integrity": "sha384-tapdcDXu1fG734ag1lifGGKqIaYOSDZD2iBorQtJr7nG9y7mygmJlMbO5XlcFGB9",
+      "ssr": "https://elliot-braem-9047-ui-feedback-nearbuilders-org-ne-03550c044-ze.zephyrcloud.app",
+      "ssrIntegrity": "sha384-Za0k/MP01C6wbfL1WB5gHUzoojrswj9712sKuHajyF2KPzMGuTAl2WG0HDaS/LoW"
     },
     "api": {
       "development": "local:api",
@@ -30,7 +30,7 @@
         "GITHUB_API_TOKEN",
         "TIP_MESSAGE_TEMPLATE"
       ],
-      "production": "https://elliot-braem-9033-api-feedback-nearbuilders-org-n-f2c705d9a-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-9046-api-feedback-nearbuilders-org-n-7d6b731d3-ze.zephyrcloud.app",
       "integrity": "sha384-e1SPJsnkJD6ohJvhLB51zijQt4yzPf8sDBxRrJk3FtDBqsfie2I4xpAQIubOg9Zi"
     }
   },
@@ -44,7 +44,7 @@
           "ascendant.nearlegion.near"
         ]
       },
-      "production": "https://elliot-braem-9032-everything-dev-legion-plugin-fe-bb004f033-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-9044-everything-dev-legion-plugin-fe-c6a90aebe-ze.zephyrcloud.app",
       "integrity": "sha384-z5qc4Hrqu7TN4Mq51HHmOAbYHt4qQSv+Wr5xHKTchcgGUAzKxzhbVpDEASVN+dUS"
     },
     "nostr": {
@@ -73,7 +73,7 @@
         "STORAGE_ACCESS_KEY_ID",
         "STORAGE_SECRET_ACCESS_KEY"
       ],
-      "production": "https://elliot-braem-9034-everything-dev-storage-plugin-f-fff5de717-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-9045-everything-dev-storage-plugin-f-22919b2fd-ze.zephyrcloud.app",
       "integrity": "sha384-QT5UoGcyJcfxBLJ99mBFlRtHL31MKtQd+rLNw1M4/LVKVGCvSNUxSL7BPGg4Ja+T"
     }
   }

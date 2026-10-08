@@ -15,7 +15,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
+import {
+  type Organization,
+  type SessionData,
+  sessionQueryOptions,
+  useApiClient,
+  useAuthClient,
+} from "@/app";
 import {
   ApiKeyForm,
   type ApiKeyFormValues,
@@ -86,6 +92,7 @@ function OrganizationDetail() {
   const router = useRouter();
   const { slug: orgSlug } = Route.useParams();
   const auth = useAuthClient();
+  const apiClient = useApiClient();
 
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
 
@@ -150,6 +157,8 @@ function OrganizationDetail() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [addUserId, setAddUserId] = useState("");
+  const [addRole, setAddRole] = useState<"admin" | "member">("member");
   const [createdApiKey, setCreatedApiKey] = useState<CreatedApiKey | null>(null);
 
   const handleCopyApiKey = async (value: string, message = "API key copied") => {
@@ -179,6 +188,25 @@ function OrganizationDetail() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to send invitation");
+    },
+  });
+
+  const addMemberMutation = useMutation({
+    mutationFn: async () => {
+      const member = await apiClient.auth.addMember({
+        userId: addUserId.trim(),
+        role: addRole,
+        organizationId: orgId,
+      });
+      if (!member) throw new Error("Failed to add member");
+    },
+    onSuccess: async () => {
+      toast.success("Member added");
+      setAddUserId("");
+      await queryClient.invalidateQueries({ queryKey: orgMembersQueryKey(orgId) });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to add member");
     },
   });
 
@@ -495,6 +523,36 @@ function OrganizationDetail() {
         </TabsList>
 
         <TabsContent value="members" className="space-y-6 pt-4">
+          {canManageMembers && !isPersonal && (
+            <Card className="p-6 space-y-4 hover:shadow-md">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Add member
+              </div>
+              <div className="grid gap-4 md:grid-cols-[1fr_180px]">
+                <Input
+                  type="text"
+                  value={addUserId}
+                  onChange={(e) => setAddUserId(e.target.value)}
+                  placeholder="user id"
+                />
+                <select
+                  value={addRole}
+                  onChange={(e) => setAddRole(e.target.value as "admin" | "member")}
+                  className="w-full px-3 py-2 text-sm bg-card text-foreground border border-border rounded-sm outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <Button
+                onClick={() => addMemberMutation.mutate()}
+                disabled={addMemberMutation.isPending || !addUserId.trim()}
+                variant="outline"
+              >
+                {addMemberMutation.isPending ? "adding..." : "add member"}
+              </Button>
+            </Card>
+          )}
           {members.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {members.map((member) => (
