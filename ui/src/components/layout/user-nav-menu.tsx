@@ -106,7 +106,7 @@ export function UserNavMenuContent({
       <DropdownMenuItem asChild>
         <Link to="/dashboard">
           <Home />
-          workspace
+          dashboard
         </Link>
       </DropdownMenuItem>
       {activeOrg && (

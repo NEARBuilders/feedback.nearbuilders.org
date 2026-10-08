@@ -3,7 +3,7 @@ import { shouldUseAppShell } from "../../lib/app-shell";
 import { filterSidebarByRole, getActiveItem, groupSidebarItems, NAV_ITEMS } from "./nav-items";
 
 describe("dashboard navigation", () => {
-  it("shows rounds, leaderboard and how-it-works links to everyone", () => {
+  it("shows rounds, projects, leaderboard and how-it-works links to everyone", () => {
     const anonymousPaths = filterSidebarByRole(NAV_ITEMS, "anon").map((item) => item.to);
 
     expect(anonymousPaths).toEqual(
@@ -12,12 +12,17 @@ describe("dashboard navigation", () => {
     expect(anonymousPaths).not.toContain("/admin");
   });
 
-  it("shows workspace links to signed-in members", () => {
+  it("shows tester and project links to signed-in members", () => {
     const memberPaths = filterSidebarByRole(NAV_ITEMS, "member").map((item) => item.to);
 
     expect(memberPaths).toEqual(
-      expect.arrayContaining(["/dashboard", "/testing", "/manage/new", "/orgs", "/rounds"]),
+      expect.arrayContaining(["/dashboard", "/testing", "/manage/new", "/rounds"]),
     );
+  });
+
+  it("does not list orgs in the sidebar", () => {
+    const paths = filterSidebarByRole(NAV_ITEMS, "admin").map((item) => item.to);
+    expect(paths).not.toContain("/orgs");
   });
 
   it("shows admin to admins only", () => {
@@ -29,11 +34,13 @@ describe("dashboard navigation", () => {
   });
 
   it("groups items into labeled sections and hides empty ones", () => {
+    const anon = groupSidebarItems(filterSidebarByRole(NAV_ITEMS, "anon"));
     const member = groupSidebarItems(filterSidebarByRole(NAV_ITEMS, "member"));
     const admin = groupSidebarItems(filterSidebarByRole(NAV_ITEMS, "admin"));
 
-    expect(member.map((section) => section.id)).toEqual(["main", "workspace"]);
-    expect(admin.map((section) => section.id)).toEqual(["main", "workspace", "manage"]);
+    expect(anon.map((section) => section.id)).toEqual(["main", "testers"]);
+    expect(member.map((section) => section.id)).toEqual(["main", "testers", "projects"]);
+    expect(admin.map((section) => section.id)).toEqual(["main", "testers", "projects", "admin"]);
     expect(admin.every((section) => section.label && section.items.length > 0)).toBe(true);
   });
 
@@ -45,7 +52,7 @@ describe("dashboard navigation", () => {
     expect(getActiveItem(NAV_ITEMS, "/testing")?.label).toBe("testing");
     expect(getActiveItem(NAV_ITEMS, "/manage/near-wallet/3")?.label).toBe("manage");
     expect(getActiveItem(NAV_ITEMS, "/leaderboard")?.label).toBe("leaderboard");
-    expect(getActiveItem(NAV_ITEMS, "/orgs/acme")?.label).toBe("orgs");
+    expect(getActiveItem(NAV_ITEMS, "/orgs/acme")).toBeUndefined();
     expect(getActiveItem(NAV_ITEMS, "/settings/profile")).toBeUndefined();
   });
 
