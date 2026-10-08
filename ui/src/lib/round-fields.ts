@@ -28,6 +28,15 @@ export const FORMAT_OPTIONS: Array<{ value: RoundFormat; label: string; hint: st
   { value: "issues", label: "GitHub issues", hint: "Testers file issues on your repo." },
 ];
 
+/**
+ * What owners can pick today: recorded sessions and GitHub issues are hidden
+ * until they ship, but stay in FORMAT_OPTIONS so existing rounds keep working
+ * and re-enabling is a filter change.
+ */
+export const SELECTABLE_FORMAT_OPTIONS = FORMAT_OPTIONS.filter(
+  (option) => option.value === "written",
+);
+
 export const FORMAT_LABELS: Record<string, string> = Object.fromEntries(
   FORMAT_OPTIONS.map((option) => [option.value, option.label]),
 );
@@ -44,7 +53,7 @@ export function roundFieldsComplete(fields: RoundFields): boolean {
 export function nextRoundFields(
   previous: (Omit<RoundFields, "repoUrl"> & { repoUrl: string | null }) | null,
 ): RoundFields {
-  if (!previous) return EMPTY_ROUND_FIELDS;
+  if (!previous) return { ...EMPTY_ROUND_FIELDS, formats: ["written"] };
   return {
     title: previous.title,
     description: previous.description,

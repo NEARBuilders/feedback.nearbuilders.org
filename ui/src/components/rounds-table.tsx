@@ -11,7 +11,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ApiClient } from "@/app";
-import { Badge, Button } from "@/components";
+import { Badge, Button, LegionMark } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { ProjectLabel } from "@/components/project-identity";
 import { RoundStatusBadge } from "@/components/round-status-badge";
@@ -77,6 +77,9 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
             params={roundParams(row.original)}
             className="font-medium text-foreground hover:underline"
           >
+            {row.original.legionOnly && (
+              <LegionMark className="mr-1 inline-block align-[-2px]" title="Legion members only" />
+            )}
             <span className="text-muted-foreground">#{row.original.projectRoundNumber}</span>{" "}
             {row.original.title}
           </Link>
