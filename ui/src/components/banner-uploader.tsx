@@ -1,10 +1,30 @@
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { type ChangeEvent, type DragEvent, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { cn } from "@/lib/utils";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const MAX_BANNER_BYTES = 5 * 1024 * 1024;
+/** 2x retina for the ~900px-wide hero; smaller uploads look soft on phones. */
+const MIN_BANNER_WIDTH = 1200;
+
+/** The natural width of an image file, or null when it can't be decoded. */
+function imageWidth(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img.naturalWidth);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
 
 interface BannerUploaderProps {
   /** Storage-plugin public URL of the current banner; empty string when none. */
@@ -30,6 +50,13 @@ export function BannerUploader({ value, onChange, disabled }: BannerUploaderProp
       return;
     }
     inputRef.current?.setCustomValidity("");
+    const width = await imageWidth(file);
+    if (width !== null && width < MIN_BANNER_WIDTH) {
+      toast.error("Banner is too small", {
+        description: `It's ${width}px wide; at least ${MIN_BANNER_WIDTH}px is needed to stay sharp (1600×512 recommended).`,
+      });
+      return;
+    }
     const uploaded = await uploadSingle(file);
     if (uploaded) onChange(uploaded.url);
   };
@@ -109,7 +136,9 @@ export function BannerUploader({ value, onChange, disabled }: BannerUploaderProp
           <ImagePlus className="h-4 w-4 text-muted-foreground" />
         )}
         <span className="text-xs text-muted-foreground">
-          {uploading ? "uploading..." : "Click or drop an image — wide banners look best"}
+          {uploading
+            ? "uploading..."
+            : "Click or drop an image — 1600×512 recommended; keep key content near the center (narrow screens crop the sides)"}
         </span>
       </button>
       <input
