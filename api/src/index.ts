@@ -16,7 +16,7 @@ import { createLegionAccess } from "./services/legion-access";
 import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
-import { orgKeyOrganizationId } from "./services/org-key";
+import { type OrganizationPrincipal, orgKeyOrganizationId } from "./services/org-key";
 import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
@@ -169,7 +169,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
     }),
 
   createRouter: (services, builder) => {
-    const { requireAuth, requireAdmin, requireOrganization } = createAuthMiddleware(builder);
+    const { requireAuth, requireAuthOrApiKey, requireAdmin, requireOrganization } =
+      createAuthMiddleware(builder);
 
     /**
      * Project identity lives in the nearbuilders.org registry, not here. These
@@ -229,7 +230,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         activeOrganizationId?: string | null;
         member?: { role?: string | null } | null;
       } | null;
-      principal?: { type?: string | null; organizationId?: string | null } | null;
+      principal?: OrganizationPrincipal | null;
       apiKey?: unknown;
     }
 
@@ -242,7 +243,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
       context: ActorContext,
     ): Promise<RoundActor> => {
       // An organization API key acts as its organization's admin (#111): it reads everything
-      // the org owns, bypassing team delegation. Writes are refused in assertCanManageRound.
+      // the org owns, bypassing team delegation. Every write procedure refuses it first via
+      // assertNotOrgKey.
       const keyOrganizationId = orgKeyOrganizationId(context);
       if (keyOrganizationId) {
         return { activeOrganizationId: keyOrganizationId, orgRole: "owner", accountIds: [] };
@@ -264,6 +266,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
     };
 
     /**
+     * Organization API keys are read-only (#111): write procedures call this first so an org
+     * key gets a clear refusal, while read procedures resolve it through resolveActor.
+     */
+    const assertNotOrgKey = (context: ViewerContext) => {
+      if (orgKeyOrganizationId(context)) {
+        throw new ORPCError("FORBIDDEN", { message: "Organization API keys are read-only" });
+      }
+    };
+
+    /**
      * Rounds are managed by the org that owns their project (#70), or by the team the org
      * delegated the project to (#79). Throws FORBIDDEN with `message` otherwise.
      */
@@ -272,9 +284,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
       context: ViewerContext,
       message: string,
     ) => {
-      if (orgKeyOrganizationId(context)) {
-        throw new ORPCError("FORBIDDEN", { message: "Organization API keys are read-only" });
-      }
       if (isSiteAdmin(context)) return;
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
@@ -304,7 +313,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }
     };
 
-    type ViewerContext = ActorContext & { user?: { role?: string | null } | null };
+    type ViewerContext = ActorContext & {
+      user?: { id?: string | null; role?: string | null } | null;
+    };
 
     const isSiteAdmin = (context: ViewerContext) => context.user?.role === "admin";
 
@@ -438,27 +449,31 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return round;
         }),
 
-      updateRound: builder.updateRound.use(requireAuth).handler(async ({ input, context }) => {
-        const round = await requireRound(input.id);
-        await assertCanManageRound(
-          round,
-          context,
-          "Only the round owner can change round settings",
-        );
-        if (input.formats?.includes("issues") && !round.repoUrl) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "A repo URL is required when the issues format is selected",
+      updateRound: builder.updateRound
+        .use(requireAuthOrApiKey)
+        .handler(async ({ input, context }) => {
+          assertNotOrgKey(context);
+          const round = await requireRound(input.id);
+          await assertCanManageRound(
+            round,
+            context,
+            "Only the round owner can change round settings",
+          );
+          if (input.formats?.includes("issues") && !round.repoUrl) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "A repo URL is required when the issues format is selected",
+            });
+          }
+          return await services.rounds.updateRound(round.id, {
+            readme: input.readme,
+            formats: input.formats,
           });
-        }
-        return await services.rounds.updateRound(round.id, {
-          readme: input.readme,
-          formats: input.formats,
-        });
-      }),
+        }),
 
       updateRoundSettings: builder.updateRoundSettings
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
           const round = await services.rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
@@ -480,27 +495,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listRounds: builder.listRounds.handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
         const keyOrganizationId = orgKeyOrganizationId(context);
-        if ((input.status === "pending" || input.status === "rejected") && !isAdmin) {
-          if (!keyOrganizationId) {
-            throw new ORPCError("FORBIDDEN", {
-              message: "Only admins can list pending or rejected rounds",
-            });
-          }
-          // An org key may list its own organization's pending and rejected rounds (#111).
-          const rounds = await services.rounds.listRounds(input.status);
-          const owners = new Map<string, string | null>();
-          for (const projectRecordId of new Set(rounds.map((round) => round.projectRecordId))) {
-            const project = await services.projectRecords.resolveProjectById(projectRecordId);
-            owners.set(projectRecordId, project?.ownerOrgId ?? null);
-          }
-          return withRoundIdentities(
-            rounds.filter((round) => owners.get(round.projectRecordId) === keyOrganizationId),
-          );
+        if (
+          (input.status === "pending" || input.status === "rejected") &&
+          !isAdmin &&
+          !keyOrganizationId
+        ) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "Only admins can list pending or rejected rounds",
+          });
         }
         const rounds = await services.rounds.listRounds(input.status);
-        // No filter: this is the public browse listing, so pending/rejected
+        // Without a status filter this is the public browse listing, so pending/rejected
         // rounds — visible only to their owning org or an admin — never appear in it.
         const visible = input.status ? rounds : rounds.filter(isPublic);
+        if (keyOrganizationId && !isAdmin) {
+          // An org key lists only its own organization's rounds, whatever their status (#111).
+          const projects = await services.projectRecords.listProjectsByOrg(keyOrganizationId);
+          const ownedIds = new Set(projects.map((project) => project.id));
+          return withRoundIdentities(
+            visible.filter((round) => ownedIds.has(round.projectRecordId)),
+          );
+        }
         return withRoundIdentities(visible);
       }),
 
@@ -617,8 +632,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       deleteRound: builder.deleteRound
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
           if (linkedAccountIds(context).length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before deleting a round",
@@ -897,8 +913,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       deleteFeedback: builder.deleteFeedback
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
           if (linkedAccountIds(context).length === 0) {
             throw new ORPCError("UNAUTHORIZED", {
               message: "Link a NEAR account before removing feedback",
@@ -940,8 +957,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       setFeedbackStatus: builder.setFeedbackStatus
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context }) => {
+          assertNotOrgKey(context);
           const round = await requireRound(input.id);
           await assertCanManageRound(
             round,
@@ -964,8 +982,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       setFeedbackStarred: builder.setFeedbackStarred
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
+          // requireAuthOrApiKey leaves the context untyped for direct user access, so read
+          // the viewer fields through the shared shape other handlers use.
+          const viewer = context as ViewerContext;
           const round = await services.rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
@@ -973,10 +995,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "round", resourceId: input.id },
             });
           }
-          if (context.user?.role !== "admin") {
+          if (viewer.user?.role !== "admin") {
             await assertCanManageRound(round, context, "Only the round owner can star feedback");
           }
-          const starredBy = context.near?.primaryAccountId ?? context.user?.id ?? "admin";
+          const starredBy = viewer.near?.primaryAccountId ?? viewer.user?.id ?? "admin";
           return await services.rounds.setFeedbackStarred(
             round.id,
             input.feedbackIds,
@@ -986,7 +1008,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       listParticipants: builder.listParticipants
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
           const round = await services.rounds.resolveRoundById(input.id);
           if (!round) {
@@ -1009,8 +1031,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       broadcastToRound: builder.broadcastToRound
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
           const round = await services.rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
@@ -1095,7 +1118,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       getCreditCandidates: builder.getCreditCandidates
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
           const round = await services.rounds.resolveRoundById(input.id);
           if (!round) {
@@ -1109,8 +1132,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       closeRound: builder.closeRound
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
           if (linkedAccountIds(context).length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before closing a round",
@@ -1246,31 +1270,36 @@ export default createPlugin.withPlugins<PluginsClient>()({
         };
       }),
 
-      inviteTesters: builder.inviteTesters.use(requireAuth).handler(async ({ input, context }) => {
-        const round = await requireRound(input.id);
-        await assertCanManageRound(round, context, "Only the round owner can invite testers");
-        if (round.status !== "open") {
-          throw new ORPCError("BAD_REQUEST", { message: "Invite testers once the round is open" });
-        }
-        const from = await requireRound(input.fromRoundId);
-        if (from.projectRecordId !== round.projectRecordId) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Invite testers from a round of the same project",
+      inviteTesters: builder.inviteTesters
+        .use(requireAuthOrApiKey)
+        .handler(async ({ input, context }) => {
+          assertNotOrgKey(context);
+          const round = await requireRound(input.id);
+          await assertCanManageRound(round, context, "Only the round owner can invite testers");
+          if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Invite testers once the round is open",
+            });
+          }
+          const from = await requireRound(input.fromRoundId);
+          if (from.projectRecordId !== round.projectRecordId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Invite testers from a round of the same project",
+            });
+          }
+          const [previous, current] = await Promise.all([
+            services.rounds.listParticipants(from.id),
+            services.rounds.listParticipants(round.id),
+          ]);
+          const joined = new Set(current.map((participant) => participant.accountId));
+          const recipients = await services.notifications.notifyAccounts({
+            roundId: round.id,
+            kind: "round_opened",
+            ...notificationText("round_opened", round.title),
+            recipients: previous.filter((participant) => !joined.has(participant.accountId)),
           });
-        }
-        const [previous, current] = await Promise.all([
-          services.rounds.listParticipants(from.id),
-          services.rounds.listParticipants(round.id),
-        ]);
-        const joined = new Set(current.map((participant) => participant.accountId));
-        const recipients = await services.notifications.notifyAccounts({
-          roundId: round.id,
-          kind: "round_opened",
-          ...notificationText("round_opened", round.title),
-          recipients: previous.filter((participant) => !joined.has(participant.accountId)),
-        });
-        return { recipients };
-      }),
+          return { recipients };
+        }),
 
       getBuilderStanding: builder.getBuilderStanding.handler(async ({ input }) => {
         // activity owns the scoring, so a builder's standing is read back off

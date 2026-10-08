@@ -112,22 +112,79 @@ describe("organization API keys (#111)", () => {
 
     await expect(
       key.setFeedbackStatus({ id: round.id, feedbackIds: [feedback.id], status: "resolved" }),
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
     await expect(
       key.setFeedbackStarred({ id: round.id, feedbackIds: [feedback.id], starred: true }),
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
     await expect(
       key.deleteFeedback({ id: round.id, feedbackId: feedback.id }),
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
     await expect(key.closeRound({ id: round.id, credits: [] })).rejects.toMatchObject({
-      code: "UNAUTHORIZED",
+      code: "FORBIDDEN",
+      message: "Organization API keys are read-only",
     });
     await expect(key.deleteRound({ id: round.id })).rejects.toMatchObject({
-      code: "UNAUTHORIZED",
+      code: "FORBIDDEN",
+      message: "Organization API keys are read-only",
     });
     await expect(key.updateRoundSettings({ id: round.id, isPrivate: false })).rejects.toMatchObject(
-      { code: "UNAUTHORIZED" },
+      { code: "FORBIDDEN", message: "Organization API keys are read-only" },
     );
+    await expect(key.updateRound({ id: round.id, readme: "hijacked" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Organization API keys are read-only",
+    });
+    await expect(
+      key.broadcastToRound({ id: round.id, kind: "round_opened" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
+    await expect(key.inviteTesters({ id: round.id, fromRoundId: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Organization API keys are read-only",
+    });
+  });
+
+  it("reads owner-only round data like credit candidates and participants", async () => {
+    const { orgId, round } = await privateRound();
+    const key = await getPluginClient(orgKeyContext(orgId));
+
+    const candidates = await key.getCreditCandidates({ id: round.id });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ writtenCount: 1 });
+    expect((await key.listParticipants({ id: round.id })).length).toBeGreaterThan(0);
+  });
+
+  it("lists only its own organization's rounds in every status", async () => {
+    const mine = await privateRound();
+    const other = await privateRound();
+
+    const key = await getPluginClient(orgKeyContext(mine.orgId));
+    const open = await key.listRounds({ status: "open" });
+    const ids = open.map((r) => r.id);
+    expect(ids).toContain(mine.round.id);
+    expect(ids).not.toContain(other.round.id);
+
+    const all = await key.listRounds({});
+    expect(all.map((r) => r.id)).toContain(mine.round.id);
+    expect(all.map((r) => r.id)).not.toContain(other.round.id);
+  });
+
+  it("denies personal api_ keys: no reads of private feedback, no writes", async () => {
+    const { round, feedback } = await privateRound();
+    const personal = await getPluginClient({
+      authType: "apiKey",
+      apiKey: { id: "personal-key", name: "personal", permissions: null },
+      principal: { type: "user", userId: "someone" },
+      near: { primaryAccountId: null, linkedAccounts: [], hasNearAccount: false },
+    });
+
+    expect((await personal.listFeedback({ id: round.id })).items).toEqual([]);
+    await expect(
+      personal.setFeedbackStatus({
+        id: round.id,
+        feedbackIds: [feedback.id],
+        status: "resolved",
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("leaves personal sessions alone: a plain anonymous caller still sees nothing private", async () => {

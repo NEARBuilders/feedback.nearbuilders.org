@@ -1,5 +1,10 @@
+export interface OrganizationPrincipal {
+  type?: string | null;
+  organizationId?: string | null;
+}
+
 export interface OrgKeyContext {
-  principal?: { type?: string | null; organizationId?: string | null } | null;
+  principal?: OrganizationPrincipal | null;
   apiKey?: unknown;
 }
 
