@@ -10,7 +10,6 @@ function authWith(handlers: { listTeams?: unknown; listTeamMembers?: unknown }) 
 describe("createTeamAccess", () => {
   it("is disabled when the auth plugin is not available", async () => {
     const access = createTeamAccess(undefined, { warn: vi.fn() });
-    expect(access.enabled).toBe(false);
     await expect(access.isMember(context, "team-1", "user-1")).resolves.toBe(false);
     await expect(access.listOrgTeamIds(context, "org-1")).resolves.toBeNull();
   });

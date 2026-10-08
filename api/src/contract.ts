@@ -77,8 +77,6 @@ export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
   projectSlug: z.string(),
-  /** nearbuilders.org project id this round resolved against, if any (#23). */
-  projectId: z.string().nullable(),
   /** The approved-project anchor this round hangs off (#69). */
   projectRecordId: z.string(),
   projectRoundNumber: z.number().int().positive(),
@@ -814,11 +812,6 @@ export const contract = oc.router({
     .output(z.object({ recipients: z.number().int().nonnegative() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
-  resolveProjectBySlug: oc
-    .route({ method: "GET", path: "/projects/by-slug/{slug}" })
-    .input(z.object({ slug: z.string().min(1).max(100) }))
-    .output(NearBuildersProjectSchema.nullable()),
-
   getBuilderStanding: oc
     .route({ method: "GET", path: "/builders/{accountId}/standing" })
     .input(z.object({ accountId: z.string().min(1) }))
@@ -840,7 +833,7 @@ export const contract = oc.router({
       path: "/errors",
       summary: "Trigger a specific error kind",
       description:
-        "Regression-test helper that throws the requested error kind so the host error surface can be validated.",
+        "Admin-only error-injection helper, so the host error surface can be validated without exposing a probe endpoint to the internet.",
       tags: ["Testing"],
     })
     .input(

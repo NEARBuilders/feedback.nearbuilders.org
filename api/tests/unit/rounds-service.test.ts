@@ -237,10 +237,12 @@ describe("RoundsService", () => {
     await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
     await runService(layer, (svc) => svc.addParticipant(round.id, "bob.near"));
 
-    expect(await runService(layer, (svc) => svc.hasParticipant(round.id, "alice.near"))).toBe(true);
-    expect(await runService(layer, (svc) => svc.hasParticipant(round.id, "carol.near"))).toBe(
-      false,
-    );
+    expect(
+      await runService(layer, (svc) => svc.findParticipantAccount(round.id, ["alice.near"])),
+    ).toBe("alice.near");
+    expect(
+      await runService(layer, (svc) => svc.findParticipantAccount(round.id, ["carol.near"])),
+    ).toBeNull();
 
     const detail = await runService(layer, (svc) => svc.getRoundDetail(round.id));
     expect(detail?.participantCount).toBe(2);
@@ -248,9 +250,9 @@ describe("RoundsService", () => {
     await runService(layer, (svc) => svc.removeParticipant(round.id, "alice.near"));
     const afterLeave = await runService(layer, (svc) => svc.getRoundDetail(round.id));
     expect(afterLeave?.participantCount).toBe(1);
-    expect(await runService(layer, (svc) => svc.hasParticipant(round.id, "alice.near"))).toBe(
-      false,
-    );
+    expect(
+      await runService(layer, (svc) => svc.findParticipantAccount(round.id, ["alice.near"])),
+    ).toBeNull();
   });
 
   it("stores written and recorded feedback and lists it for a round", async () => {

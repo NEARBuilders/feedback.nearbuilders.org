@@ -1233,10 +1233,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return { recipients };
       }),
 
-      resolveProjectBySlug: builder.resolveProjectBySlug.handler(async ({ input }) => {
-        return await services.projectsLookup.resolveBySlug(input.slug);
-      }),
-
       getBuilderStanding: builder.getBuilderStanding.handler(async ({ input }) => {
         // activity owns the scoring, so a builder's standing is read back off
         // the same board the leaderboard page renders rather than recomputed.
@@ -1281,7 +1277,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             };
       }),
 
-      testError: builder.testError.handler(async ({ input }) => {
+      // Admin-only: an error-injection route is a probe surface, and it has
+      // never been exercised by the regression suite despite the "regression-
+      // test helper" description — nothing needs it open to the internet.
+      testError: builder.testError.use(requireAdmin).handler(async ({ input }) => {
         switch (input.kind) {
           case "unauthorized":
             throw new ORPCError("UNAUTHORIZED", { message: "test unauthorized error" });

@@ -49,7 +49,6 @@ export interface RoundRecord {
   id: string;
   ownerAccountId: string;
   projectSlug: string;
-  projectId: string | null;
   /** The projects-table row this round belongs to (#69). */
   projectRecordId: string;
   projectRoundNumber: number;
@@ -248,7 +247,6 @@ export interface RoundsService {
   listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
-  hasParticipant(roundId: string, accountId: string): Promise<boolean>;
   /** The first of `accountIds` that joined the round, or null when none did (#121). */
   findParticipantAccount(roundId: string, accountIds: string[]): Promise<string | null>;
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
@@ -298,7 +296,6 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     id: row.id,
     ownerAccountId: row.ownerAccountId,
     projectSlug: row.projectSlug,
-    projectId: row.projectId,
     projectRecordId: row.projectRecordId,
     projectRoundNumber: row.projectRoundNumber,
     title: row.title,
@@ -511,7 +508,6 @@ export const RoundsLive = Layer.effect(
               .values({
                 ownerAccountId: input.ownerAccountId,
                 projectSlug: project.slug,
-                projectId: input.projectId ?? project.nearbuildersProjectId,
                 projectRecordId: project.id,
                 projectRoundNumber: counter!.lastNumber,
                 title: input.title,
@@ -639,24 +635,6 @@ export const RoundsLive = Layer.effect(
                 eq(roundParticipantsTable.accountId, accountId),
               ),
             );
-        } catch (error) {
-          throw toOrpcError(error);
-        }
-      },
-
-      hasParticipant: async (roundId, accountId) => {
-        try {
-          const [row] = await db
-            .select({ id: roundParticipantsTable.id })
-            .from(roundParticipantsTable)
-            .where(
-              and(
-                eq(roundParticipantsTable.roundId, roundId),
-                eq(roundParticipantsTable.accountId, accountId),
-              ),
-            )
-            .limit(1);
-          return !!row;
         } catch (error) {
           throw toOrpcError(error);
         }

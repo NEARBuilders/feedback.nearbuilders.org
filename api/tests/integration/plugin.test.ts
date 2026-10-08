@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authedContext, getPluginClient } from "../setup";
+import { adminContext, authedContext, getPluginClient } from "../setup";
 
 describe("API Plugin Integration Tests", () => {
   describe("ping", () => {
@@ -31,8 +31,18 @@ describe("API Plugin Integration Tests", () => {
   });
 
   describe("testError", () => {
-    it("maps error kinds to client-visible failures", async () => {
-      const client = await getPluginClient();
+    it("rejects signed-out callers and non-admins before reaching the switch", async () => {
+      const anon = await getPluginClient();
+      await expect(anon.testError({ kind: "internal" as never })).rejects.toThrow(
+        "Authentication required",
+      );
+
+      const member = await getPluginClient(authedContext());
+      await expect(member.testError({ kind: "internal" as never })).rejects.toThrow();
+    });
+
+    it("maps error kinds to client-visible failures, for admins only", async () => {
+      const client = await getPluginClient(adminContext());
 
       await expect(client.testError({ kind: "unauthorized" })).rejects.toThrow(
         "test unauthorized error",

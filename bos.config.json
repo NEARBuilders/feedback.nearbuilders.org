@@ -25,7 +25,10 @@
         "PROJECTS_API_BASE_URL",
         "ACTIVITY_API_BASE_URL",
         "ACTIVITY_API_KEY",
-        "ACTIVITY_SOURCE_ID"
+        "ACTIVITY_SOURCE_ID",
+        "NOSTR_SECRET_KEY_HEX",
+        "GITHUB_API_TOKEN",
+        "TIP_MESSAGE_TEMPLATE"
       ],
       "production": "https://elliot-braem-8802-api-feedback-nearbuilders-org-n-16ac1eb98-ze.zephyrcloud.app",
       "integrity": "sha384-poFLnNwoE9L9aDwtzQzmlvsfG/E8x3TZBSmCRuciQfCoYFgSetcdavVAlM0WyWrP"
