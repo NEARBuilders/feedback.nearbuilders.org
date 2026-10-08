@@ -142,6 +142,8 @@ export const RoundFeedbackSchema = z.object({
   /** When a round manager starred it (#104); independent of status. */
   starredAt: z.string().nullable(),
   createdAt: z.string(),
+  /** When the author last edited it; null if never edited. */
+  updatedAt: z.string().nullable(),
   nostrEventId: z.string().nullable(),
 });
 
@@ -457,6 +459,13 @@ const PostFeedbackInputSchema = z
     path: ["url"],
   });
 
+const EditFeedbackInputSchema = z.object({
+  id: z.string(),
+  feedbackId: z.uuid(),
+  body: z.string().max(5000).optional(),
+  url: z.string().url("Must be a valid URL").optional(),
+});
+
 const MAX_README_LENGTH = 20000;
 
 const CreateRoundInputSchema = z
@@ -694,6 +703,12 @@ export const contract = oc.router({
     .input(z.object({ id: z.string(), feedbackId: z.uuid(), body: NoteBodySchema }))
     .output(FeedbackNoteSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  editFeedback: oc
+    .route({ method: "PATCH", path: "/rounds/{id}/feedback/{feedbackId}" })
+    .input(EditFeedbackInputSchema)
+    .output(RoundFeedbackSchema)
+    .errors({ UNAUTHORIZED, BAD_REQUEST, FORBIDDEN, NOT_FOUND }),
 
   deleteFeedback: oc
     .route({ method: "DELETE", path: "/rounds/{id}/feedback/{feedbackId}" })

@@ -926,6 +926,51 @@ export default createPlugin.withPlugins<PluginsClient>()({
           });
         }),
 
+      editFeedback: builder.editFeedback
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const round = await services.rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+          if (!feedback) throw feedbackNotFound(input.feedbackId);
+          if (!linkedAccountIds(context).includes(feedback.authorAccountId)) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the author can edit their feedback",
+            });
+          }
+          if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "This round is closed, so its feedback can no longer be edited",
+            });
+          }
+          const body = feedback.format === "written" ? (input.body?.trim() ?? "") : null;
+          const url = feedback.format === "recorded" ? (input.url ?? null) : null;
+          if (feedback.format === "written" && !body) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Written feedback needs a non-empty body",
+            });
+          }
+          if (feedback.format === "recorded" && !url) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Recorded feedback needs a session link",
+            });
+          }
+          const updated = await services.rounds.updateFeedbackContent(feedback.id, { body, url });
+          if (!updated) throw feedbackNotFound(input.feedbackId);
+          // Link any images added by the edit; ones already linked are re-sent harmlessly.
+          await services.feedbackAssets.attachForFeedback({
+            id: updated.id,
+            authorAccountId: updated.authorAccountId,
+            body: updated.body,
+          });
+          return updated;
+        }),
+
       deleteFeedback: builder.deleteFeedback
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
