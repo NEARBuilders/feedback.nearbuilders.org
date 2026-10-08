@@ -11,6 +11,24 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+/**
+ * DEAD, KEPT ON PURPOSE. No application code reads or writes this table —
+ * it was unused template scaffolding with no relationship to the feedback
+ * domain, and every route and UI surface for it has been removed.
+ *
+ * It cannot be dropped: `everything-dev`'s migration drift detector
+ * (`extractExpectedTables`) scans every `CREATE TABLE` across this plugin's
+ * entire migration history and never accounts for a later `DROP TABLE`, so a
+ * migration that drops this table makes every future boot — including a
+ * brand-new, empty database — fail with `drift-manual`, which throws and
+ * refuses to start. `bos db repair` explicitly refuses to fix that
+ * diagnosis too ("manual intervention required"). Confirmed by reproducing
+ * it against a fresh PGlite instance; this is not an artifact of a stale
+ * environment.
+ *
+ * Tracked upstream: https://github.com/NEARBuilders/everything-dev (file
+ * before attempting to drop this or any other table).
+ */
 export const tenantStatus = pgEnum("tenant_status", [
   "active",
   "pending",
