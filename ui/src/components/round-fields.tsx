@@ -1,5 +1,10 @@
 import { Checkbox, Field, FieldLabel, Input, MarkdownEditor, Textarea } from "@/components";
-import { FORMAT_OPTIONS, type RoundFields, type RoundFormat } from "@/lib/round-fields";
+import {
+  FORMAT_OPTIONS,
+  type RoundFields,
+  type RoundFormat,
+  SELECTABLE_FORMAT_OPTIONS,
+} from "@/lib/round-fields";
 
 interface FormatCheckboxesProps {
   value: RoundFormat[];
@@ -23,7 +28,7 @@ export function FormatCheckboxes({
 
   return (
     <div className="space-y-2.5">
-      {FORMAT_OPTIONS.map((option) => {
+      {SELECTABLE_FORMAT_OPTIONS.map((option) => {
         const optionDisabled = disabled || (option.value === "issues" && issuesDisabled);
         return (
           <label
@@ -95,6 +100,7 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
           value={value.readme}
           onChange={(readme) => set("readme", readme)}
           maxLength={20000}
+          editorClassName="min-h-32"
           aria-label="Readme markdown"
           disabled={disabled}
         />

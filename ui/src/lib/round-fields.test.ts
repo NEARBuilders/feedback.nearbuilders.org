@@ -49,7 +49,11 @@ describe("nextRoundFields", () => {
     });
   });
 
-  it("starts empty without a previous round", () => {
-    expect(nextRoundFields(null)).toEqual(EMPTY_ROUND_FIELDS);
+  it("starts with written preselected without a previous round", () => {
+    expect(nextRoundFields(null)).toEqual({
+      ...EMPTY_ROUND_FIELDS,
+      formats: ["written"],
+    });
+    expect(roundFieldsComplete(nextRoundFields(null))).toBe(false);
   });
 });

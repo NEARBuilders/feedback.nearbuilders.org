@@ -8,7 +8,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ExternalLink, Lock, PenLine, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Badge, Button, Card } from "@/components";
+import { Badge, Button, Card, LegionMark } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { RoundCredits } from "@/components/round-credits";
@@ -73,7 +73,8 @@ function RoundOverviewPage() {
           </Badge>
         )}
         {round.legionOnly && (
-          <Badge variant="secondary" className="text-xs" data-testid="legion-badge">
+          <Badge variant="secondary" className="gap-1 text-xs" data-testid="legion-badge">
+            <LegionMark />
             Legion members only
           </Badge>
         )}
@@ -172,9 +173,13 @@ function JoinButtons({
   legionPending: boolean;
 }) {
   const { cta } = viewer;
-  const { legionAccess } = useLegionAccess();
+  const { legionAccess, isLoading: legionCheckPending } = useLegionAccess();
+  // A gated round can't be joined until the holder check resolves: the button
+  // waits while it loads and stays disabled when the wallet fails it.
   const legionBlocked =
-    legionPending && cta.kind === "join" && !!legionAccess && !legionAccess.hasAccess;
+    legionPending &&
+    cta.kind === "join" &&
+    (legionCheckPending || (!!legionAccess && !legionAccess.hasAccess));
 
   return (
     <div className="flex gap-2">
