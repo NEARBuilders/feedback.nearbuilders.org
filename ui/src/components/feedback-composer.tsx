@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { ImagePlus } from "lucide-react";
+import { type ClipboardEvent, type DragEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import {
@@ -12,6 +13,14 @@ import {
   SegmentedToggle,
   Textarea,
 } from "@/components";
+import { type UploadedFile, useFileUpload } from "@/hooks/use-file-upload";
+import {
+  IMAGE_CONTENT_TYPES,
+  imageMarkdown,
+  imagesStillInBody,
+  insertAtSelection,
+  partitionImages,
+} from "@/lib/image-upload";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 
@@ -47,6 +56,43 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
   const [mode, setMode] = useState<"write" | "preview">("write");
   const draftKey = `feedback-draft:${accountId}:${roundId}`;
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFiles, uploading } = useFileUpload();
+  // Images uploaded for this draft; attached to the feedback once it is posted (#108).
+  const [uploaded, setUploaded] = useState<UploadedFile[]>([]);
+
+  const addImages = async (files: File[]) => {
+    const { accepted, rejected } = partitionImages(files);
+    for (const reason of rejected) toast.error(reason);
+    if (accepted.length === 0) return;
+    const results = await uploadFiles(accepted);
+    if (results.length === 0) return;
+    setUploaded((prev) => [...prev, ...results]);
+    const markdown = results.map((file) => imageMarkdown(file.name, file.url)).join("\n");
+    const area = textareaRef.current;
+    setDraft((prev) => {
+      const start = area?.selectionStart ?? prev.body.length;
+      const end = area?.selectionEnd ?? prev.body.length;
+      return { ...prev, body: insertAtSelection(prev.body, start, end, markdown).text };
+    });
+  };
+
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData.files).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (files.length === 0) return;
+    event.preventDefault();
+    void addImages(files);
+  };
+
+  const onDrop = (event: DragEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) return;
+    event.preventDefault();
+    void addImages(files);
+  };
 
   useEffect(() => {
     try {
@@ -79,7 +125,13 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
         body: format === "written" ? draft.body.trim() : undefined,
         url: format === "recorded" ? draft.url.trim() : undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (feedback) => {
+      // Link the images that made it into the post to the feedback, so removing the feedback
+      // removes them too (#108). Failures only leave an orphan file behind.
+      for (const image of imagesStillInBody(feedback.body ?? "", uploaded)) {
+        apiClient.storage.attachAsset({ key: image.key, ownerId: feedback.id }).catch(() => {});
+      }
+      setUploaded([]);
       setDraft(EMPTY_DRAFT);
       setMode("write");
       localStorage.removeItem(draftKey);
@@ -127,11 +179,14 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
           {mode === "write" ? (
             <Textarea
               id="feedback-body"
+              ref={textareaRef}
               value={draft.body}
               onChange={(e) => setDraft((prev) => ({ ...prev, body: e.target.value }))}
+              onPaste={onPaste}
+              onDrop={onDrop}
               rows={8}
               maxLength={FEEDBACK_BODY_MAX}
-              placeholder="What worked, what didn't? Markdown works."
+              placeholder="What worked, what didn't? Markdown works. Paste or drop an image to attach it."
             />
           ) : (
             <div className="min-h-40 rounded-md border border-border p-4">
@@ -142,9 +197,34 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
               )}
             </div>
           )}
-          <span className="text-right text-xs text-muted-foreground">
-            {draft.body.length}/{FEEDBACK_BODY_MAX} · draft saved on this device
-          </span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={IMAGE_CONTENT_TYPES.join(",")}
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void addImages(Array.from(e.target.files ?? []));
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+                {uploading ? "uploading..." : "image"}
+              </Button>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {draft.body.length}/{FEEDBACK_BODY_MAX} · draft saved on this device
+            </span>
+          </div>
         </Field>
       ) : (
         <Field>

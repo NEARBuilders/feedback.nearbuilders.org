@@ -276,6 +276,8 @@ export interface RoundsService {
   setRoundActivityEventId(roundId: string, eventId: string): Promise<void>;
   setFeedbackActivityEventId(feedbackId: string, eventId: string): Promise<void>;
   setFeedbackNostrEventId(feedbackId: string, nostrEventId: string): Promise<void>;
+  /** Every feedback item's id and author in a round, for cleaning up what hangs off them. */
+  listFeedbackOwners(roundId: string): Promise<Array<{ id: string; authorAccountId: string }>>;
   deleteRound(roundId: string): Promise<DeletedRoundResult | null>;
   deleteFeedback(feedbackId: string): Promise<DeletedFeedbackResult | null>;
 }
@@ -1122,6 +1124,20 @@ export const RoundsLive = Layer.effect(
             .update(roundFeedbackTable)
             .set({ nostrEventId })
             .where(eq(roundFeedbackTable.id, feedbackId));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listFeedbackOwners: async (roundId) => {
+        try {
+          return await db
+            .select({
+              id: roundFeedbackTable.id,
+              authorAccountId: roundFeedbackTable.authorAccountId,
+            })
+            .from(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.roundId, roundId));
         } catch (error) {
           throw toOrpcError(error);
         }

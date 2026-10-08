@@ -5,6 +5,8 @@ import { useApiClient } from "@/app";
 
 export interface UploadedFile {
   id: string;
+  /** The storage key, needed to attach the file to its owner later. */
+  key: string;
   url: string;
   name: string;
 }
@@ -41,7 +43,7 @@ export function useFileUpload() {
 
             const asset = await apiClient.storage.confirmUpload({ key: uploadReq.key });
 
-            results.push({ id: asset.id, url: asset.publicUrl, name: file.name });
+            results.push({ id: asset.id, key: asset.key, url: asset.publicUrl, name: file.name });
           } catch (error) {
             toast.error(`Failed to upload ${file.name}`, {
               description: error instanceof Error ? error.message : "Upload failed",

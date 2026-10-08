@@ -82,6 +82,18 @@ export const contract = oc.router({
     .output(AssetSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE }),
 
+  deleteByOwner: oc
+    .route({
+      method: "POST",
+      path: "/owners/{ownerId}/delete",
+      summary: "Delete every file the caller attached to an owner",
+      description:
+        "Deletes the objects and records of the caller's own assets attached to `ownerId` (e.g. when the feedback they belong to is removed). Assets uploaded by others are never touched.",
+    })
+    .input(z.object({ ownerId: z.string().min(1) }))
+    .output(z.object({ deleted: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, SERVICE_UNAVAILABLE }),
+
   deleteFile: oc
     .route({
       method: "DELETE",

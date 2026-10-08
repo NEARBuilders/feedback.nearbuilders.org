@@ -52,6 +52,11 @@ export interface StorageService {
     ownerId: string;
   }): Promise<AssetRecord>;
   deleteFile(input: { uploaderAccountId: string; key: string }): Promise<{ success: boolean }>;
+  /** Deletes the uploader's own assets attached to `ownerId`; others' assets are never touched. */
+  deleteByOwner(input: {
+    uploaderAccountId: string;
+    ownerId: string;
+  }): Promise<{ deleted: number }>;
 }
 
 export class StorageTag extends Context.Tag("Storage")<StorageTag, StorageService>() {}
@@ -265,6 +270,23 @@ export const StorageLive = (config: StorageConfig) =>
           if (r2) await r2.deleteObject(input.key);
           await db.delete(storageAssets).where(eq(storageAssets.id, row.id));
           return { success: true };
+        },
+
+        deleteByOwner: async (input) => {
+          const rows = await db
+            .select()
+            .from(storageAssets)
+            .where(
+              and(
+                eq(storageAssets.ownerId, input.ownerId),
+                eq(storageAssets.uploaderAccountId, input.uploaderAccountId),
+              ),
+            );
+          for (const row of rows) {
+            if (r2) await r2.deleteObject(row.key);
+            await db.delete(storageAssets).where(eq(storageAssets.id, row.id));
+          }
+          return { deleted: rows.length };
         },
       };
 

@@ -166,6 +166,27 @@ The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
   leaderboard and builder profiles. Stars on unresolved or dismissed feedback earn nothing, and
   un-starring or un-accepting takes the bonus back.
 
+## Organization API keys (read-only)
+
+An organization API key (`org_…`, created from an organization's API Keys tab) is the
+organization's own credential. Over HTTP and `/api/mcp` it can list its organization's rounds
+(including its pending and rejected ones) and read their feedback, **including private
+feedback**, for projects the organization owns. It behaves like an organization admin, so it
+**bypasses team delegation**, and it is **read-only**: closing, resolving, dismissing, starring
+and deleting are refused. A key is denied for projects owned by other organizations, and personal
+`api_…` keys are not covered. Access is decided in one place (the round-access actor), so HTTP and
+MCP behave identically.
+
+## Feedback images
+
+Testers can attach images to written feedback: paste, drop or pick PNG, JPEG, WebP or GIF files
+(up to 5 MB, checked in the browser and again by the storage plugin). They are uploaded through
+the storage plugin and inserted as markdown, so feedback renders them wherever it renders. Posting
+attaches the uploads to the feedback; removing the feedback (or deleting its round) removes its
+images, using the author's identity because assets belong to their uploader. Cleanup is best
+effort and never blocks the removal. Images only appear inside feedback bodies, so a private
+round's images are as hidden as its submissions.
+
 ## Teams and delegated round management
 
 Organizations can group members into teams and delegate a project's rounds to a team. Teams

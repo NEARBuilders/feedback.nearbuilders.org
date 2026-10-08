@@ -8,12 +8,14 @@ import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
+import { createFeedbackAssets } from "./services/feedback-assets";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
 import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
+import { orgKeyOrganizationId } from "./services/org-key";
 import {
   BONUS_POINTS_PER_STARRED_FEEDBACK,
   bonusPointsForStarred,
@@ -159,6 +161,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       const legionAccess = createLegionAccess(plugins.legion);
 
+      const feedbackAssets = createFeedbackAssets(plugins.storage);
+
       const telegramTip = createTelegramTipLookup({
         baseUrl: config.secrets.PROJECTS_API_BASE_URL,
         messageTemplate: config.secrets.TIP_MESSAGE_TEMPLATE,
@@ -182,6 +186,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         projectsLookup,
         teamAccess,
         legionAccess,
+        feedbackAssets,
         telegramTip,
         githubIssuesLookup,
       };
@@ -223,6 +228,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         activeOrganizationId?: string | null;
         member?: { role?: string | null } | null;
       } | null;
+      principal?: { type?: string | null; organizationId?: string | null } | null;
+      apiKey?: unknown;
     }
 
     /**
@@ -233,6 +240,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
       project: ProjectRecord | null,
       context: ActorContext,
     ): Promise<RoundActor> => {
+      // An organization API key acts as its organization's admin (#111): it reads everything
+      // the org owns, bypassing team delegation. Writes are refused in assertCanManageRound.
+      const keyOrganizationId = orgKeyOrganizationId(context);
+      if (keyOrganizationId) {
+        return { activeOrganizationId: keyOrganizationId, orgRole: "owner", accountIds: [] };
+      }
       const actor: RoundActor = {
         activeOrganizationId: context.organization?.activeOrganizationId,
         accountId: context.near?.primaryAccountId,
@@ -258,6 +271,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       context: ViewerContext,
       message: string,
     ) => {
+      if (orgKeyOrganizationId(context)) {
+        throw new ORPCError("FORBIDDEN", { message: "Organization API keys are read-only" });
+      }
       if (isSiteAdmin(context)) return;
       const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
@@ -584,10 +600,21 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listRounds: builder.listRounds.handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
+        const keyOrganizationId = orgKeyOrganizationId(context);
         if ((input.status === "pending" || input.status === "rejected") && !isAdmin) {
-          throw new ORPCError("FORBIDDEN", {
-            message: "Only admins can list pending or rejected rounds",
-          });
+          if (!keyOrganizationId) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only admins can list pending or rejected rounds",
+            });
+          }
+          // An org key may list its own organization's pending and rejected rounds (#111).
+          const rounds = await services.rounds.listRounds(input.status);
+          const owners = new Map<string, string | null>();
+          for (const projectRecordId of new Set(rounds.map((round) => round.projectRecordId))) {
+            const project = await services.projectRecords.resolveProjectById(projectRecordId);
+            owners.set(projectRecordId, project?.ownerOrgId ?? null);
+          }
+          return rounds.filter((round) => owners.get(round.projectRecordId) === keyOrganizationId);
         }
         const rounds = await services.rounds.listRounds(input.status);
         if (input.status) return rounds;
@@ -721,7 +748,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (round.status === "closed") {
             throw new ORPCError("BAD_REQUEST", { message: "Closed rounds can't be deleted" });
           }
+          const owners = await services.rounds.listFeedbackOwners(round.id);
           const result = await services.rounds.deleteRound(round.id);
+          for (const owner of owners) await services.feedbackAssets.deleteForFeedback(owner);
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "round deleted");
           }
@@ -1010,6 +1039,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const result = await services.rounds.deleteFeedback(input.feedbackId);
+          await services.feedbackAssets.deleteForFeedback(feedback);
           if (result?.activityEventId) {
             await services.activityEvents.retract(result.activityEventId, "feedback invalidated");
           }
