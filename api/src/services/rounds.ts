@@ -79,6 +79,8 @@ export interface CreateRoundInput {
   /** Display name for a newly created project; defaults to the slug. */
   projectName?: string;
   projectId?: string | null;
+  /** Contact volunteered for admin diligence, stored on the project. */
+  contact?: string | null;
   title: string;
   description: string;
   readme?: string;
@@ -489,6 +491,7 @@ export const RoundsLive = Layer.effect(
               ownerOrgId: input.ownerOrgId,
               requesterAccountId: input.ownerAccountId,
               nearbuildersProjectId: input.projectId ?? null,
+              contact: input.contact ?? null,
             });
             // The request that creates a project carries its first round; after
             // that, rounds need an approved project to hang off.

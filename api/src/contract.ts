@@ -30,10 +30,15 @@ export const ProjectSchema = z.object({
   /** Team the owning org delegated round management to; null means any org member. */
   managingTeamId: z.string().nullable(),
   nearbuildersProjectId: z.string().nullable(),
+  /** Contact the requester volunteered on the round form (telegram/email/URL) for admin diligence. */
+  contact: z.string().nullable(),
   status: ProjectStatusSchema,
   approvedAt: z.string().nullable(),
   rejectedAt: z.string().nullable(),
   rejectionReason: z.string().nullable(),
+  /** Admin-toggled diligence mark, independent of approval. */
+  verifiedAt: z.string().nullable(),
+  verifiedByAccountId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -64,6 +69,7 @@ export const ProjectWithRoundsSchema = ProjectSchema.extend({
   rounds: z.array(
     z.object({
       id: z.string(),
+      ownerAccountId: z.string(),
       title: z.string(),
       status: z.enum(["pending", "open", "closed", "rejected"]),
       projectRoundNumber: z.number().int().positive(),
@@ -113,6 +119,8 @@ export const RoundDetailSchema = RoundSchema.extend({
   feedbackCount: z.number().int().nonnegative().optional(),
   /** Whether the caller's org owns this round's project (#70). Only set by getRound and getRoundBySlug. */
   canManage: z.boolean().optional(),
+  /** The project's admin-toggled verified mark, for the round page badge. */
+  projectVerifiedAt: z.string().nullable().optional(),
 });
 
 export type RoundDetail = z.infer<typeof RoundDetailSchema>;
@@ -475,6 +483,8 @@ const CreateRoundInputSchema = z
     projectId: z.string().min(1).optional(),
     /** Display name for the project if this request creates it (e.g. the picker's title). */
     projectName: z.string().trim().min(1).max(200).optional(),
+    /** Contact the requester volunteers for admin diligence (telegram/email/URL). */
+    contact: z.string().trim().max(200).optional(),
     title: z.string().min(1, "Title is required").max(200),
     description: z.string().min(1, "Description is required").max(5000),
     readme: z.string().max(MAX_README_LENGTH).optional(),
@@ -597,6 +607,18 @@ export const contract = oc.router({
   setProjectManagingTeam: oc
     .route({ method: "POST", path: "/projects/{id}/managing-team" })
     .input(z.object({ id: z.string(), teamId: z.string().min(1).nullable() }))
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  verifyProject: oc
+    .route({ method: "POST", path: "/projects/{id}/verify" })
+    .input(z.object({ id: z.string() }))
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  unverifyProject: oc
+    .route({ method: "POST", path: "/projects/{id}/unverify" })
+    .input(z.object({ id: z.string() }))
     .output(ProjectWithRoundsSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 

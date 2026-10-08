@@ -355,6 +355,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       return {
         ...round,
         canManage,
+        projectVerifiedAt: project?.verifiedAt ?? null,
         identity: toIdentity(await services.projectsLookup.resolveBySlug(round.projectSlug)),
       };
     };
@@ -437,6 +438,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             projectSlug: input.projectSlug,
             projectName: input.projectName,
             projectId: input.projectId ?? null,
+            contact: input.contact,
             title: input.title,
             description: input.description,
             readme: input.readme,
@@ -584,6 +586,54 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }
         return withIdentity(project);
       }),
+
+      verifyProject: builder.verifyProject
+        .use(requireAdmin)
+        .handler(async ({ input, context, errors }) => {
+          const existing = await services.projectRecords.resolveProjectById(input.id);
+          if (!existing) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.id },
+            });
+          }
+          if (existing.status === "rejected") {
+            throw new ORPCError("BAD_REQUEST", { message: "Rejected projects cannot be verified" });
+          }
+          await services.projectRecords.verifyProject(
+            existing.id,
+            context.near?.primaryAccountId ?? null,
+          );
+          const project = await services.projectRecords.getProjectWithRounds(existing.id);
+          if (!project) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resourceId: input.id },
+            });
+          }
+          return withIdentity(project);
+        }),
+
+      unverifyProject: builder.unverifyProject
+        .use(requireAdmin)
+        .handler(async ({ input, errors }) => {
+          const existing = await services.projectRecords.resolveProjectById(input.id);
+          if (!existing) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.id },
+            });
+          }
+          await services.projectRecords.unverifyProject(existing.id);
+          const project = await services.projectRecords.getProjectWithRounds(existing.id);
+          if (!project) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resourceId: input.id },
+            });
+          }
+          return withIdentity(project);
+        }),
 
       setProjectManagingTeam: builder.setProjectManagingTeam
         .use(requireAuth)
