@@ -91,6 +91,8 @@ export const RoundSchema = z.object({
   /** Only holders of a Legion SBT can join and post (#103). */
   legionOnly: z.boolean(),
   status: RoundStatusSchema,
+  /** When feedback submissions stop automatically; null means no deadline. */
+  closesAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   closedAt: z.string().nullable(),
@@ -484,6 +486,11 @@ const CreateRoundInputSchema = z
     isPrivate: z.boolean().optional(),
     /** Only Legion SBT holders can join and post (#103). */
     legionOnly: z.boolean().optional(),
+    /** Feedback submissions stop at this time; must be in the future. */
+    closesAt: z.iso
+      .datetime({ offset: true })
+      .refine((v) => new Date(v).getTime() > Date.now(), "Deadline must be in the future")
+      .optional(),
   })
   .refine((val) => !val.formats.includes("issues") || !!val.repoUrl, {
     message: "A repo URL is required when the issues format is selected",
@@ -548,17 +555,19 @@ export const contract = oc.router({
     .route({
       method: "PATCH",
       path: "/rounds/{id}/settings",
-      summary: "Change a round's privacy and Legion gate",
+      summary: "Change a round's privacy, Legion gate and feedback deadline",
     })
     .input(
       z.object({
         id: z.string(),
         isPrivate: z.boolean().optional(),
         legionOnly: z.boolean().optional(),
+        /** ISO time to stop accepting feedback; null clears the deadline. */
+        closesAt: z.iso.datetime({ offset: true }).nullable().optional(),
       }),
     )
     .output(RoundSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })

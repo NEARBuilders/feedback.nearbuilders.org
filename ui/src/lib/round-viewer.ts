@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { participationQueryOptions } from "@/lib/queries/participation";
 import { roundCta } from "@/lib/round-cta";
+import { acceptsFeedback } from "@/lib/round-deadline";
 import { roundHref } from "@/lib/round-links";
 import type { RoundDetail } from "@/lib/round-route";
 import { useNearAccountStatus } from "@/lib/use-near-account";
@@ -21,6 +22,7 @@ export function useRoundViewer(round: RoundDetail) {
   const joined = participation.data?.joined ?? false;
   const isOwner = !!accountId && accountId === round.ownerAccountId;
   const isOpen = round.status === "open";
+  const takesFeedback = acceptsFeedback(round);
 
   return {
     accountId,
@@ -29,7 +31,9 @@ export function useRoundViewer(round: RoundDetail) {
     joined,
     participationPending: participation.isLoading,
     canSeeParticipants: canManage || isAdmin || joined,
-    canPost: joined && isOpen,
+    canPost: joined && takesFeedback,
+    /** Open, but past its deadline: still joinable, no longer taking feedback. */
+    pastDeadline: isOpen && !takesFeedback,
     cta: roundCta({
       redirectTo: roundHref(round),
       canJoin: isOpen && !isOwner && !canManage,

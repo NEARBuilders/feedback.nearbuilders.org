@@ -8,6 +8,7 @@ import { FeedbackList } from "@/components/feedback-list";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { RoundRepoLinks } from "@/components/round-repo-links";
 import { roundFeedbackQueryOptions } from "@/lib/queries/feedback";
+import { acceptsFeedback } from "@/lib/round-deadline";
 import { loadRound, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
 import { roundIssuesUrl } from "@/lib/tester-workspace";
@@ -85,7 +86,7 @@ function RoundFeedbackPage() {
           roundId={round.id}
           entries={entries}
           currentAccountId={viewer.accountId}
-          canDelete={round.status === "open"}
+          canDelete={acceptsFeedback(round)}
         />
       )}
 

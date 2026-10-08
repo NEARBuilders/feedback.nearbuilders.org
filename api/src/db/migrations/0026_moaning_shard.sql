@@ -1,0 +1,1 @@
+ALTER TABLE "rounds" ADD COLUMN "closes_at" timestamp with time zone;

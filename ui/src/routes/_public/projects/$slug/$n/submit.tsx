@@ -8,6 +8,7 @@ import { FeedbackList } from "@/components/feedback-list";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { myFeedbackQueryOptions } from "@/lib/queries/feedback";
+import { acceptsFeedback } from "@/lib/round-deadline";
 import { loadRound, type RoundDetail, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
 
@@ -45,6 +46,13 @@ function SubmitFeedbackTab() {
 
   return (
     <div className="space-y-6">
+      {viewer.pastDeadline && (
+        <ActionCard>
+          <p className="text-sm text-muted-foreground" data-testid="deadline-passed">
+            The feedback deadline has passed, so new submissions and edits are closed.
+          </p>
+        </ActionCard>
+      )}
       {viewer.canPost && (
         <FeedbackComposer roundId={round.id} formats={round.formats} accountId={viewer.accountId} />
       )}
@@ -70,7 +78,7 @@ function MySubmissions({ round, accountId }: { round: RoundDetail; accountId: st
           roundId={round.id}
           entries={mine}
           currentAccountId={accountId}
-          canDelete={round.status === "open"}
+          canDelete={acceptsFeedback(round)}
           renderFooter={(entry) => (
             <>
               <FeedbackNoteThread notes={entry.notes} />

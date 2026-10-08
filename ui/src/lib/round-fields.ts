@@ -1,3 +1,5 @@
+import { fromDateTimeLocal } from "./round-deadline";
+
 export type RoundFormat = "written" | "recorded" | "issues";
 
 export interface RoundFields {
@@ -10,6 +12,8 @@ export interface RoundFields {
   isPrivate: boolean;
   /** Only holders of a Legion SBT can join and post (#103). */
   legionOnly: boolean;
+  /** datetime-local value (local time) when feedback stops; blank means no deadline. */
+  closesAt: string;
 }
 
 export const EMPTY_ROUND_FIELDS: RoundFields = {
@@ -20,6 +24,7 @@ export const EMPTY_ROUND_FIELDS: RoundFields = {
   repoUrl: "",
   isPrivate: false,
   legionOnly: false,
+  closesAt: "",
 };
 
 export const FORMAT_OPTIONS: Array<{ value: RoundFormat; label: string; hint: string }> = [
@@ -51,7 +56,7 @@ export function roundFieldsComplete(fields: RoundFields): boolean {
 }
 
 export function nextRoundFields(
-  previous: (Omit<RoundFields, "repoUrl"> & { repoUrl: string | null }) | null,
+  previous: (Omit<RoundFields, "repoUrl" | "closesAt"> & { repoUrl: string | null }) | null,
 ): RoundFields {
   if (!previous) return { ...EMPTY_ROUND_FIELDS, formats: ["written"] };
   return {
@@ -62,6 +67,8 @@ export function nextRoundFields(
     repoUrl: previous.repoUrl ?? "",
     isPrivate: previous.isPrivate,
     legionOnly: previous.legionOnly,
+    // A deadline belongs to one round's dates, so the next round starts without one.
+    closesAt: "",
   };
 }
 
@@ -74,5 +81,6 @@ export function toCreateRoundInput(fields: RoundFields) {
     repoUrl: fields.repoUrl.trim() || undefined,
     isPrivate: fields.isPrivate || undefined,
     legionOnly: fields.legionOnly || undefined,
+    closesAt: fromDateTimeLocal(fields.closesAt),
   };
 }

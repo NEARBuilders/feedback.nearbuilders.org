@@ -31,7 +31,7 @@ import {
   needsTeamCheck,
   type RoundActor,
 } from "./services/round-access";
-import { type RoundDetailRecord, RoundsLive, RoundsTag } from "./services/rounds";
+import { acceptsFeedback, type RoundDetailRecord, RoundsLive, RoundsTag } from "./services/rounds";
 import { createTeamAccess } from "./services/team-access";
 import { createTelegramTipLookup } from "./services/telegram-tip";
 
@@ -444,6 +444,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             repoUrl: input.repoUrl,
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
+            closesAt: input.closesAt ? new Date(input.closesAt) : null,
           });
           // A round on a not-yet-approved project waits as "pending" until an admin
           // decides the project (#69); round.opened fires then. On an already
@@ -492,9 +493,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
             context,
             "Only the round owner can change its privacy or Legion gate",
           );
+          if (input.closesAt && round.status === "closed") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "This round is already closed, so it can't have a deadline",
+            });
+          }
           return await services.rounds.updateRoundSettings(round.id, {
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
+            closesAt:
+              input.closesAt === undefined
+                ? undefined
+                : input.closesAt === null
+                  ? null
+                  : new Date(input.closesAt),
           });
         }),
 
@@ -805,6 +817,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Join the round before posting feedback",
             });
           }
+          if (!acceptsFeedback(round)) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "This round is no longer accepting feedback",
+            });
+          }
           await assertLegionAccess(round, accountId, context, "post in");
           const body = input.format === "written" ? (input.body?.trim() ?? null) : null;
           const url = input.format === "recorded" ? (input.url ?? null) : null;
@@ -943,7 +960,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Only the author can edit their feedback",
             });
           }
-          if (round.status !== "open") {
+          if (!acceptsFeedback(round)) {
             throw new ORPCError("BAD_REQUEST", {
               message: "This round is closed, so its feedback can no longer be edited",
             });
@@ -995,7 +1012,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               context,
               "Only the author or the round owner can remove feedback",
             );
-          } else if (round.status !== "open") {
+          } else if (!acceptsFeedback(round)) {
             throw new ORPCError("BAD_REQUEST", {
               message: "This round is closed, so its feedback can no longer be deleted",
             });

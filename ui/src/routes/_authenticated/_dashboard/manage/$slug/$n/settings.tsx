@@ -19,6 +19,7 @@ function SettingsTab() {
           roundId={round.id}
           isPrivate={round.isPrivate}
           legionOnly={round.legionOnly}
+          closesAt={round.closesAt}
         />
       </div>
     </div>

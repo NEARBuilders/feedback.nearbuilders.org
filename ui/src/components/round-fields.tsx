@@ -164,6 +164,21 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
           </label>
         </div>
       </Field>
+
+      <Field>
+        <FieldLabel htmlFor="round-closes-at">feedback deadline (optional)</FieldLabel>
+        <Input
+          id="round-closes-at"
+          type="datetime-local"
+          value={value.closesAt}
+          onChange={(e) => set("closesAt", e.target.value)}
+          disabled={disabled}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Testers can't post or edit feedback after this time (your local time). You still close the
+          round yourself to award credits.
+        </p>
+      </Field>
     </>
   );
 }
