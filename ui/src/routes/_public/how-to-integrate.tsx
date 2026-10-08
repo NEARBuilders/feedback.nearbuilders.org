@@ -98,7 +98,7 @@ function HowToIntegratePage() {
             <Link to="/rounds">browse open rounds</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link to="/feed/request">request a round</Link>
+            <Link to="/manage/new">request a round</Link>
           </Button>
         </div>
       </div>

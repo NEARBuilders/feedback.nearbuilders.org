@@ -16,7 +16,7 @@ describe("dashboard navigation", () => {
     const memberPaths = filterSidebarByRole(NAV_ITEMS, "member").map((item) => item.to);
 
     expect(memberPaths).toEqual(
-      expect.arrayContaining(["/dashboard", "/testing", "/feed/request", "/orgs", "/rounds"]),
+      expect.arrayContaining(["/testing", "/manage/new", "/orgs", "/rounds"]),
     );
   });
 
@@ -41,7 +41,7 @@ describe("dashboard navigation", () => {
     expect(getActiveItem(NAV_ITEMS, "/rounds")?.label).toBe("rounds");
     expect(getActiveItem(NAV_ITEMS, "/projects")?.label).toBe("projects");
     expect(getActiveItem(NAV_ITEMS, "/projects/near-wallet/3")?.label).toBe("projects");
-    expect(getActiveItem(NAV_ITEMS, "/feed/request")?.label).toBe("request a round");
+    expect(getActiveItem(NAV_ITEMS, "/manage/new")?.label).toBe("request a round");
     expect(getActiveItem(NAV_ITEMS, "/testing")?.label).toBe("testing");
     expect(getActiveItem(NAV_ITEMS, "/manage/near-wallet/3")?.label).toBe("manage");
     expect(getActiveItem(NAV_ITEMS, "/leaderboard")?.label).toBe("leaderboard");

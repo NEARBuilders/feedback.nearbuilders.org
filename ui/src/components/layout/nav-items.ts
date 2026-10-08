@@ -3,7 +3,6 @@ import {
   Building2,
   ClipboardCheck,
   FolderKanban,
-  Home,
   LayoutDashboard,
   MessageSquare,
   PlusCircle,
@@ -37,7 +36,6 @@ export const SIDEBAR_SECTIONS: { id: SidebarSectionId; label: string }[] = [
 ];
 
 export const NAV_ITEMS: SidebarItem[] = [
-  { icon: Home, label: "dashboard", to: "/dashboard", section: "main", roleRequired: "member" },
   { icon: MessageSquare, label: "rounds", to: "/rounds", section: "main", roleRequired: "anon" },
   {
     icon: FolderKanban,
@@ -70,7 +68,7 @@ export const NAV_ITEMS: SidebarItem[] = [
   {
     icon: PlusCircle,
     label: "request a round",
-    to: "/feed/request",
+    to: "/manage/new",
     section: "workspace",
     roleRequired: "member",
   },

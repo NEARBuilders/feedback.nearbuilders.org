@@ -5,7 +5,7 @@ export interface Crumb {
 
 const STATIC_LABELS: Record<string, string> = {
   "how-to-integrate": "how it works",
-  "feed/request": "request a round",
+  "manage/new": "request a round",
   "settings/api-keys": "api keys",
   "settings/auth-methods": "sign-in methods",
 };
