@@ -41,6 +41,8 @@ export interface RoundParticipantRecord {
 
 export interface RoundSettingsPatch {
   readme?: string;
+  /** New banner URL, or null to remove it. */
+  bannerUrl?: string | null;
   formats?: RoundFormat[];
 }
 export type RoundFeedbackStatus = (typeof roundFeedbackStatus)["enumValues"][number];
@@ -56,6 +58,8 @@ export interface RoundRecord {
   description: string;
   /** Markdown for testers: what to test and how (#71). Empty when the owner hasn't written one. */
   readme: string;
+  /** Wide image shown as the round page hero; null when none was uploaded. */
+  bannerUrl: string | null;
   formats: RoundFormat[];
   repoUrl: string | null;
   /** Feedback is readable only by the managing org/team, admins and its author (#101). */
@@ -84,6 +88,8 @@ export interface CreateRoundInput {
   title: string;
   description: string;
   readme?: string;
+  /** Storage-plugin public URL of an uploaded banner image. */
+  bannerUrl?: string | null;
   formats: RoundFormat[];
   repoUrl?: string | null;
   isPrivate?: boolean;
@@ -313,6 +319,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     title: row.title,
     description: row.description,
     readme: row.readme,
+    bannerUrl: row.bannerUrl,
     formats: row.formats as RoundFormat[],
     repoUrl: row.repoUrl,
     isPrivate: row.isPrivate,
@@ -527,6 +534,7 @@ export const RoundsLive = Layer.effect(
                 title: input.title,
                 description: input.description,
                 readme: input.readme ?? "",
+                bannerUrl: input.bannerUrl ?? null,
                 formats: input.formats,
                 repoUrl: input.repoUrl ?? null,
                 isPrivate: input.isPrivate ?? false,

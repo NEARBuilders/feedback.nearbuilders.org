@@ -1,36 +1,30 @@
-import {
-  type UseMutationResult,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, Lock, PenLine, Users } from "lucide-react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { CalendarDays, ExternalLink, Lock, Users } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Badge, Button, Card, LegionMark } from "@/components";
+import { Badge, Card, LegionMark } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { RoundCredits } from "@/components/round-credits";
+import { RoundJoinCta } from "@/components/round-join-cta";
+import { RoundOwnerLine } from "@/components/round-owner-line";
 import { RoundParticipants } from "@/components/round-participants";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundRepoLinks } from "@/components/round-repo-links";
 import { useLegionAccess } from "@/hooks/use-legion-access";
 import { roundActivityUrl } from "@/lib/activity-events";
-import { invalidateParticipationQueries } from "@/lib/queries/participation";
-import {
-  invalidateRoundQueries,
-  roundEndorsementsQueryOptions,
-  roundParticipantsQueryOptions,
-} from "@/lib/queries/rounds";
+import { roundEndorsementsQueryOptions, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import { FORMAT_LABELS } from "@/lib/round-fields";
-import { roundParams } from "@/lib/round-links";
 import { type RoundDetail, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
 
 export const Route = createFileRoute("/_public/projects/$slug/$n/")({
   component: RoundOverviewPage,
 });
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString();
+}
 
 function RoundOverviewPage() {
   const round = useRound(Route.useParams());
@@ -41,11 +35,92 @@ function RoundOverviewPage() {
   const endorsement = endorsements?.[round.id];
 
   return (
-    <div className="space-y-8">
-      <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
+    <div
+      className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]"
+      data-testid="round-overview"
+    >
+      <div className="min-w-0">
+        <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
+      </div>
+
+      <aside className="space-y-4 lg:sticky lg:top-6">
+        <JoinCard round={round} viewer={viewer} />
+        <DetailsCard round={round} endorsement={endorsement} />
+        {round.status === "closed" && <RoundCredits roundId={round.id} />}
+        {viewer.canSeeParticipants && <RoundParticipants roundId={round.id} />}
+      </aside>
+    </div>
+  );
+}
+
+function JoinCard({
+  round,
+  viewer,
+}: {
+  round: RoundDetail;
+  viewer: ReturnType<typeof useRoundViewer>;
+}) {
+  const apiClient = useApiClient();
+  const participantsQuery = useQuery({
+    ...roundParticipantsQueryOptions(apiClient, round.id),
+    enabled: viewer.canSeeParticipants,
+  });
+  const faces = (participantsQuery.data ?? []).slice(0, 3);
+  const needsLegionCheck = round.legionOnly && viewer.cta.kind === "join";
+  const { legionAccess, isLoading: legionCheckPending } = useLegionAccess();
+  // A gated round can't be joined until the holder check resolves: the button
+  // waits while it loads and stays disabled when the wallet fails it.
+  const legionBlocked =
+    needsLegionCheck && (legionCheckPending || (!!legionAccess && !legionAccess.hasAccess));
+
+  return (
+    <Card className="space-y-4 p-5" data-testid="round-join-card">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {faces.length > 0 ? (
+          <span className="flex -space-x-2">
+            {faces.map((participant) => (
+              <AccountAvatar key={participant.accountId} accountId={participant.accountId} />
+            ))}
+          </span>
+        ) : (
+          <Users className="h-4 w-4" />
+        )}
+        <span>
+          {round.participantCount} {round.participantCount === 1 ? "tester" : "testers"} joined
+        </span>
+      </div>
+
+      {viewer.cta.kind !== "none" && (
+        <RoundJoinCta
+          round={round}
+          cta={viewer.cta}
+          legionBlocked={legionBlocked}
+          canPost={viewer.canPost}
+        />
+      )}
+
+      {needsLegionCheck && <LegionEligibility />}
+    </Card>
+  );
+}
+
+function DetailsCard({
+  round,
+  endorsement,
+}: {
+  round: RoundDetail;
+  endorsement?: { totalCount: number };
+}) {
+  return (
+    <Card className="space-y-4 p-5" data-testid="round-details">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        details
+      </span>
+
+      <RoundOwnerLine ownerAccountId={round.ownerAccountId} />
 
       {endorsement && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <EndorsementCount count={endorsement.totalCount} />
           <a
             href={roundActivityUrl(round.ownerAccountId)}
@@ -80,125 +155,14 @@ function RoundOverviewPage() {
         )}
       </div>
 
-      <TestersRow round={round} viewer={viewer} />
-
-      {round.status === "closed" && <RoundCredits roundId={round.id} />}
-
-      {viewer.canSeeParticipants && <RoundParticipants roundId={round.id} />}
-    </div>
-  );
-}
-
-function TestersRow({
-  round,
-  viewer,
-}: {
-  round: RoundDetail;
-  viewer: ReturnType<typeof useRoundViewer>;
-}) {
-  const apiClient = useApiClient();
-  const queryClient = useQueryClient();
-  const { cta } = viewer;
-  const participantsQuery = useQuery({
-    ...roundParticipantsQueryOptions(apiClient, round.id),
-    enabled: viewer.canSeeParticipants,
-  });
-  const faces = (participantsQuery.data ?? []).slice(0, 3);
-  const needsLegionCheck = round.legionOnly && cta.kind === "join";
-
-  const joinMutation = useMutation({
-    mutationFn: (next: boolean) =>
-      next ? apiClient.joinRound({ id: round.id }) : apiClient.leaveRound({ id: round.id }),
-    onSuccess: (_detail, next) => {
-      void invalidateRoundQueries(queryClient);
-      void invalidateParticipationQueries(queryClient);
-      toast.success(next ? "Joined the round" : "Left the round");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <span className="flex items-center gap-2 text-sm text-muted-foreground">
-          {faces.length > 0 ? (
-            <span className="flex -space-x-2">
-              {faces.map((participant) => (
-                <AccountAvatar key={participant.accountId} accountId={participant.accountId} />
-              ))}
-            </span>
-          ) : (
-            <Users className="h-4 w-4" />
-          )}
-          {round.participantCount} {round.participantCount === 1 ? "tester" : "testers"} joined
+      <div className="space-y-1.5 text-sm text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <CalendarDays className="h-3.5 w-3.5" />
+          started {formatDate(round.createdAt)}
         </span>
-
-        {(cta.kind === "join" || cta.kind === "leave") && (
-          <JoinButtons
-            round={round}
-            viewer={viewer}
-            joinMutation={joinMutation}
-            legionPending={needsLegionCheck}
-          />
-        )}
-        {cta.kind === "signin" && (
-          <Link
-            to={cta.loginTo.to}
-            search={cta.loginTo.search}
-            className="text-sm text-foreground underline"
-          >
-            sign in to join
-          </Link>
-        )}
-        {cta.kind === "link-account" && (
-          <Link to="/settings/auth-methods" className="text-sm text-foreground underline">
-            link a NEAR account to join
-          </Link>
-        )}
+        {round.closedAt && <span>closed {formatDate(round.closedAt)}</span>}
       </div>
-      {needsLegionCheck && <LegionEligibility />}
-    </>
-  );
-}
-
-function JoinButtons({
-  round,
-  viewer,
-  joinMutation,
-  legionPending,
-}: {
-  round: RoundDetail;
-  viewer: ReturnType<typeof useRoundViewer>;
-  joinMutation: UseMutationResult<RoundDetail, Error, boolean>;
-  legionPending: boolean;
-}) {
-  const { cta } = viewer;
-  const { legionAccess, isLoading: legionCheckPending } = useLegionAccess();
-  // A gated round can't be joined until the holder check resolves: the button
-  // waits while it loads and stays disabled when the wallet fails it.
-  const legionBlocked =
-    legionPending &&
-    cta.kind === "join" &&
-    (legionCheckPending || (!!legionAccess && !legionAccess.hasAccess));
-
-  return (
-    <div className="flex gap-2">
-      {viewer.canPost && (
-        <Button asChild>
-          <Link to="/projects/$slug/$n/submit" params={roundParams(round)}>
-            <PenLine className="h-4 w-4" />
-            write feedback
-          </Link>
-        </Button>
-      )}
-      <Button
-        variant={cta.kind === "leave" ? "outline" : "default"}
-        onClick={() => joinMutation.mutate(cta.kind === "join")}
-        disabled={joinMutation.isPending || viewer.participationPending || legionBlocked}
-      >
-        {cta.kind === "leave" ? "leave round" : "join round"}
-      </Button>
-    </div>
+    </Card>
   );
 }
 
@@ -207,30 +171,26 @@ function LegionEligibility() {
   if (isLoading || !legionAccess) return null;
   if (legionAccess.hasAccess) {
     return (
-      <Card className="p-4" data-testid="legion-eligible">
-        <p className="text-sm text-muted-foreground">
-          You hold a Legion SBT, so you can join this round.
-        </p>
-      </Card>
+      <p className="text-sm text-muted-foreground" data-testid="legion-eligible">
+        You hold a Legion SBT, so you can join this round.
+      </p>
     );
   }
   return (
-    <Card className="space-y-1 p-4" data-testid="legion-ineligible">
-      <span className="text-sm font-medium text-foreground">You need a Legion SBT to join</span>
-      <p className="text-xs text-muted-foreground">
-        {legionAccess.linkedNearAccount
-          ? `${legionAccess.linkedNearAccount} doesn't hold one yet.`
-          : "Link a NEAR account that holds one."}{" "}
-        <a
-          href={legionAccess.mintUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-foreground underline"
-        >
-          Get a Legion SBT
-          <ExternalLink className="h-3 w-3" />
-        </a>
-      </p>
-    </Card>
+    <p className="text-xs text-muted-foreground" data-testid="legion-ineligible">
+      You need a Legion SBT to join.{" "}
+      {legionAccess.linkedNearAccount
+        ? `${legionAccess.linkedNearAccount} doesn't hold one yet.`
+        : "Link a NEAR account that holds one."}{" "}
+      <a
+        href={legionAccess.mintUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-foreground underline"
+      >
+        Get a Legion SBT
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    </p>
   );
 }

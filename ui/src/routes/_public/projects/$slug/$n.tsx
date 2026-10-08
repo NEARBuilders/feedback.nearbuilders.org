@@ -8,10 +8,10 @@ import {
   PictureInPicture2,
 } from "lucide-react";
 import { Button, VerifiedBadge } from "@/components";
-import { AccountAvatar } from "@/components/account-avatar";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProductLink } from "@/components/project-identity";
+import { RoundOwnerLine } from "@/components/round-owner-line";
 import { RoundShareActions } from "@/components/round-share-actions";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
@@ -46,18 +46,13 @@ function popOut() {
   );
 }
 
-function OwnerLine({ ownerAccountId }: { ownerAccountId: string }) {
+function RoundBanner({ src }: { src: string }) {
   return (
-    <div className="flex items-center gap-2" data-testid="round-owner">
-      <AccountAvatar accountId={ownerAccountId} className="h-6 w-6" />
-      <span className="text-sm text-muted-foreground">run by</span>
-      <Link
-        to="/$accountId"
-        params={{ accountId: ownerAccountId }}
-        className="font-mono text-sm text-foreground hover:underline"
-      >
-        {ownerAccountId}
-      </Link>
+    <div
+      className="overflow-hidden rounded-xl border border-border bg-muted"
+      data-testid="round-banner"
+    >
+      <img src={src} alt="" loading="lazy" className="h-40 w-full object-cover sm:h-52 md:h-64" />
     </div>
   );
 }
@@ -104,6 +99,8 @@ function RoundLayout() {
           </div>
         )}
 
+        {!compact && round.bannerUrl && <RoundBanner src={round.bannerUrl} />}
+
         <PageHeader
           icon={MessageSquare}
           label={
@@ -129,7 +126,7 @@ function RoundLayout() {
           }
         />
 
-        {!compact && <OwnerLine ownerAccountId={round.ownerAccountId} />}
+        {!compact && <RoundOwnerLine ownerAccountId={round.ownerAccountId} />}
 
         {!compact && (
           <RouteTabs label="Round sections">

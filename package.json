@@ -128,18 +128,20 @@
     "@better-auth/api-key": "catalog:",
     "@better-auth/core": "catalog:",
     "@better-auth/passkey": "catalog:",
+    "@electric-sql/pglite": "catalog:",
     "@libsql/client": "catalog:",
+    "@opentelemetry/api": "catalog:",
     "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
     "better-auth": "catalog:",
     "better-near-auth": "catalog:",
     "drizzle-orm": "catalog:",
-    "pg": "catalog:",
-    "@electric-sql/pglite": "catalog:",
     "effect": "catalog:",
-    "zod": "catalog:",
-    "@opentelemetry/api": "catalog:",
     "every-plugin": "catalog:",
-    "everything-dev": "catalog:"
+    "everything-dev": "catalog:",
+    "pg": "catalog:",
+    "zephyr-rsbuild-plugin": "^1.6.0",
+    "zephyr-rspack-plugin": "^1.6.0",
+    "zod": "catalog:"
   }
 }

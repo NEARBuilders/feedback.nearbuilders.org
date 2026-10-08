@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RoundBannerForm } from "@/components/round-banner-form";
 import { RoundFormatsForm } from "@/components/round-formats-form";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundSettingsPanel } from "@/components/round-settings-panel";
@@ -14,6 +15,7 @@ function SettingsTab() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <RoundReadme roundId={round.id} readme={round.readme} canEdit />
       <div className="space-y-6">
+        <RoundBannerForm key={round.bannerUrl ?? ""} round={round} />
         <RoundFormatsForm key={round.formats.join()} round={round} />
         <RoundSettingsPanel
           roundId={round.id}

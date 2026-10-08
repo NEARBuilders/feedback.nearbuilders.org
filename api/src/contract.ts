@@ -90,6 +90,8 @@ export const RoundSchema = z.object({
   description: z.string(),
   /** Markdown for testers: what to test and how (#71). Empty string when unset. */
   readme: z.string(),
+  /** Wide image shown as the round page hero; uploaded through the storage plugin. */
+  bannerUrl: z.string().nullable(),
   formats: z.array(RoundFormatSchema),
   repoUrl: z.string().nullable(),
   /** Feedback is readable only by the managing org/team, admins and each submission's author (#101). */
@@ -488,6 +490,8 @@ const CreateRoundInputSchema = z
     title: z.string().min(1, "Title is required").max(200),
     description: z.string().min(1, "Description is required").max(5000),
     readme: z.string().max(MAX_README_LENGTH).optional(),
+    /** Storage-plugin public URL of an uploaded banner image. */
+    bannerUrl: z.string().url().optional(),
     formats: z.array(RoundFormatSchema).min(1, "Select at least one feedback format"),
     repoUrl: z.string().url("Must be a valid URL").optional(),
     /** Feedback readable only by the managing org/team and admins (#101). */
@@ -545,6 +549,8 @@ export const contract = oc.router({
       z.object({
         id: z.string(),
         readme: z.string().max(MAX_README_LENGTH).optional(),
+        /** New banner URL, or null to remove it. */
+        bannerUrl: z.string().url().nullable().optional(),
         formats: z
           .array(RoundFormatSchema)
           .min(1, "Select at least one feedback format")

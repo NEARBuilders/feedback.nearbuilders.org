@@ -22,6 +22,18 @@ export interface FeedbackAssets {
    * effort: a failure is logged and never blocks the removal.
    */
   deleteForFeedback(feedback: { id: string; authorAccountId: string | null }): Promise<void>;
+  /**
+   * Links a round's banner image to the round, so it can be removed with it. Assets belong
+   * to the round owner, so the storage plugin is called as them. Best effort: a failure is
+   * logged and never blocks the save.
+   */
+  attachRoundBanner(banner: {
+    roundId: string;
+    ownerAccountId: string;
+    bannerUrl: string | null;
+  }): Promise<void>;
+  /** Deletes the banner image attached to a deleted round. Best effort. */
+  deleteRoundBanner(banner: { roundId: string; ownerAccountId: string | null }): Promise<void>;
 }
 
 const MARKDOWN_IMAGE = /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)/g;
@@ -80,6 +92,29 @@ export function createFeedbackAssets(
         });
       } catch (error) {
         failed("delete", feedback.id, error);
+      }
+    },
+
+    attachRoundBanner: async (banner) => {
+      if (!storage || !banner.bannerUrl || !banner.ownerAccountId) return;
+      try {
+        await storage(asAccount(banner.ownerAccountId)).attachByUrls({
+          ownerId: banner.roundId,
+          urls: [banner.bannerUrl],
+        });
+      } catch (error) {
+        failed("attach the banner of", banner.roundId, error);
+      }
+    },
+
+    deleteRoundBanner: async (banner) => {
+      if (!storage || !banner.ownerAccountId) return;
+      try {
+        await storage(asAccount(banner.ownerAccountId)).deleteByOwner({
+          ownerId: banner.roundId,
+        });
+      } catch (error) {
+        failed("delete the banner of", banner.roundId, error);
       }
     },
   };

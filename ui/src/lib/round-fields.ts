@@ -4,6 +4,8 @@ export interface RoundFields {
   title: string;
   description: string;
   readme: string;
+  /** Storage-plugin public URL of an uploaded banner image; empty string when none. */
+  bannerUrl: string;
   formats: RoundFormat[];
   repoUrl: string;
   /** Private feedback: readable only by the managing org/team, admins and each author (#101). */
@@ -18,6 +20,7 @@ export const EMPTY_ROUND_FIELDS: RoundFields = {
   title: "",
   description: "",
   readme: "",
+  bannerUrl: "",
   formats: [],
   repoUrl: "",
   isPrivate: false,
@@ -55,9 +58,10 @@ export function roundFieldsComplete(fields: RoundFields): boolean {
 
 export function nextRoundFields(
   previous:
-    | (Omit<RoundFields, "repoUrl" | "contact"> & {
+    | (Omit<RoundFields, "repoUrl" | "contact" | "bannerUrl"> & {
         repoUrl: string | null;
         contact?: string;
+        bannerUrl?: string | null;
       })
     | null,
 ): RoundFields {
@@ -66,6 +70,7 @@ export function nextRoundFields(
     title: previous.title,
     description: previous.description,
     readme: previous.readme,
+    bannerUrl: previous.bannerUrl ?? "",
     formats: previous.formats,
     repoUrl: previous.repoUrl ?? "",
     isPrivate: previous.isPrivate,
@@ -79,6 +84,7 @@ export function toCreateRoundInput(fields: RoundFields) {
     title: fields.title.trim(),
     description: fields.description.trim(),
     readme: fields.readme.trim() || undefined,
+    bannerUrl: fields.bannerUrl.trim() || undefined,
     formats: fields.formats,
     repoUrl: fields.repoUrl.trim() || undefined,
     isPrivate: fields.isPrivate || undefined,

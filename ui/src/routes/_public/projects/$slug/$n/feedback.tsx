@@ -1,6 +1,6 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Lock, MessageSquare, PenLine } from "lucide-react";
+import { createFileRoute, Link, type SearchSchemaInput, useNavigate } from "@tanstack/react-router";
+import { Lock, MessageSquare, PenLine, X } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card, EmptyState } from "@/components";
 import { ActionCard } from "@/components/action-card";
@@ -12,11 +12,49 @@ import { loadRound, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
 import { roundIssuesUrl } from "@/lib/tester-workspace";
 
+export function validateFeedbackSearch(search: Partial<{ author?: string }> & SearchSchemaInput): {
+  author?: string;
+} {
+  return {
+    author: typeof search.author === "string" && search.author ? search.author : undefined,
+  };
+}
+
+export function feedbackEmptyTitle({
+  author,
+  isPrivate,
+  canReadAll,
+  viewerAccountId,
+  feedbackCount,
+}: {
+  author: string | undefined;
+  isPrivate: boolean;
+  canReadAll: boolean;
+  viewerAccountId: string | null;
+  feedbackCount: number;
+}): string {
+  if (author) {
+    if (author === viewerAccountId) {
+      return "You haven't posted any feedback here.";
+    }
+    if (isPrivate && !canReadAll) {
+      return "This feedback is only visible to the round organizers and its author.";
+    }
+    return `No feedback by ${author} yet.`;
+  }
+  if (isPrivate && !canReadAll && feedbackCount > 0) {
+    return "You haven't posted any feedback here.";
+  }
+  return "No feedback yet.";
+}
+
 export const Route = createFileRoute("/_public/projects/$slug/$n/feedback")({
-  loader: async ({ context, params }) => {
+  validateSearch: validateFeedbackSearch,
+  loaderDeps: ({ search }) => search,
+  loader: async ({ context, params, deps }) => {
     const round = await loadRound(context, params);
     await context.queryClient.ensureInfiniteQueryData(
-      roundFeedbackQueryOptions(context.apiClient, round.id),
+      roundFeedbackQueryOptions(context.apiClient, round.id, { author: deps.author }),
     );
   },
   component: RoundFeedbackPage,
@@ -24,13 +62,19 @@ export const Route = createFileRoute("/_public/projects/$slug/$n/feedback")({
 
 function RoundFeedbackPage() {
   const params = Route.useParams();
+  const search = Route.useSearch();
   const round = useRound(params);
   const apiClient = useApiClient();
   const viewer = useRoundViewer(round);
-  const feedbackQuery = useSuspenseInfiniteQuery(roundFeedbackQueryOptions(apiClient, round.id));
+  const navigate = useNavigate();
+  const feedbackQuery = useSuspenseInfiniteQuery(
+    roundFeedbackQueryOptions(apiClient, round.id, { author: search.author }),
+  );
   const entries = feedbackQuery.data.pages.flatMap((page) => page.items);
   const issues = roundIssuesUrl(round);
   const canReadAll = viewer.canManage || viewer.isAdmin;
+  const clearAuthor = () =>
+    void navigate({ to: "/projects/$slug/$n/feedback", params, search: {} });
 
   return (
     <div className="space-y-4">
@@ -70,14 +114,30 @@ function RoundFeedbackPage() {
         </Card>
       )}
 
+      {search.author && (
+        <div className="flex items-center gap-2" data-testid="author-filter">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearAuthor}
+            aria-label="Clear author filter"
+          >
+            feedback by <span className="font-mono">{search.author}</span>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       {entries.length === 0 ? (
         <EmptyState
           icon={MessageSquare}
-          title={
-            round.isPrivate && !canReadAll && (round.feedbackCount ?? 0) > 0
-              ? "You haven't posted any feedback here."
-              : "No feedback yet."
-          }
+          title={feedbackEmptyTitle({
+            author: search.author,
+            isPrivate: round.isPrivate,
+            canReadAll,
+            viewerAccountId: viewer.accountId,
+            feedbackCount: round.feedbackCount ?? 0,
+          })}
           className="min-h-[20vh]"
         />
       ) : (
