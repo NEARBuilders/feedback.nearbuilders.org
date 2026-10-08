@@ -640,6 +640,31 @@ export const contract = oc.router({
     .output(RoundSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
+  rejectRound: oc
+    .route({
+      method: "POST",
+      path: "/rounds/{id}/reject",
+      summary: "Admin hides a round from the public",
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        reason: z.string().trim().min(1, "A reason is required").max(2000),
+      }),
+    )
+    .output(RoundSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  restoreRound: oc
+    .route({
+      method: "POST",
+      path: "/rounds/{id}/restore",
+      summary: "Admin restores a hidden round",
+    })
+    .input(z.object({ id: z.string() }))
+    .output(RoundSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
   getRound: oc
     .route({ method: "GET", path: "/rounds/{id}" })
     .input(z.object({ id: z.string() }))

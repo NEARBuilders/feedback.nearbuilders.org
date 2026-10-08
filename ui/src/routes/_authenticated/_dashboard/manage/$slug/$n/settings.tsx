@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RoundBannerForm } from "@/components/round-banner-form";
+import { RoundDangerZone } from "@/components/round-danger-zone";
 import { RoundFormatsForm } from "@/components/round-formats-form";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundSettingsPanel } from "@/components/round-settings-panel";
@@ -24,6 +25,7 @@ function SettingsTab() {
           legionOnly={round.legionOnly}
           endsAt={round.endsAt}
         />
+        <RoundDangerZone round={round} />
       </div>
     </div>
   );

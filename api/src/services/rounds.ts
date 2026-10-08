@@ -256,6 +256,19 @@ export interface RoundsService {
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   updateRound(roundId: string, patch: RoundSettingsPatch): Promise<RoundRecord>;
   updateRoundSettings(roundId: string, settings: RoundSettingsInput): Promise<RoundRecord>;
+  /**
+   * Admin moderation: marks the round `rejected` so it leaves the public listing and
+   * 404s for anyone who can't manage it, keeping feedback, credits and participants.
+   * Refuses rounds that are already hidden (pending/rejected).
+   */
+  rejectRound(roundId: string, reason: string): Promise<RoundRecord>;
+  /**
+   * Reverses {@link rejectRound}: an open round returns to `open`, a closed one to
+   * `closed` (via its closedAt stamp).
+   */
+  restoreRound(roundId: string): Promise<RoundRecord>;
+  /** Number of submissions in the round, for the delete guard. */
+  countFeedback(roundId: string): Promise<number>;
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailWithSurfaceRecord | null>;
   getRoundDetailBySlug(slug: string, number: number): Promise<RoundDetailWithSurfaceRecord | null>;
@@ -575,6 +588,77 @@ export const RoundsLive = Layer.effect(
             throw new ORPCError("NOT_FOUND", { message: "Round not found" });
           }
           return toRoundRecord(updated);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      rejectRound: async (roundId, reason) => {
+        try {
+          const [updated] = await db
+            .update(roundsTable)
+            .set({
+              status: "rejected",
+              rejectedAt: new Date(),
+              rejectionReason: reason,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(eq(roundsTable.id, roundId), inArray(roundsTable.status, ["open", "closed"])),
+            )
+            .returning();
+          if (updated) return toRoundRecord(updated);
+          const [row] = await db
+            .select({ id: roundsTable.id })
+            .from(roundsTable)
+            .where(eq(roundsTable.id, roundId))
+            .limit(1);
+          if (!row) {
+            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+          }
+          throw new ORPCError("BAD_REQUEST", { message: "This round is already hidden" });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      restoreRound: async (roundId) => {
+        try {
+          const [round] = await db
+            .select()
+            .from(roundsTable)
+            .where(eq(roundsTable.id, roundId))
+            .limit(1);
+          if (!round) {
+            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+          }
+          if (round.status !== "rejected") {
+            throw new ORPCError("BAD_REQUEST", { message: "This round isn't hidden" });
+          }
+          const nextStatus: RoundStatus = round.closedAt ? "closed" : "open";
+          const [updated] = await db
+            .update(roundsTable)
+            .set({
+              status: nextStatus,
+              rejectedAt: null,
+              rejectionReason: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(roundsTable.id, roundId))
+            .returning();
+          return toRoundRecord(updated!);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      countFeedback: async (roundId) => {
+        try {
+          const [row] = await db
+            .select({ value: count() })
+            .from(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.roundId, roundId));
+          return row?.value ?? 0;
         } catch (error) {
           throw toOrpcError(error);
         }
