@@ -17,6 +17,7 @@
  * `./activity-client`, the ported activity.nearbuilders.org reference client.
  */
 
+import type { ActivityEventType } from "../db/schema";
 import {
   ActivityApiError,
   ActivityClient,
@@ -26,13 +27,7 @@ import {
   type JsonValue,
 } from "./activity-client";
 
-export type ActivityEventType =
-  | "round.opened"
-  | "feedback.posted"
-  /** A round owner accepted (resolved) a submission. The scored contribution. */
-  | "feedback.accepted"
-  | "round.closed"
-  | "credit.awarded";
+export type { ActivityEventType };
 
 const REQUEST_TIMEOUT_MS = 5000;
 

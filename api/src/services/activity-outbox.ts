@@ -17,14 +17,13 @@
  */
 
 import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
-import type { Database } from "../db";
+import type { Database, Transaction } from "../db";
+import type { ActivityEventType, ActivitySubjectKind } from "../db/schema";
 import { activityOutbox, roundFeedback, rounds } from "../db/schema";
-import type { ActivityEmitter, ActivityEventType } from "./activity-events";
+import type { JsonValue } from "./activity-client";
+import type { ActivityEmitter } from "./activity-events";
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
-/** Where the gateway's event id is written back to once delivered. */
-export type ActivitySubjectKind = "round" | "feedback" | "feedback_accepted";
+export type { ActivityEventType, ActivitySubjectKind };
 
 export interface ActivityEmitIntent {
   operation: "emit";
@@ -87,9 +86,10 @@ export async function enqueueActivity(tx: Executor, intent: ActivityIntent): Pro
 }
 
 /**
- * Drop a queued emit that has not been delivered yet, returning true when one
- * was cancelled. Used when a contribution is reversed before the worker runs,
- * so the gateway never sees an event that should not exist.
+ * Drop an emit that has not been delivered yet — still queued, or parked after
+ * failed retries — returning true when one was cancelled. Used when a
+ * contribution is reversed before the worker runs, so the gateway never sees
+ * an event that should not exist.
  */
 export async function cancelPendingActivity(
   tx: Executor,
@@ -99,15 +99,43 @@ export async function cancelPendingActivity(
     .update(activityOutbox)
     .set({ status: "cancelled" })
     .where(
-      and(eq(activityOutbox.idempotencyKey, idempotencyKey), eq(activityOutbox.status, "pending")),
+      and(
+        eq(activityOutbox.idempotencyKey, idempotencyKey),
+        inArray(activityOutbox.status, ["pending", "failed"]),
+      ),
     )
     .returning({ id: activityOutbox.id });
   return cancelled.length > 0;
 }
 
+/**
+ * The delivered event id for an emit, read back off the outbox row itself.
+ * Covers the window where the worker has marked the row sent but has not yet
+ * written the id onto the subject.
+ */
+export async function findEmittedEventId(
+  tx: Executor,
+  idempotencyKey: string,
+): Promise<string | null> {
+  const rows = await tx
+    .select({ eventId: activityOutbox.eventId })
+    .from(activityOutbox)
+    .where(
+      and(eq(activityOutbox.idempotencyKey, idempotencyKey), eq(activityOutbox.status, "sent")),
+    )
+    .limit(1);
+  return rows[0]?.eventId ?? null;
+}
+
 export interface ActivityOutboxWorker {
   /** Deliver one batch of due rows. Returns how many were attempted. */
   drain(): Promise<number>;
+  /** Rows parked after exhausting retries, for an operator to inspect. */
+  listFailed(limit?: number): Promise<(typeof activityOutbox.$inferSelect)[]>;
+  /** Re-queue parked rows, e.g. after the gateway comes back. */
+  retryFailed(ids: string[]): Promise<number>;
+  /** Queue depth by status, for the startup log and health checks. */
+  depth(): Promise<Record<string, number>>;
   start(): void;
   stop(): void;
 }
@@ -130,29 +158,34 @@ export function createActivityOutboxWorker(
   let timer: ReturnType<typeof setInterval> | null = null;
   let draining = false;
 
-  async function writeBackEventId(
-    subjectKind: string | null,
-    subjectId: string | null,
-    eventId: string,
-  ): Promise<void> {
-    if (!subjectKind || !subjectId) return;
-    if (subjectKind === "round") {
+  const writeSubjectEventId: Record<
+    ActivitySubjectKind,
+    (subjectId: string, eventId: string) => Promise<void>
+  > = {
+    round: async (subjectId, eventId) => {
       await db.update(rounds).set({ activityEventId: eventId }).where(eq(rounds.id, subjectId));
-      return;
-    }
-    if (subjectKind === "feedback") {
+    },
+    feedback: async (subjectId, eventId) => {
       await db
         .update(roundFeedback)
         .set({ activityEventId: eventId })
         .where(eq(roundFeedback.id, subjectId));
-      return;
-    }
-    if (subjectKind === "feedback_accepted") {
+    },
+    feedback_accepted: async (subjectId, eventId) => {
       await db
         .update(roundFeedback)
         .set({ acceptedActivityEventId: eventId })
         .where(eq(roundFeedback.id, subjectId));
-    }
+    },
+  };
+
+  async function writeBackEventId(
+    subjectKind: ActivitySubjectKind | null,
+    subjectId: string | null,
+    eventId: string,
+  ): Promise<void> {
+    if (!subjectKind || !subjectId) return;
+    await writeSubjectEventId[subjectKind](subjectId, eventId);
   }
 
   async function deliver(row: typeof activityOutbox.$inferSelect): Promise<void> {
@@ -172,11 +205,19 @@ export function createActivityOutboxWorker(
       return;
     }
 
+    if (!row.eventType) {
+      await db
+        .update(activityOutbox)
+        .set({ status: "cancelled", lastError: "no event type" })
+        .where(eq(activityOutbox.id, row.id));
+      return;
+    }
+
     const eventId = await emitter.submitRaw({
-      eventType: row.eventType as ActivityEventType,
+      eventType: row.eventType,
       actor: row.actor ?? "",
       idempotencyKey: row.idempotencyKey,
-      payload: (row.payload ?? {}) as Record<string, never>,
+      payload: (row.payload ?? {}) as Record<string, JsonValue>,
     });
 
     // A disabled gateway yields no id and nothing to retry against; leaving the
@@ -232,6 +273,9 @@ export function createActivityOutboxWorker(
 
   return {
     drain,
+    listFailed: (limit) => listFailedActivity(db, limit),
+    retryFailed: (ids) => retryFailedActivity(db, ids),
+    depth: () => activityOutboxDepth(db),
     start: () => {
       if (timer) return;
       timer = setInterval(() => {

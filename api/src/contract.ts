@@ -371,6 +371,36 @@ export const BuilderActivityEventSchema = z.object({
 
 export type BuilderActivityEvent = z.infer<typeof BuilderActivityEventSchema>;
 
+/**
+ * One undeliverable row from the activity outbox, for operator inspection.
+ * Dates arrive as ISO strings; the local Date objects are serialized by the
+ * handler before returning.
+ */
+export const ActivityOutboxRowSchema = z.object({
+  id: z.uuid(),
+  operation: z.enum(["emit", "retract"]),
+  /** Set for emit; null for retract. */
+  eventType: z.string().nullable(),
+  actor: z.string().nullable(),
+  payload: z.record(z.string(), z.unknown()).nullable(),
+  /** Set for retract: the gateway event id being hidden, and why. */
+  targetEventId: z.string().nullable(),
+  reason: z.string().nullable(),
+  idempotencyKey: z.string(),
+  /** Where the gateway's event id is written back once delivered. */
+  subjectKind: z.string().nullable(),
+  subjectId: z.string().nullable(),
+  status: z.enum(["pending", "sent", "failed", "cancelled"]),
+  attempts: z.number().int().nonnegative(),
+  lastError: z.string().nullable(),
+  nextAttemptAt: z.iso.datetime(),
+  eventId: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  sentAt: z.iso.datetime().nullable(),
+});
+
+export type ActivityOutboxRow = z.infer<typeof ActivityOutboxRowSchema>;
+
 export const NearBuildersProjectSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -826,6 +856,42 @@ export const contract = oc.router({
       }),
     )
     .output(LeaderboardSchema),
+
+  listFailedActivityEvents: oc
+    .route({
+      method: "GET",
+      path: "/activity-outbox/failed",
+      summary: "List undeliverable activity events",
+      description:
+        "Reputation events that exhausted their retries, for operator inspection. Site-admin only: a parked row means the gateway never received the event.",
+      tags: ["Activity"],
+    })
+    .output(z.array(ActivityOutboxRowSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  retryFailedActivityEvents: oc
+    .route({
+      method: "POST",
+      path: "/activity-outbox/failed/retry",
+      summary: "Re-queue undeliverable activity events",
+      description:
+        "Re-queues parked outbox rows, e.g. after the gateway comes back. Site-admin only.",
+      tags: ["Activity"],
+    })
+    .input(z.object({ ids: z.array(z.uuid()).min(1) }))
+    .output(z.object({ retried: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+
+  getActivityOutboxDepth: oc
+    .route({
+      method: "GET",
+      path: "/activity-outbox/depth",
+      summary: "Activity outbox queue depth",
+      description: "Row counts by outbox status, for health checks. Site-admin only.",
+      tags: ["Activity"],
+    })
+    .output(z.object({ byStatus: z.record(z.string(), z.number().int().nonnegative()) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   testError: oc
     .route({

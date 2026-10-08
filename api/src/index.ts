@@ -4,6 +4,7 @@ import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract, type ProjectIdentity } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
+import type { activityOutbox as activityOutboxTable } from "./db/schema";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
@@ -39,12 +40,25 @@ const MAX_FEEDBACK_PER_TESTER = 500;
  * The gateway has no per-actor lookup, so an unranked builder is one who does
  * not appear this far down.
  */
+// The gateway hard-caps its leaderboard at 100 entries per request with no
+// cursor, so a builder ranked below the top 100 reads as unscored. Widening
+// this needs activity.nearbuilders.org to page the board.
 const BUILDER_STANDING_SCAN_LIMIT = 100;
 
 const MAX_NOTES_PER_FEEDBACK = 20;
 
 const isPublic = (round: { status: string }) =>
   round.status === "open" || round.status === "closed";
+
+const toIsoDateTime = (value: Date | string): string =>
+  value instanceof Date ? value.toISOString() : String(value);
+
+const toActivityOutboxRow = (row: typeof activityOutboxTable.$inferSelect) => ({
+  ...row,
+  nextAttemptAt: toIsoDateTime(row.nextAttemptAt),
+  createdAt: toIsoDateTime(row.createdAt),
+  sentAt: row.sentAt ? toIsoDateTime(row.sentAt) : null,
+});
 
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
@@ -1276,6 +1290,24 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: [],
             };
       }),
+
+      listFailedActivityEvents: builder.listFailedActivityEvents
+        .use(requireAdmin)
+        .handler(async () => {
+          const rows = await services.activityOutbox.listFailed();
+          return rows.map(toActivityOutboxRow);
+        }),
+
+      retryFailedActivityEvents: builder.retryFailedActivityEvents
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const retried = await services.activityOutbox.retryFailed(input.ids);
+          return { retried };
+        }),
+
+      getActivityOutboxDepth: builder.getActivityOutboxDepth
+        .use(requireAdmin)
+        .handler(async () => ({ byStatus: await services.activityOutbox.depth() })),
 
       // Admin-only: an error-injection route is a probe surface, and it has
       // never been exercised by the regression suite despite the "regression-

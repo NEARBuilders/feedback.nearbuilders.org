@@ -14,8 +14,6 @@ import { type NearBuildersProject, ProjectsApiError, ProjectsClient } from "./pr
 
 const REQUEST_TIMEOUT_MS = 5000;
 
-const SEARCH_LIMIT = 20;
-
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 interface LookupLogger {
@@ -82,10 +80,14 @@ export function createProjectsLookup(options: ProjectsLookupOptions = {}): Proje
       const result = await read("listProjects", () =>
         // `kind: project` keeps ideas, scopes and results out of the picker:
         // they are write-ups, not products anyone can be asked to test.
+        // No `limit`: nearbuilders.org's REST layer rejects numeric query
+        // params (no string coercion) until nearbuilders.org#265 lands, so
+        // any limit 400s and the picker degrades. The endpoint's default
+        // page size is plenty for a typeahead.
         // No `visibility`: omitting it lets unlisted projects (owner-named
         // for a feedback round, still not private) appear alongside public
         // ones; private is excluded upstream either way.
-        client.listProjects({ query: trimmed, kind: "project", limit: SEARCH_LIMIT }),
+        client.listProjects({ query: trimmed, kind: "project" }),
       );
       return result?.data ?? null;
     },
@@ -96,12 +98,19 @@ export function createProjectsLookup(options: ProjectsLookupOptions = {}): Proje
     },
 
     resolveMany: async (slugs) => {
-      const unique = [...new Set(slugs)].slice(0, MAX_SLUGS_PER_LOOKUP);
-      if (!enabled || unique.length === 0) return new Map();
-      const result = await read("listProjectsBySlugs", () =>
-        client.listProjects({ slugs: unique.join(","), limit: unique.length }),
-      );
-      return new Map((result?.data ?? []).map((project) => [project.slug, project]));
+      if (!enabled) return new Map();
+      const unique = [...new Set(slugs)];
+      const resolved = new Map<string, NearBuildersProject>();
+      // One request per batch of slugs, so a long list stays a handful of
+      // calls rather than one per project — and no slug is silently dropped.
+      for (let i = 0; i < unique.length; i += MAX_SLUGS_PER_LOOKUP) {
+        const batch = unique.slice(i, i + MAX_SLUGS_PER_LOOKUP);
+        const result = await read("listProjectsBySlugs", () =>
+          client.listProjects({ slugs: batch.join(","), limit: batch.length }),
+        );
+        for (const project of result?.data ?? []) resolved.set(project.slug, project);
+      }
+      return resolved;
     },
   };
 }

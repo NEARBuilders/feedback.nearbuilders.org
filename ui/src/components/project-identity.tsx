@@ -11,14 +11,20 @@ type Identity = ProjectDetail["identity"];
  * surface here degrades to the local name and slug rather than showing nothing.
  */
 
+/** The registry stores domains bare or with a scheme; both views come from one. */
+function normalizeDomain(domain: string): { url: string; label: string } {
+  return {
+    url: /^https?:\/\//i.test(domain) ? domain : `https://${domain}`,
+    label: domain.replace(/^https?:\/\//i, "").replace(/\/+$/, ""),
+  };
+}
+
 export function projectDomainUrl(identity: Identity): string | null {
-  if (!identity?.domain) return null;
-  return /^https?:\/\//i.test(identity.domain) ? identity.domain : `https://${identity.domain}`;
+  return identity?.domain ? normalizeDomain(identity.domain).url : null;
 }
 
 export function projectDomainLabel(identity: Identity): string | null {
-  if (!identity?.domain) return null;
-  return identity.domain.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  return identity?.domain ? normalizeDomain(identity.domain).label : null;
 }
 
 export function nearBuildersUrl(identity: Identity, slug: string): string {

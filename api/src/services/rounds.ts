@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
-import type { Database } from "../db";
+import type { Transaction } from "../db";
 import { DatabaseTag } from "../db/layer";
 import {
   feedbackNotes as feedbackNotesTable,
@@ -26,7 +26,7 @@ import {
   type roundStatus,
   rounds as roundsTable,
 } from "../db/schema";
-import { cancelPendingActivity, enqueueActivity } from "./activity-outbox";
+import { cancelPendingActivity, enqueueActivity, findEmittedEventId } from "./activity-outbox";
 import { ensureProject } from "./project-records";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
@@ -334,8 +334,6 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
   };
 }
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
 /**
  * Scopes an acceptance to the moment it happened, so re-accepting a previously
  * retracted item is a new event to the gateway rather than a deduped replay.
@@ -386,11 +384,13 @@ async function queueAcceptanceEvents(
     }
 
     const cancelled = await cancelPendingActivity(tx, acceptanceKey(prior));
-    if (!cancelled && prior.acceptedActivityEventId) {
+    const deliveredEventId =
+      prior.acceptedActivityEventId ?? (await findEmittedEventId(tx, acceptanceKey(prior)));
+    if (!cancelled && deliveredEventId) {
       await enqueueActivity(tx, {
         operation: "retract",
-        idempotencyKey: `retract:${prior.acceptedActivityEventId}`,
-        targetEventId: prior.acceptedActivityEventId,
+        idempotencyKey: `retract:${deliveredEventId}`,
+        targetEventId: deliveredEventId,
         reason: "feedback no longer accepted",
       });
     }

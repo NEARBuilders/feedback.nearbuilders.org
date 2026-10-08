@@ -14,6 +14,7 @@ import {
   cancelPendingActivity,
   createActivityOutboxWorker,
   enqueueActivity,
+  findEmittedEventId,
 } from "@/services/activity-outbox";
 import {
   ProjectRecordsLive,
@@ -173,6 +174,54 @@ describe("cancelPendingActivity", () => {
       // Cancelling again is a no-op, which is what stops a delivered event
       // from being silently dropped instead of retracted.
       expect(await cancelPendingActivity(db, "key-pending")).toBe(false);
+    });
+  });
+
+  it("cancels a row parked as failed, which was never delivered either", async () => {
+    await withHarness(async ({ db }) => {
+      await enqueueActivity(db, {
+        operation: "emit",
+        eventType: "feedback.accepted",
+        actor: "tester.near",
+        idempotencyKey: "key-failed",
+        payload: {},
+      });
+      await db.update(activityOutbox).set({ status: "failed", attempts: 8 });
+
+      expect(await cancelPendingActivity(db, "key-failed")).toBe(true);
+      const [row] = await db
+        .select()
+        .from(activityOutbox)
+        .where(eq(activityOutbox.idempotencyKey, "key-failed"));
+      expect(row?.status).toBe("cancelled");
+    });
+  });
+});
+
+describe("findEmittedEventId", () => {
+  it("reads the delivered event id back off the outbox row, and only for sent rows", async () => {
+    await withHarness(async ({ db }) => {
+      await enqueueActivity(db, {
+        operation: "emit",
+        eventType: "feedback.accepted",
+        actor: "tester.near",
+        idempotencyKey: "key-sent",
+        payload: {},
+      });
+      const [queued] = await db
+        .select()
+        .from(activityOutbox)
+        .where(eq(activityOutbox.idempotencyKey, "key-sent"));
+      expect(await findEmittedEventId(db, "key-sent")).toBeNull();
+
+      // Covers the window where the worker has marked the row sent but has
+      // not yet written the id onto the subject.
+      if (!queued) throw new Error("outbox row not found");
+      await db
+        .update(activityOutbox)
+        .set({ status: "sent", eventId: "event-9" })
+        .where(eq(activityOutbox.id, queued.id));
+      expect(await findEmittedEventId(db, "key-sent")).toBe("event-9");
     });
   });
 });
@@ -340,6 +389,25 @@ describe("accepting feedback", () => {
       // Cancelled in place: the gateway never sees an event it would have to retract.
       expect(rows).toHaveLength(1);
       expect(rows[0]?.status).toBe("cancelled");
+    });
+  });
+
+  it("cancels a parked emit when acceptance is reversed after retries gave up", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "accept-undo-parked");
+
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      // The gateway was down past every retry, so the emit is parked.
+      await db.update(activityOutbox).set({ status: "failed", attempts: 8 });
+
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "dismissed");
+
+      const rows = await db.select().from(activityOutbox);
+      // No retraction was queued: the event was never delivered. Cancelling the
+      // parked row also keeps a later manual retry from delivering it anyway.
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ operation: "emit", status: "cancelled" });
     });
   });
 

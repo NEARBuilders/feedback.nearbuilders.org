@@ -286,6 +286,18 @@ export const activityOutboxStatus = pgEnum("activity_outbox_status", [
   "cancelled",
 ]);
 
+/** The event types this app emits to activity.nearbuilders.org. */
+export type ActivityEventType =
+  | "round.opened"
+  | "feedback.posted"
+  /** A round owner accepted (resolved) a submission. The scored contribution. */
+  | "feedback.accepted"
+  | "round.closed"
+  | "credit.awarded";
+
+/** Where the gateway's event id is written back to once delivered. */
+export type ActivitySubjectKind = "round" | "feedback" | "feedback_accepted";
+
 /**
  * Durable queue for activity.nearbuilders.org submissions.
  *
@@ -303,16 +315,16 @@ export const activityOutbox = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     operation: activityOutboxOperation("operation").notNull(),
     // Set for `emit`; null for `retract`.
-    eventType: text("event_type"),
+    eventType: text("event_type").$type<ActivityEventType>(),
     actor: text("actor"),
-    payload: jsonb("payload"),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
     // Set for `retract`: the gateway event id being hidden, and why.
     targetEventId: text("target_event_id"),
     reason: text("reason"),
     // Deduped by the gateway, and used here to cancel a still-pending emit.
     idempotencyKey: text("idempotency_key").notNull(),
-    // Where to write `eventId` back to: "round" | "feedback" | "feedback_accepted".
-    subjectKind: text("subject_kind"),
+    // Where to write `eventId` back to, as an `ActivitySubjectKind`.
+    subjectKind: text("subject_kind").$type<ActivitySubjectKind>(),
     subjectId: uuid("subject_id"),
     status: activityOutboxStatus("status").default("pending").notNull(),
     attempts: integer("attempts").default(0).notNull(),
