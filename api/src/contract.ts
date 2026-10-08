@@ -98,6 +98,8 @@ export const RoundSchema = z.object({
   isPrivate: z.boolean(),
   /** Only holders of a Legion SBT can join and post (#103). */
   legionOnly: z.boolean(),
+  /** Optional expiration: joining and posting are blocked once this passes. */
+  endsAt: z.string().nullable(),
   status: RoundStatusSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -498,6 +500,8 @@ const CreateRoundInputSchema = z
     isPrivate: z.boolean().optional(),
     /** Only Legion SBT holders can join and post (#103). */
     legionOnly: z.boolean().optional(),
+    /** ISO datetime after which joining and posting are blocked. */
+    endsAt: z.iso.datetime().optional(),
   })
   .refine((val) => !val.formats.includes("issues") || !!val.repoUrl, {
     message: "A repo URL is required when the issues format is selected",
@@ -564,13 +568,15 @@ export const contract = oc.router({
     .route({
       method: "PATCH",
       path: "/rounds/{id}/settings",
-      summary: "Change a round's privacy and Legion gate",
+      summary: "Change a round's privacy, Legion gate and expiration",
     })
     .input(
       z.object({
         id: z.string(),
         isPrivate: z.boolean().optional(),
         legionOnly: z.boolean().optional(),
+        /** New expiration, or null to remove it. */
+        endsAt: z.iso.datetime().nullable().optional(),
       }),
     )
     .output(RoundSchema)

@@ -12,6 +12,8 @@ export interface RoundFields {
   isPrivate: boolean;
   /** Only holders of a Legion SBT can join and post (#103). */
   legionOnly: boolean;
+  /** ISO datetime after which joining and posting are blocked; empty string when unset. */
+  endsAt: string;
   /** Contact admins can reach for diligence (telegram/email/URL); stored on the project. */
   contact: string;
 }
@@ -25,6 +27,7 @@ export const EMPTY_ROUND_FIELDS: RoundFields = {
   repoUrl: "",
   isPrivate: false,
   legionOnly: false,
+  endsAt: "",
   contact: "",
 };
 
@@ -58,10 +61,11 @@ export function roundFieldsComplete(fields: RoundFields): boolean {
 
 export function nextRoundFields(
   previous:
-    | (Omit<RoundFields, "repoUrl" | "contact" | "bannerUrl"> & {
+    | (Omit<RoundFields, "repoUrl" | "contact" | "bannerUrl" | "endsAt"> & {
         repoUrl: string | null;
         contact?: string;
         bannerUrl?: string | null;
+        endsAt?: string | null;
       })
     | null,
 ): RoundFields {
@@ -75,6 +79,7 @@ export function nextRoundFields(
     repoUrl: previous.repoUrl ?? "",
     isPrivate: previous.isPrivate,
     legionOnly: previous.legionOnly,
+    endsAt: previous.endsAt ?? "",
     contact: previous.contact ?? "",
   };
 }
@@ -89,6 +94,7 @@ export function toCreateRoundInput(fields: RoundFields) {
     repoUrl: fields.repoUrl.trim() || undefined,
     isPrivate: fields.isPrivate || undefined,
     legionOnly: fields.legionOnly || undefined,
+    endsAt: fields.endsAt || undefined,
     contact: fields.contact.trim() || undefined,
   };
 }

@@ -66,6 +66,8 @@ export interface RoundRecord {
   isPrivate: boolean;
   /** Only Legion SBT holders can join and post (#103). */
   legionOnly: boolean;
+  /** Optional expiration: joining and posting are blocked once this passes. */
+  endsAt: string | null;
   status: RoundStatus;
   createdAt: string;
   updatedAt: string;
@@ -94,11 +96,15 @@ export interface CreateRoundInput {
   repoUrl?: string | null;
   isPrivate?: boolean;
   legionOnly?: boolean;
+  /** ISO datetime after which joining and posting are blocked. */
+  endsAt?: string | null;
 }
 
 export interface RoundSettingsInput {
   isPrivate?: boolean;
   legionOnly?: boolean;
+  /** New expiration, or null to remove it. */
+  endsAt?: string | null;
 }
 
 export interface RoundDetailRecord extends RoundRecord {
@@ -324,6 +330,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     repoUrl: row.repoUrl,
     isPrivate: row.isPrivate,
     legionOnly: row.legionOnly,
+    endsAt: row.endsAt instanceof Date ? row.endsAt.toISOString() : null,
     status: row.status,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
@@ -539,6 +546,7 @@ export const RoundsLive = Layer.effect(
                 repoUrl: input.repoUrl ?? null,
                 isPrivate: input.isPrivate ?? false,
                 legionOnly: input.legionOnly ?? false,
+                endsAt: input.endsAt ? new Date(input.endsAt) : null,
                 status: project.status === "approved" ? "open" : "pending",
               })
               .returning();
@@ -579,6 +587,9 @@ export const RoundsLive = Layer.effect(
             .set({
               ...(settings.isPrivate !== undefined ? { isPrivate: settings.isPrivate } : {}),
               ...(settings.legionOnly !== undefined ? { legionOnly: settings.legionOnly } : {}),
+              ...(settings.endsAt !== undefined
+                ? { endsAt: settings.endsAt ? new Date(settings.endsAt) : null }
+                : {}),
               updatedAt: new Date(),
             })
             .where(eq(roundsTable.id, roundId))

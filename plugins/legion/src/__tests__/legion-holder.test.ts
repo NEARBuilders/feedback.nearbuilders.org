@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from "every-plugin/effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LegionHolderLive, LegionHolderTag } from "../services/legion-holder";
 
-const NODE_URL = "https://rpc.mainnet.near.dev";
+const NODE_URL = "https://rpc.mainnet.near.org";
 const CONTRACT_IDS = ["initiate.nearlegion.near", "ascendant.nearlegion.near"];
 
 interface RecordedCall {

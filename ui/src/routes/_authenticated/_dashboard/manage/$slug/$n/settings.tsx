@@ -18,9 +18,11 @@ function SettingsTab() {
         <RoundBannerForm key={round.bannerUrl ?? ""} round={round} />
         <RoundFormatsForm key={round.formats.join()} round={round} />
         <RoundSettingsPanel
+          key={round.endsAt ?? ""}
           roundId={round.id}
           isPrivate={round.isPrivate}
           legionOnly={round.legionOnly}
+          endsAt={round.endsAt}
         />
       </div>
     </div>

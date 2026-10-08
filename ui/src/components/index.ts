@@ -92,6 +92,7 @@ export { UserNav } from "./layout/user-nav";
 export { LegionMark } from "./legion-mark";
 export { MarkdownEditor } from "./markdown-editor";
 export { MyProjects } from "./my-projects";
+export { RoundCountdown } from "./round-countdown";
 export { SegmentedToggle } from "./segmented-toggle";
 export { UnderConstruction } from "./under-construction";
 export { VerifiedBadge } from "./verified-badge";
@@ -153,6 +154,7 @@ export { buttonVariants } from "./ui/button";
 // consumer still imports from this barrel only (#57). Move them into federated() as the
 // remote's barrel (nearbuilders.org#259) gains them.
 export * from "./ui/checkbox";
+export * from "./ui/datetime-picker";
 export * from "./ui/dropdown-menu";
 export * from "./ui/markdown";
 export * from "./ui/separator";

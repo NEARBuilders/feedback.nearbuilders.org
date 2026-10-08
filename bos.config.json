@@ -13,10 +13,10 @@
   "app": {
     "ui": {
       "development": "local:ui",
-      "production": "https://elliot-braem-9022-ui-feedback-nearbuilders-org-ne-250adcfc8-ze.zephyrcloud.app",
-      "integrity": "sha384-Ez3GazOA3T+ev4oxJ68inXJnhqqFXVmXTuyoQYTTk6oTnl1xiXbBbw2Pwvh4M2DH",
-      "ssr": "https://elliot-braem-9026-ui-feedback-nearbuilders-org-ne-1357b6fa5-ze.zephyrcloud.app",
-      "ssrIntegrity": "sha384-3sb9aO3wTwf0t33QtyeUUaeZoZz6FgDDai7ryBb0yF/lXIpunE4yMSU7VeqqtjzL"
+      "production": "https://elliot-braem-9036-ui-feedback-nearbuilders-org-ne-2a08caa13-ze.zephyrcloud.app",
+      "integrity": "sha384-GDxuC6US7in3qogML3QayUzjmDnZBFkgMmGu22AbKj+AZqOhPT40k+ACv/KuKWaT",
+      "ssr": "https://elliot-braem-9037-ui-feedback-nearbuilders-org-ne-1413a3658-ze.zephyrcloud.app",
+      "ssrIntegrity": "sha384-LUnMzGPmPPvLLbn3G/pJ749HVajpTKHw3hk/vSjY187nRMhri89ergyR6u2Zwc0c"
     },
     "api": {
       "development": "local:api",
@@ -30,7 +30,7 @@
         "GITHUB_API_TOKEN",
         "TIP_MESSAGE_TEMPLATE"
       ],
-      "production": "https://elliot-braem-9025-api-feedback-nearbuilders-org-n-5e40d9dfa-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-9033-api-feedback-nearbuilders-org-n-f2c705d9a-ze.zephyrcloud.app",
       "integrity": "sha384-e1SPJsnkJD6ohJvhLB51zijQt4yzPf8sDBxRrJk3FtDBqsfie2I4xpAQIubOg9Zi"
     }
   },
@@ -38,13 +38,13 @@
     "legion": {
       "development": "local:plugins/legion",
       "variables": {
-        "nodeUrl": "https://rpc.mainnet.near.dev",
+        "nodeUrl": "https://rpc.mainnet.near.org",
         "contractIds": [
           "initiate.nearlegion.near",
           "ascendant.nearlegion.near"
         ]
       },
-      "production": "https://elliot-braem-9023-everything-dev-legion-plugin-fe-026d0b067-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-9032-everything-dev-legion-plugin-fe-bb004f033-ze.zephyrcloud.app",
       "integrity": "sha384-z5qc4Hrqu7TN4Mq51HHmOAbYHt4qQSv+Wr5xHKTchcgGUAzKxzhbVpDEASVN+dUS"
     },
     "nostr": {
@@ -73,7 +73,7 @@
         "STORAGE_ACCESS_KEY_ID",
         "STORAGE_SECRET_ACCESS_KEY"
       ],
-      "production": "https://elliot-braem-9024-everything-dev-storage-plugin-f-57d41667f-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-9034-everything-dev-storage-plugin-f-fff5de717-ze.zephyrcloud.app",
       "integrity": "sha384-QT5UoGcyJcfxBLJ99mBFlRtHL31MKtQd+rLNw1M4/LVKVGCvSNUxSL7BPGg4Ja+T"
     }
   }

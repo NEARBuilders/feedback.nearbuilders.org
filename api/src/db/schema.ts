@@ -123,6 +123,9 @@ export const rounds = pgTable(
     isPrivate: boolean("is_private").default(false).notNull(),
     // Only holders of a Legion SBT can join and post (#103).
     legionOnly: boolean("legion_only").default(false).notNull(),
+    // Optional expiration: joining and posting are blocked once this passes, but the
+    // owner still closes the round manually (closing writes credits).
+    endsAt: timestamp("ends_at", { mode: "date", withTimezone: true }),
     status: roundStatus("status").default("pending").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),

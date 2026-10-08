@@ -10,6 +10,7 @@ const complete = {
   repoUrl: "",
   isPrivate: false,
   legionOnly: false,
+  endsAt: "",
   contact: "",
 };
 
@@ -50,6 +51,7 @@ describe("nextRoundFields", () => {
       repoUrl: "https://github.com/a/b",
       isPrivate: true,
       legionOnly: false,
+      endsAt: "",
       contact: "",
     });
   });

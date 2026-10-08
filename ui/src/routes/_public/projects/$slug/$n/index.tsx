@@ -1,18 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarDays, ExternalLink, Lock, Users } from "lucide-react";
+import { CalendarDays, ExternalLink, Lock, Timer, Users } from "lucide-react";
 import { useApiClient } from "@/app";
-import { Badge, Card, LegionMark } from "@/components";
+import { Badge, Card, LegionMark, RoundCountdown } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { RoundCredits } from "@/components/round-credits";
 import { RoundJoinCta } from "@/components/round-join-cta";
-import { RoundOwnerLine } from "@/components/round-owner-line";
 import { RoundParticipants } from "@/components/round-participants";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundRepoLinks } from "@/components/round-repo-links";
 import { useLegionAccess } from "@/hooks/use-legion-access";
-import { roundActivityUrl } from "@/lib/activity-events";
 import { roundEndorsementsQueryOptions, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { type RoundDetail, useRound } from "@/lib/round-route";
@@ -100,6 +98,11 @@ function JoinCard({
       )}
 
       {needsLegionCheck && <LegionEligibility />}
+      {viewer.isExpired && (
+        <p className="text-sm text-muted-foreground" data-testid="round-expired-notice">
+          This round has expired, so joining and posting are closed.
+        </p>
+      )}
     </Card>
   );
 }
@@ -117,22 +120,7 @@ function DetailsCard({
         details
       </span>
 
-      <RoundOwnerLine ownerAccountId={round.ownerAccountId} />
-
-      {endorsement && (
-        <div className="flex flex-wrap items-center gap-2">
-          <EndorsementCount count={endorsement.totalCount} />
-          <a
-            href={roundActivityUrl(round.ownerAccountId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-foreground underline"
-          >
-            Endorse on activity
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
-      )}
+      {endorsement && <EndorsementCount count={endorsement.totalCount} />}
 
       <div className="flex flex-wrap items-center gap-1.5">
         {round.formats.map((format) => (
@@ -160,6 +148,12 @@ function DetailsCard({
           <CalendarDays className="h-3.5 w-3.5" />
           started {formatDate(round.createdAt)}
         </span>
+        {round.endsAt && round.status === "open" && (
+          <span className="flex items-center gap-1.5" data-testid="round-ends-at">
+            <Timer className="h-3.5 w-3.5" />
+            <RoundCountdown endsAt={round.endsAt} />
+          </span>
+        )}
         {round.closedAt && <span>closed {formatDate(round.closedAt)}</span>}
       </div>
     </Card>
