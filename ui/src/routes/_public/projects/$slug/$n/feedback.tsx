@@ -45,7 +45,7 @@ function RoundFeedbackPage() {
             <RoundRepoLinks round={round} />
             {viewer.canPost && (
               <Button asChild size="sm">
-                <Link to="/testing/$slug/$n" params={params}>
+                <Link to="/projects/$slug/$n/submit" params={params}>
                   <PenLine className="h-3.5 w-3.5" />
                   write feedback
                 </Link>

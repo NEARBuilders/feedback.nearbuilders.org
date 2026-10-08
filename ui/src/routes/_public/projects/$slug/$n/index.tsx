@@ -180,7 +180,7 @@ function JoinButtons({
     <div className="flex gap-2">
       {viewer.canPost && (
         <Button asChild>
-          <Link to="/testing/$slug/$n" params={roundParams(round)}>
+          <Link to="/projects/$slug/$n/submit" params={roundParams(round)}>
             <PenLine className="h-4 w-4" />
             write feedback
           </Link>

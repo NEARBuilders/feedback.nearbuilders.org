@@ -68,8 +68,8 @@ describe("broadcastConfirmation", () => {
 
 describe("notificationTarget", () => {
   it("sends feedback status updates to the tester workspace", () => {
-    expect(notificationTarget("feedback_resolved")).toBe("/testing/$slug/$n");
-    expect(notificationTarget("feedback_dismissed")).toBe("/testing/$slug/$n");
+    expect(notificationTarget("feedback_resolved")).toBe("/projects/$slug/$n/submit");
+    expect(notificationTarget("feedback_dismissed")).toBe("/projects/$slug/$n/submit");
   });
 
   it("sends round updates to the public round page", () => {
