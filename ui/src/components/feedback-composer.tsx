@@ -8,9 +8,8 @@ import {
   Field,
   FieldLabel,
   Input,
-  Markdown,
+  MarkdownEditor,
   SegmentedToggle,
-  Textarea,
 } from "@/components";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
@@ -21,7 +20,7 @@ const FEEDBACK_BODY_MAX = 5000;
 
 const FORMAT_HINTS: Record<FeedbackFormat, string> = {
   written:
-    "Write up what you tried, what worked, and what didn't. It's posted publicly on the round.",
+    "Write up what you tried, what worked, and what didn't. Images can be pasted or dropped in. It's posted publicly on the round.",
   recorded: "Paste a link to your session recording — Loom, YouTube, anything viewable.",
 };
 
@@ -45,7 +44,7 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
   const writable = writableFormats(formats);
   const [format, setFormat] = useState<FeedbackFormat>(writable[0] ?? "written");
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
-  const [mode, setMode] = useState<"write" | "preview">("write");
+  const [pendingUploads, setPendingUploads] = useState(0);
   const draftKey = `feedback-draft:${accountId}:${roundId}`;
 
   useEffect(() => {
@@ -81,7 +80,6 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
       }),
     onSuccess: () => {
       setDraft(EMPTY_DRAFT);
-      setMode("write");
       localStorage.removeItem(draftKey);
       void invalidateFeedbackQueries(queryClient, roundId);
       void invalidateParticipationQueries(queryClient);
@@ -94,6 +92,7 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
 
   const canSubmit =
     !postMutation.isPending &&
+    pendingUploads === 0 &&
     (format === "written" ? draft.body.trim().length > 0 : draft.url.trim().length > 0);
 
   return (
@@ -112,38 +111,21 @@ export function FeedbackComposer({ roundId, formats, accountId }: FeedbackCompos
       <p className="text-xs text-muted-foreground">{FORMAT_HINTS[format]}</p>
       {format === "written" ? (
         <Field>
-          <div className="flex items-center justify-between gap-3">
-            <FieldLabel htmlFor="feedback-body">your feedback</FieldLabel>
-            <SegmentedToggle
-              value={mode}
-              onValueChange={setMode}
-              options={[
-                { value: "write", label: "Write" },
-                { value: "preview", label: "Preview" },
-              ]}
-              ariaLabel="Composer mode"
-            />
-          </div>
-          {mode === "write" ? (
-            <Textarea
-              id="feedback-body"
-              value={draft.body}
-              onChange={(e) => setDraft((prev) => ({ ...prev, body: e.target.value }))}
-              rows={8}
-              maxLength={FEEDBACK_BODY_MAX}
-              placeholder="What worked, what didn't? Markdown works."
-            />
-          ) : (
-            <div className="min-h-40 rounded-md border border-border p-4">
-              {draft.body.trim() ? (
-                <Markdown content={draft.body} />
-              ) : (
-                <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
-              )}
-            </div>
-          )}
+          <FieldLabel htmlFor="feedback-body">your feedback</FieldLabel>
+          <MarkdownEditor
+            id="feedback-body"
+            value={draft.body}
+            onChange={(body) => setDraft((prev) => ({ ...prev, body }))}
+            maxLength={FEEDBACK_BODY_MAX}
+            aria-label="Feedback"
+            disabled={postMutation.isPending}
+            onPendingUploadsChange={setPendingUploads}
+          />
           <span className="text-right text-xs text-muted-foreground">
-            {draft.body.length}/{FEEDBACK_BODY_MAX} · draft saved on this device
+            {draft.body.length}/{FEEDBACK_BODY_MAX}
+            {pendingUploads > 0
+              ? ` · uploading ${pendingUploads} image${pendingUploads > 1 ? "s" : ""}...`
+              : " · draft saved on this device"}
           </span>
         </Field>
       ) : (

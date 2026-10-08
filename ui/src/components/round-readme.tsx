@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Button, Card, Markdown, Textarea } from "@/components";
+import { Button, Card, Markdown, MarkdownEditor } from "@/components";
 import { SectionHeader } from "@/components/layout/section-header";
 import { invalidateRoundQueries } from "@/lib/queries/rounds";
 
@@ -60,12 +60,10 @@ export function RoundReadme({ roundId, readme, canEdit }: RoundReadmeProps) {
 
       {editing ? (
         <div className="space-y-3">
-          <Textarea
+          <MarkdownEditor
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={12}
+            onChange={setDraft}
             maxLength={README_MAX_LENGTH}
-            placeholder="What should testers try, how, and what should they focus on? Markdown is supported."
             aria-label="Readme markdown"
             disabled={saveMutation.isPending}
           />
