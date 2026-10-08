@@ -1,4 +1,4 @@
-import { Checkbox, Field, FieldLabel, Input, Textarea } from "@/components";
+import { Checkbox, Field, FieldLabel, Input, MarkdownEditor, Textarea } from "@/components";
 import { FORMAT_OPTIONS, type RoundFields, type RoundFormat } from "@/lib/round-fields";
 
 interface FormatCheckboxesProps {
@@ -90,13 +90,12 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
 
       <Field>
         <FieldLabel htmlFor="round-readme">readme for testers (optional, markdown)</FieldLabel>
-        <Textarea
+        <MarkdownEditor
           id="round-readme"
           value={value.readme}
-          onChange={(e) => set("readme", e.target.value)}
-          rows={8}
+          onChange={(readme) => set("readme", readme)}
           maxLength={20000}
-          placeholder={"## What to test\n\n1. Sign up...\n\n## Focus on\n\n- ..."}
+          aria-label="Readme markdown"
           disabled={disabled}
         />
       </Field>
