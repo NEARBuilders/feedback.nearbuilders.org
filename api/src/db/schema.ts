@@ -182,6 +182,8 @@ export const roundFeedback = pgTable(
     starredAt: timestamp("starred_at", { mode: "date", withTimezone: true }),
     starredByAccountId: text("starred_by_account_id"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    // Set when the author edits the feedback after posting; null means never edited.
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }),
     activityEventId: text("activity_event_id"),
     // Gateway id of the `feedback.accepted` event, so un-accepting can retract it.
     // Distinct from `activityEventId`, which holds the `feedback.posted` event.

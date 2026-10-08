@@ -1,0 +1,1 @@
+ALTER TABLE "round_feedback" ADD COLUMN "updated_at" timestamp with time zone;

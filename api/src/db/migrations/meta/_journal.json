@@ -176,6 +176,13 @@
       "when": 1791421801371,
       "tag": "0024_rainy_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791433549162,
+      "tag": "0025_melted_tombstone",
+      "breakpoints": true
     }
   ]
 }

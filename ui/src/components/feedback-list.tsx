@@ -1,14 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Button, ConfirmDialog } from "@/components";
+import { Button, ConfirmDialog, Input, MarkdownEditor } from "@/components";
 import { FeedbackContent } from "@/components/feedback-content";
 import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
+
+const FEEDBACK_BODY_MAX = 5000;
 
 interface FeedbackListProps<T extends FeedbackEntry> {
   roundId: string;
@@ -28,6 +30,29 @@ export function FeedbackList<T extends FeedbackEntry>({
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [pendingUploads, setPendingUploads] = useState(0);
+
+  const editMutation = useMutation({
+    mutationFn: (entry: FeedbackEntry) =>
+      apiClient.editFeedback({
+        id: roundId,
+        feedbackId: entry.id,
+        ...(entry.format === "written" ? { body: draft } : { url: draft }),
+      }),
+    onSuccess: () => {
+      void invalidateFeedbackQueries(queryClient, roundId);
+      setEditId(null);
+      toast.success("Feedback updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const startEdit = (entry: FeedbackEntry) => {
+    setDraft((entry.format === "written" ? entry.body : entry.url) ?? "");
+    setEditId(entry.id);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (feedbackId: string) => apiClient.deleteFeedback({ id: roundId, feedbackId }),
@@ -58,10 +83,23 @@ export function FeedbackList<T extends FeedbackEntry>({
                 <span className="min-w-0 truncate text-xs text-muted-foreground">
                   <span className="font-mono">{entry.authorAccountId}</span>
                   {isOwn && " (you)"} · {new Date(entry.createdAt).toLocaleDateString()}
+                  {entry.updatedAt && (
+                    <span title={new Date(entry.updatedAt).toLocaleString()}> · edited</span>
+                  )}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
                   {entry.starredAt && <StarBadge data-testid="star-badge" />}
                   <FeedbackStatusBadge status={entry.status} />
+                  {isOwn && canDelete && editId !== entry.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Edit feedback"
+                      onClick={() => startEdit(entry)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   {isOwn && canDelete && (
                     <Button
                       variant="ghost"
@@ -74,7 +112,45 @@ export function FeedbackList<T extends FeedbackEntry>({
                   )}
                 </span>
               </div>
-              <FeedbackContent entry={entry} />
+              {editId === entry.id ? (
+                <div className="space-y-2">
+                  {entry.format === "written" ? (
+                    <MarkdownEditor
+                      aria-label="Edit feedback"
+                      value={draft}
+                      onChange={setDraft}
+                      maxLength={FEEDBACK_BODY_MAX}
+                      onPendingUploadsChange={setPendingUploads}
+                    />
+                  ) : (
+                    <Input
+                      aria-label="Edit session link"
+                      type="url"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                    />
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={editMutation.isPending}
+                      onClick={() => setEditId(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!draft.trim() || pendingUploads > 0 || editMutation.isPending}
+                      onClick={() => editMutation.mutate(entry)}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <FeedbackContent entry={entry} />
+              )}
               {renderFooter?.(entry)}
             </li>
           );

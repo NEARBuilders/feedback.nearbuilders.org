@@ -116,6 +116,7 @@ export interface RoundFeedbackRecord {
   starredAt: string | null;
   starredByAccountId: string | null;
   createdAt: string;
+  updatedAt: string | null;
   activityEventId: string | null;
   nostrEventId: string | null;
 }
@@ -252,6 +253,11 @@ export interface RoundsService {
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string, page?: FeedbackPageInput): Promise<FeedbackPage>;
   getFeedback(roundId: string, feedbackId: string): Promise<RoundFeedbackRecord | null>;
+  /** Replaces the body or url of a feedback and stamps `updatedAt`; null when it doesn't exist. */
+  updateFeedbackContent(
+    feedbackId: string,
+    content: { body: string | null; url: string | null },
+  ): Promise<RoundFeedbackRecord | null>;
   setFeedbackStatus(
     roundId: string,
     feedbackIds: string[],
@@ -333,6 +339,7 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     starredAt: row.starredAt instanceof Date ? row.starredAt.toISOString() : null,
     starredByAccountId: row.starredByAccountId,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : null,
     activityEventId: row.activityEventId,
     nostrEventId: row.nostrEventId,
   };
@@ -718,6 +725,19 @@ export const RoundsLive = Layer.effect(
             items: pageRows.map(toFeedbackRecord),
             nextCursor: rows.length > limit ? (pageRows.at(-1)?.cursor ?? null) : null,
           };
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      updateFeedbackContent: async (feedbackId, content) => {
+        try {
+          const [row] = await db
+            .update(roundFeedbackTable)
+            .set({ body: content.body, url: content.url, updatedAt: new Date() })
+            .where(eq(roundFeedbackTable.id, feedbackId))
+            .returning();
+          return row ? toFeedbackRecord(row) : null;
         } catch (error) {
           throw toOrpcError(error);
         }
