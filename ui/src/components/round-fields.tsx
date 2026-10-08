@@ -139,7 +139,7 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
               <span className="font-medium text-foreground">Private feedback</span>
               <span className="block text-xs text-muted-foreground">
                 Only your organization (or its managing team), platform admins and each author can
-                read submissions. Nothing is published to Nostr.
+                read submissions.
               </span>
             </span>
           </label>
