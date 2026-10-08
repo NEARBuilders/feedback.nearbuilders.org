@@ -1,10 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, type SearchSchemaInput, useNavigate } from "@tanstack/react-router";
-import { PlusCircle } from "lucide-react";
+import { Building2, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { Button, Card, Field, FieldLabel, Input, MyProjects } from "@/components";
+import { type Organization, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import {
+  Button,
+  Card,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  Field,
+  FieldLabel,
+  Input,
+  MyProjects,
+} from "@/components";
+import { OrgSwitcherMenuContent } from "@/components/layout/org-switcher-menu";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundFieldsEditor } from "@/components/round-fields";
@@ -81,6 +91,18 @@ function NewRoundPage() {
   const sessionQuery = useQuery(sessionQueryOptions(auth));
   const activeOrgId = sessionQuery.data?.session?.activeOrganizationId ?? null;
 
+  const organizationsQuery = useQuery({
+    queryKey: ["organizations"],
+    queryFn: async () => {
+      const { data } = await auth.organization.list();
+      return (data || []) as Organization[];
+    },
+    staleTime: 30 * 1000,
+    enabled: !!sessionQuery.data?.user,
+  });
+  const organizations = organizationsQuery.data ?? [];
+  const activeOrg = organizations.find((org) => org.id === activeOrgId);
+
   // The picker's raw text doubles as the slug when the registry has no match,
   // so it lives here rather than inside the picker.
   const [projectQuery, setProjectQuery] = useState("");
@@ -144,19 +166,6 @@ function NewRoundPage() {
           </Card>
         )}
 
-        {!activeOrgId && !sessionQuery.isLoading && (
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">
-              Rounds belong to an organization. Select or create an organization before requesting
-              one.{" "}
-              <Link to="/orgs" className="text-foreground underline">
-                Open organizations
-              </Link>
-              .
-            </p>
-          </Card>
-        )}
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -165,6 +174,34 @@ function NewRoundPage() {
           className="space-y-6"
         >
           <Card className="space-y-4 p-6">
+            <Field>
+              <FieldLabel>organization</FieldLabel>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-testid="round-org-switcher"
+                    className="max-w-full justify-start"
+                  >
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{activeOrg?.name ?? "choose an organization"}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <OrgSwitcherMenuContent
+                  organizations={organizations}
+                  activeOrgId={activeOrgId}
+                  align="start"
+                />
+              </DropdownMenu>
+              {!activeOrgId && !sessionQuery.isLoading && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Rounds belong to an organization. Pick one, or create a new one from the same
+                  menu.
+                </p>
+              )}
+            </Field>
             {!project && (
               <ProjectPicker
                 query={projectQuery}
