@@ -1,23 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Card, Checkbox } from "@/components";
+import { Card, Checkbox, DateTimePicker } from "@/components";
 import { invalidateRoundQueries } from "@/lib/queries/rounds";
 
 export function RoundSettingsPanel({
   roundId,
   isPrivate,
   legionOnly,
+  endsAt,
 }: {
   roundId: string;
   isPrivate: boolean;
   legionOnly: boolean;
+  endsAt: string | null;
 }) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
 
   const settingsMutation = useMutation({
-    mutationFn: (input: { isPrivate?: boolean; legionOnly?: boolean }) =>
+    mutationFn: (input: { isPrivate?: boolean; legionOnly?: boolean; endsAt?: string | null }) =>
       apiClient.updateRoundSettings({ id: roundId, ...input }),
     onSuccess: () => {
       void invalidateRoundQueries(queryClient);
@@ -58,6 +60,21 @@ export function RoundSettingsPanel({
           </span>
         </span>
       </label>
+      <div className="flex items-start gap-2.5">
+        <DateTimePicker
+          value={endsAt}
+          disabled={settingsMutation.isPending}
+          placeholder="No expiration"
+          onChange={(value) => settingsMutation.mutate({ endsAt: value })}
+        />
+        <span className="text-sm">
+          <span className="font-medium text-foreground">Closes at</span>
+          <span className="block text-xs text-muted-foreground">
+            Once this passes, testers can't join or post. Clear it to keep the round open
+            indefinitely.
+          </span>
+        </span>
+      </div>
     </Card>
   );
 }

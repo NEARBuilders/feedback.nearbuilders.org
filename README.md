@@ -168,6 +168,10 @@ the queued row rather than emitting and immediately retracting it.
 - **Legion-only rounds:** the owner can restrict a round to holders of a Legion SBT. Joining and
   posting are rejected for non-holders, a failed holder lookup counts as "not a holder", and the
   round page shows signed-in builders whether they are eligible before they try to join.
+- **Round expiration:** the owner can set an expiration time when requesting a round and change or
+  clear it later (`PATCH /rounds/{id}/settings`). Once it passes, joining and posting are blocked
+  even though the round is still status `open` — the owner still closes it manually, since closing
+  writes the credit records. The round page shows a live countdown while the clock runs.
 - **Stars:** round managers (and admins) can star standout submissions
   (`PATCH /rounds/{id}/feedback/star`), independent of resolve/dismiss. Stars are curation today —
   they filter and badge the owner's inbox and the public feedback list — and are not yet scored

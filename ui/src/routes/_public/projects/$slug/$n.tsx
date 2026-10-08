@@ -11,7 +11,6 @@ import { Button, VerifiedBadge } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProductLink } from "@/components/project-identity";
-import { RoundOwnerLine } from "@/components/round-owner-line";
 import { RoundShareActions } from "@/components/round-share-actions";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
@@ -125,8 +124,6 @@ function RoundLayout() {
             )
           }
         />
-
-        {!compact && <RoundOwnerLine ownerAccountId={round.ownerAccountId} />}
 
         {!compact && (
           <RouteTabs label="Round sections">

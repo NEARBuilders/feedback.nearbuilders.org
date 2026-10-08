@@ -319,6 +319,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }
     };
 
+    /**
+     * Optional round expiration: once `endsAt` passes, joining and posting are blocked even
+     * though the round is still status "open" — the owner closes it manually for credits.
+     */
+    const assertRoundNotExpired = (round: { endsAt: string | null }) => {
+      if (round.endsAt && Date.parse(round.endsAt) <= Date.now()) {
+        throw new ORPCError("BAD_REQUEST", { message: "This round has expired" });
+      }
+    };
+
     type ViewerContext = ActorContext & {
       user?: { id?: string | null; role?: string | null } | null;
     };
@@ -432,6 +442,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { hint: "Link a NEAR wallet in settings" },
             });
           }
+          if (input.endsAt) {
+            const endsAtMs = Date.parse(input.endsAt);
+            if (Number.isNaN(endsAtMs) || endsAtMs <= Date.now()) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "The expiration time must be in the future",
+              });
+            }
+          }
           const round = await services.rounds.createRound({
             ownerAccountId,
             ownerOrgId: context.organization.activeOrganizationId,
@@ -447,6 +465,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             repoUrl: input.repoUrl,
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
+            endsAt: input.endsAt,
           });
           // Best effort: the banner is already saved on the round, the asset link just
           // lets a later round delete clean it up.
@@ -516,11 +535,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
           await assertCanManageRound(
             round,
             context,
-            "Only the round owner can change its privacy or Legion gate",
+            "Only the round owner can change its privacy, Legion gate or expiration",
           );
           return await services.rounds.updateRoundSettings(round.id, {
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
+            endsAt: input.endsAt,
           });
         }),
 
@@ -774,6 +794,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (round.status !== "open") {
           throw new ORPCError("BAD_REQUEST", { message: "This round is no longer open" });
         }
+        assertRoundNotExpired(round);
         if (myAccounts.includes(round.ownerAccountId)) {
           throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
         }
@@ -876,6 +897,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: `This round isn't collecting ${input.format} feedback`,
             });
           }
+          assertRoundNotExpired(round);
           // Post as the account that joined, which may no longer be the primary one.
           const accountId = await services.rounds.findParticipantAccount(round.id, myAccounts);
           if (!accountId) {
@@ -1026,6 +1048,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "This round is closed, so its feedback can no longer be edited",
             });
           }
+          assertRoundNotExpired(round);
           const body = feedback.format === "written" ? (input.body?.trim() ?? "") : null;
           const url = feedback.format === "recorded" ? (input.url ?? null) : null;
           if (feedback.format === "written" && !body) {

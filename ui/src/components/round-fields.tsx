@@ -1,4 +1,12 @@
-import { Checkbox, Field, FieldLabel, Input, MarkdownEditor, Textarea } from "@/components";
+import {
+  Checkbox,
+  DateTimePicker,
+  Field,
+  FieldLabel,
+  Input,
+  MarkdownEditor,
+  Textarea,
+} from "@/components";
 import { BannerUploader } from "@/components/banner-uploader";
 import {
   FORMAT_OPTIONS,
@@ -154,6 +162,19 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
         />
         <span className="text-xs text-muted-foreground">
           Only platform admins see this; used while reviewing your project.
+        </span>
+      </Field>
+
+      <Field>
+        <FieldLabel>closes at (optional)</FieldLabel>
+        <DateTimePicker
+          value={value.endsAt || null}
+          onChange={(endsAt) => set("endsAt", endsAt ?? "")}
+          disabled={disabled}
+        />
+        <span className="text-xs text-muted-foreground">
+          Joining and posting are blocked after this time. You can change or remove it in round
+          settings.
         </span>
       </Field>
 
