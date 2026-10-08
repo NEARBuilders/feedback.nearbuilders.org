@@ -56,7 +56,27 @@ export const ProjectSchema = z.object({
 
 export type Project = z.infer<typeof ProjectSchema>;
 
+/**
+ * Identity resolved from the nearbuilders.org registry, which owns it. Null
+ * when the registry has no entry for the slug or is unreachable — this app
+ * deliberately keeps no mirrored copy to drift out of date.
+ */
+export const ProjectIdentitySchema = z
+  .object({
+    title: z.string(),
+    description: z.string().nullable(),
+    domain: z.string().nullable(),
+    repository: z.string().nullable(),
+    logoUrl: z.string().nullable(),
+    /** Part of the registry's canonical URL for the project. */
+    kind: z.enum(["project", "idea", "scope", "result"]),
+  })
+  .nullable();
+
+export type ProjectIdentity = z.infer<typeof ProjectIdentitySchema>;
+
 export const ProjectWithRoundsSchema = ProjectSchema.extend({
+  identity: ProjectIdentitySchema,
   rounds: z.array(
     z.object({
       id: z.string(),
@@ -99,6 +119,11 @@ export const RoundSchema = z.object({
 export type Round = z.infer<typeof RoundSchema>;
 
 export const RoundDetailSchema = RoundSchema.extend({
+  /**
+   * The product under test, from the nearbuilders.org registry. A round is
+   * useless to a tester who can't tell what they're testing or reach it.
+   */
+  identity: ProjectIdentitySchema,
   participantCount: z.number().int().nonnegative(),
   /** First three participants, for the avatar row. Only set by getRound and getRoundBySlug. */
   participantPreview: z.array(z.string()).optional(),
@@ -363,13 +388,16 @@ export const NearBuildersProjectSchema = z.object({
   kind: z.enum(["project", "idea", "scope", "result"]),
   status: z.enum(["active", "paused", "archived"]),
   visibility: z.enum(["private", "unlisted", "public"]),
+  /** Where a tester goes to actually use the product. */
+  domain: z.string().nullable(),
+  repository: z.string().nullable(),
+  logoUrl: z.string().nullable(),
 });
 
 export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
 
 export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
   canManage: z.boolean(),
-  nearbuilders: NearBuildersProjectSchema.nullable(),
 });
 
 export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;

@@ -14,6 +14,10 @@ export type NearBuildersProject = {
   kind: "project" | "idea" | "scope" | "result";
   status: "active" | "paused" | "archived";
   visibility: "private" | "unlisted" | "public";
+  /** The product itself — where a tester goes to try it. */
+  domain: string | null;
+  repository: string | null;
+  logoUrl: string | null;
 };
 
 export type NearBuildersProjectList = {
@@ -53,6 +57,9 @@ export class ProjectsClient {
   listProjects(input: {
     query?: string;
     visibility?: "public" | "unlisted" | "private";
+    kind?: "project" | "idea" | "scope" | "result";
+    /** Comma-joined slugs for a batch lookup. */
+    slugs?: string;
     limit?: number;
   }): Promise<NearBuildersProjectList> {
     return this.#json(`/v1/projects${queryString(input)}`);

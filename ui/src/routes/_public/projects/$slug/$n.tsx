@@ -3,6 +3,7 @@ import { ArrowLeft, FileText, Inbox, MessageSquare } from "lucide-react";
 import { Button } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { ProductLink } from "@/components/project-identity";
 import { RoundShareActions } from "@/components/round-share-actions";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
@@ -40,6 +41,7 @@ function RoundLayout() {
             rounds
           </Link>
           <div className="flex flex-wrap gap-2">
+            <ProductLink identity={round.identity} />
             {(viewer.canManage || viewer.isAdmin) && (
               <Button asChild size="sm">
                 <Link to="/manage/$slug/$n" params={params}>
@@ -56,7 +58,7 @@ function RoundLayout() {
           icon={MessageSquare}
           label={
             <Link to="/projects/$slug" params={{ slug: params.slug }} className="hover:underline">
-              {round.projectSlug} · round {round.projectRoundNumber}
+              {round.identity?.title ?? round.projectSlug} · round {round.projectRoundNumber}
             </Link>
           }
           title={round.title}

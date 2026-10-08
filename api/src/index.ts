@@ -2,7 +2,7 @@ import { createPlugin } from "every-plugin";
 import { Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
-import { contract } from "./contract";
+import { contract, type ProjectIdentity } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
@@ -18,6 +18,7 @@ import { NotificationsLive, NotificationsTag } from "./services/notifications";
 import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
+import type { NearBuildersProject } from "./services/projects-client";
 import {
   canManageProject,
   canManageRound,
@@ -204,6 +205,54 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const { requireAuth, requireAdmin, requireOrganization, requireOrgRole } =
       createAuthMiddleware(builder);
 
+    /**
+     * Project identity lives in the nearbuilders.org registry, not here. These
+     * helpers attach it at read time so there is no mirrored copy to drift.
+     */
+    const toIdentity = (project: NearBuildersProject | undefined | null): ProjectIdentity =>
+      project
+        ? {
+            title: project.title,
+            description: project.description,
+            domain: project.domain,
+            repository: project.repository,
+            logoUrl: project.logoUrl,
+            kind: project.kind,
+          }
+        : null;
+
+    const withIdentity = async <T extends { slug: string }>(project: T) => ({
+      ...project,
+      identity: toIdentity(await services.projectsLookup.resolveBySlug(project.slug)),
+    });
+
+    /** One batch lookup for a list, rather than a request per project. */
+    const withIdentities = async <T extends { slug: string }>(projects: T[]) => {
+      const registry = await services.projectsLookup.resolveMany(
+        projects.map((project) => project.slug),
+      );
+      return projects.map((project) => ({
+        ...project,
+        identity: toIdentity(registry.get(project.slug)),
+      }));
+    };
+
+    const withRoundIdentity = async <T extends { projectSlug: string }>(round: T) => ({
+      ...round,
+      identity: toIdentity(await services.projectsLookup.resolveBySlug(round.projectSlug)),
+    });
+
+    /** Same batch lookup, for rounds, which carry their project's slug. */
+    const withRoundIdentities = async <T extends { projectSlug: string }>(rounds: T[]) => {
+      const registry = await services.projectsLookup.resolveMany(
+        rounds.map((round) => round.projectSlug),
+      );
+      return rounds.map((round) => ({
+        ...round,
+        identity: toIdentity(registry.get(round.projectSlug)),
+      }));
+    };
+
     const authorizedTenant = async (
       input: { tenantId: string },
       context: { organization: { activeOrganizationId: string } },
@@ -329,7 +378,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const canManage = canManageRound(round, project, await resolveActor(project, context));
       const hidden = round.status === "pending" || round.status === "rejected";
       if (hidden && !managesRound({ canManage }, context)) throw roundNotFound(resourceId);
-      return { ...round, canManage };
+      return {
+        ...round,
+        canManage,
+        identity: toIdentity(await services.projectsLookup.resolveBySlug(round.projectSlug)),
+      };
     };
 
     const requireRound = async (id: string) => {
@@ -601,21 +654,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
           });
         }
         const rounds = await services.rounds.listRounds(input.status);
-        if (input.status) return rounds;
         // No filter: this is the public browse listing, so pending/rejected
         // rounds — visible only to their owning org or an admin — never appear in it.
-        return rounds.filter(isPublic);
+        const visible = input.status ? rounds : rounds.filter(isPublic);
+        return withRoundIdentities(visible);
       }),
 
       listProjects: builder.listProjects
         .use(requireAdmin)
-        .handler(async ({ input }) => services.projectRecords.listProjects(input.status)),
+        .handler(async ({ input }) =>
+          withIdentities(await services.projectRecords.listProjects(input.status)),
+        ),
 
       listMyProjects: builder.listMyProjects
         .use(requireAuth)
         .use(requireOrganization)
         .handler(async ({ context }) =>
-          services.projectRecords.listProjectsByOrg(context.organization.activeOrganizationId),
+          withIdentities(
+            await services.projectRecords.listProjectsByOrg(
+              context.organization.activeOrganizationId,
+            ),
+          ),
         ),
 
       approveProject: builder.approveProject
@@ -642,7 +701,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resourceId: input.id },
             });
           }
-          return project;
+          return withIdentity(project);
         }),
 
       rejectProject: builder.rejectProject.use(requireAdmin).handler(async ({ input, errors }) => {
@@ -658,7 +717,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (!project) {
           throw errors.NOT_FOUND({ message: "Project not found", data: { resourceId: input.id } });
         }
-        return project;
+        return withIdentity(project);
       }),
 
       setProjectManagingTeam: builder.setProjectManagingTeam
@@ -710,7 +769,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resourceId: input.id },
             });
           }
-          return updated;
+          return withIdentity(updated);
         }),
 
       deleteRound: builder.deleteRound
@@ -791,7 +850,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (!detail) {
           throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
         }
-        return detail;
+        return withRoundIdentity(detail);
       }),
 
       leaveRound: builder.leaveRound
@@ -816,7 +875,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (!detail) {
             throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
           }
-          return detail;
+          return withRoundIdentity(detail);
         }),
 
       getMyParticipation: builder.getMyParticipation
@@ -1239,7 +1298,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             if (!credit.contributedMeaningfully) continue;
             await services.activityEvents.emitCreditAwarded(credit);
           }
-          return detail;
+          return withRoundIdentity(detail);
         }),
 
       listRoundCredits: builder.listRoundCredits.handler(async ({ input, context, errors }) => {
@@ -1317,7 +1376,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listPublicProjects: builder.listPublicProjects.handler(async () => {
         const projects = await services.projectRecords.listProjects("approved");
-        return projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) }));
+        return withIdentities(
+          projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) })),
+        );
       }),
 
       getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, context }) => {
@@ -1328,10 +1389,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const canSeeAll = managesRound({ canManage }, context);
         if (project.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
         return {
-          ...project,
+          ...(await withIdentity(project)),
           rounds: canSeeAll ? project.rounds : project.rounds.filter(isPublic),
           canManage,
-          nearbuilders: await services.projectsLookup.resolveBySlug(project.slug),
         };
       }),
 
