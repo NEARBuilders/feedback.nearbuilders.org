@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, PageContainer } from "@/components";
-import { UnderConstruction } from "@/components/under-construction";
 import { pageHead } from "@/lib/page-title";
 import { resetViewerQueries } from "@/lib/queries/viewer";
 
@@ -47,7 +46,6 @@ function LoginPage() {
   const queryClient = useQueryClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const { redirect } = Route.useSearch();
-  const { runtimeConfig } = Route.useRouteContext();
 
   const [nearPending, setNearPending] = useState(false);
   const [detectedAccount, setDetectedAccount] = useState<string | null>(null);
@@ -166,11 +164,6 @@ function LoginPage() {
             </Button>
           )}
         </div>
-
-        <UnderConstruction
-          sourceFile="ui/src/routes/_public/login.tsx"
-          runtimeConfig={runtimeConfig}
-        />
       </div>
     </PageContainer>
   );
