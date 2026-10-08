@@ -57,6 +57,6 @@ export function broadcastConfirmation(participantCount: number): string {
 
 export function notificationTarget(kind: string) {
   return kind.startsWith("feedback_")
-    ? ("/testing/$slug/$n" as const)
+    ? ("/projects/$slug/$n/submit" as const)
     : ("/projects/$slug/$n" as const);
 }

@@ -5,7 +5,7 @@ import { useApiClient } from "@/app";
 import { EmptyState } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectRoundsTable } from "@/components/project-rounds-table";
+import { ProjectDirectory } from "@/components/project-directory";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { publicProjectsQueryOptions } from "@/lib/queries/projects";
@@ -13,7 +13,7 @@ import { publicProjectsQueryOptions } from "@/lib/queries/projects";
 export const Route = createFileRoute("/_public/projects/")({
   loader: ({ context }) =>
     context.queryClient.ensureQueryData(publicProjectsQueryOptions(context.apiClient)),
-  head: () => pageHead("Projects", "Projects running feedback rounds, with their rounds."),
+  head: () => pageHead("Projects", "Products using feedback rounds to find testers."),
   pendingComponent: RoutePending,
   errorComponent: RouteError,
   component: ProjectsPage,
@@ -30,12 +30,12 @@ function ProjectsPage() {
           icon={FolderKanban}
           label="Feedback Rounds"
           title="Projects"
-          description="Projects running feedback rounds, newest round first."
+          description="Products using feedback rounds to find testers."
         />
         {projects.length === 0 ? (
           <EmptyState icon={FolderKanban} title="No projects yet." className="min-h-[30vh]" />
         ) : (
-          <ProjectRoundsTable projects={projects} grouped />
+          <ProjectDirectory projects={projects} />
         )}
       </div>
     </PageContainer>

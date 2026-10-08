@@ -79,7 +79,7 @@ function LandingPage() {
             and when it closes.
           </p>
           <Button asChild size="lg">
-            <Link to="/feed/request">request a round</Link>
+            <Link to="/manage/new">request a round</Link>
           </Button>
         </section>
       </div>

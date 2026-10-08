@@ -10,7 +10,7 @@ import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 
-interface FeedbackListProps<T extends FeedbackEntry & { points?: number }> {
+interface FeedbackListProps<T extends FeedbackEntry> {
   roundId: string;
   entries: T[];
   currentAccountId: string | null;
@@ -18,7 +18,7 @@ interface FeedbackListProps<T extends FeedbackEntry & { points?: number }> {
   renderFooter?: (entry: T) => ReactNode;
 }
 
-export function FeedbackList<T extends FeedbackEntry & { points?: number }>({
+export function FeedbackList<T extends FeedbackEntry>({
   roundId,
   entries,
   currentAccountId,
@@ -58,7 +58,6 @@ export function FeedbackList<T extends FeedbackEntry & { points?: number }>({
                 <span className="min-w-0 truncate text-xs text-muted-foreground">
                   <span className="font-mono">{entry.authorAccountId}</span>
                   {isOwn && " (you)"} · {new Date(entry.createdAt).toLocaleDateString()}
-                  {entry.points !== undefined && ` · ${entry.points} pts`}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
                   {entry.starredAt && <StarBadge data-testid="star-badge" />}

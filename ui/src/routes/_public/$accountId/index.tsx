@@ -7,7 +7,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { ListRow } from "@/components/list-row";
 import { toActivityEventViews } from "@/lib/activity-events";
 import { toBuilderRoundViews } from "@/lib/builder-rounds";
-import { acceptanceRate, acceptedLabel, pointsLabel } from "@/lib/points";
+import { contributionsLabel } from "@/lib/leaderboard";
 
 export const Route = createFileRoute("/_public/$accountId/")({
   component: AccountOverviewPage,
@@ -17,7 +17,7 @@ function AccountOverviewPage() {
   const { accountId } = Route.useParams();
   return (
     <div className="space-y-8">
-      <BuilderPoints accountId={accountId} />
+      <BuilderStanding accountId={accountId} />
       <BuilderFeedbackRounds accountId={accountId} />
       <BuilderActivityFeed accountId={accountId} />
     </div>
@@ -25,51 +25,43 @@ function AccountOverviewPage() {
 }
 
 /**
- * Credit earned for feedback the round owners accepted. Hidden until the builder
- * has submitted feedback, so profiles of people who have not tested anything stay clean.
+ * All-time standing read from activity, which owns scoring for this app.
+ * Hidden for builders who have not scored yet, so untested profiles stay clean.
  */
-export function BuilderPoints({ accountId }: { accountId: string }) {
+export function BuilderStanding({ accountId }: { accountId: string }) {
   const apiClient = useApiClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["builders", accountId, "points"],
-    queryFn: () => apiClient.getBuilderPoints({ accountId }),
-    staleTime: 30_000,
+    queryKey: ["builders", accountId, "standing"],
+    queryFn: () => apiClient.getBuilderStanding({ accountId }),
+    staleTime: 60_000,
   });
 
   if (isLoading) return <Skeleton className="h-24 w-full" />;
-  if (!data || data.submittedCount === 0) return null;
+  if (!data) return null;
 
   return (
-    <section className="space-y-4" data-testid="builder-points">
+    <section className="space-y-4" data-testid="builder-standing">
       <SectionHeader title="Earned credit" />
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
               <Trophy className="h-5 w-5" />
-              {pointsLabel(data.points)}
+              {data.score}
             </div>
             <p className="text-sm text-muted-foreground">
-              {acceptedLabel(data.acceptedCount)} of {data.submittedCount} submitted ·{" "}
-              {acceptanceRate(data.acceptedCount, data.submittedCount)} accepted
+              {contributionsLabel(data.eventCount)} across feedback rounds
             </p>
-            {data.starredCount > 0 && (
-              <p className="text-sm text-muted-foreground" data-testid="builder-starred">
-                {data.starredCount} starred as{" "}
-                {data.starredCount === 1 ? "a standout" : "standouts"} (+{data.bonusPoints} bonus{" "}
-                {data.bonusPoints === 1 ? "point" : "points"})
-              </p>
-            )}
           </div>
           <div className="flex items-center gap-3">
-            {data.rank !== null && <Badge variant="secondary">rank #{data.rank}</Badge>}
+            <Badge variant="secondary">rank #{data.rank}</Badge>
             <Link
               to="/leaderboard"
-              search={{ period: "all-time", metric: "points" }}
+              search={{ period: "all-time" }}
               className="text-sm text-foreground underline"
             >
-              View points leaderboard
+              View leaderboard
             </Link>
           </div>
         </div>

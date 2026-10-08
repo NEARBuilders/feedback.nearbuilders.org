@@ -1,6 +1,5 @@
 import {
   BookOpen,
-  Building2,
   ClipboardCheck,
   FolderKanban,
   Home,
@@ -12,7 +11,7 @@ import {
 } from "lucide-react";
 
 export type SidebarRole = "anon" | "member" | "admin";
-export type SidebarSectionId = "main" | "workspace" | "manage";
+export type SidebarSectionId = "main" | "testers" | "projects" | "admin";
 
 export interface SidebarItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -32,8 +31,9 @@ export interface SidebarSection {
 
 export const SIDEBAR_SECTIONS: { id: SidebarSectionId; label: string }[] = [
   { id: "main", label: "main" },
-  { id: "workspace", label: "workspace" },
-  { id: "manage", label: "manage" },
+  { id: "testers", label: "for testers" },
+  { id: "projects", label: "for projects" },
+  { id: "admin", label: "admin" },
 ];
 
 export const NAV_ITEMS: SidebarItem[] = [
@@ -43,13 +43,6 @@ export const NAV_ITEMS: SidebarItem[] = [
     icon: FolderKanban,
     label: "projects",
     to: "/projects",
-    section: "main",
-    roleRequired: "anon",
-  },
-  {
-    icon: Trophy,
-    label: "leaderboard",
-    to: "/leaderboard",
     section: "main",
     roleRequired: "anon",
   },
@@ -64,25 +57,31 @@ export const NAV_ITEMS: SidebarItem[] = [
     icon: ClipboardCheck,
     label: "testing",
     to: "/testing",
-    section: "workspace",
+    section: "testers",
     roleRequired: "member",
+  },
+  {
+    icon: Trophy,
+    label: "leaderboard",
+    to: "/leaderboard",
+    section: "testers",
+    roleRequired: "anon",
   },
   {
     icon: PlusCircle,
     label: "request a round",
-    to: "/feed/request",
-    section: "workspace",
+    to: "/manage/new",
+    section: "projects",
     roleRequired: "member",
   },
   {
     icon: LayoutDashboard,
     label: "manage",
     to: "/manage",
-    section: "workspace",
+    section: "projects",
     roleRequired: "member",
   },
-  { icon: Building2, label: "orgs", to: "/orgs", section: "workspace", roleRequired: "member" },
-  { icon: Shield, label: "admin", to: "/admin", section: "manage", roleRequired: "admin" },
+  { icon: Shield, label: "admin", to: "/admin", section: "admin", roleRequired: "admin" },
 ];
 
 export function getUserRole(isAuthenticated: boolean, isAdmin: boolean): SidebarRole {

@@ -9,6 +9,9 @@ const project = {
   kind: "project" as const,
   status: "active" as const,
   visibility: "public" as const,
+  domain: "https://onboarding.example",
+  repository: "https://github.com/near/onboarding",
+  logoUrl: null,
 };
 
 let warn: ReturnType<typeof vi.fn<(message: string) => void>>;
@@ -32,7 +35,7 @@ describe("createProjectsLookup (disabled)", () => {
 describe("createProjectsLookup (enabled)", () => {
   const config = { baseUrl: "https://nearbuilders.org/api" };
 
-  it("searches projects by query (public and unlisted)", async () => {
+  it("searches only testable projects, excluding ideas and scopes", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -44,7 +47,53 @@ describe("createProjectsLookup (enabled)", () => {
 
     expect(result).toEqual([project]);
     const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toBe("https://nearbuilders.org/api/v1/projects?query=onboarding");
+    expect(url).toBe("https://nearbuilders.org/api/v1/projects?query=onboarding&kind=project");
+  });
+
+  it("resolves many slugs in one batch request, keyed by slug", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [project], meta: { total: 1, hasMore: false, nextCursor: null } }),
+    } as Response);
+    const lookup = createProjectsLookup({ ...config, fetch: fetchMock, logger: { warn } });
+
+    const result = await lookup.resolveMany(["onboarding-flow", "missing", "onboarding-flow"]);
+
+    expect(result.get("onboarding-flow")).toEqual(project);
+    expect(result.has("missing")).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe(
+      "https://nearbuilders.org/api/v1/projects?slugs=onboarding-flow%2Cmissing&limit=2",
+    );
+  });
+
+  it("splits long slug lists into batch requests instead of dropping the tail", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [], meta: { total: 0, hasMore: false, nextCursor: null } }),
+    } as Response);
+    const lookup = createProjectsLookup({ ...config, fetch: fetchMock, logger: { warn } });
+
+    const slugs = Array.from({ length: 150 }, (_, i) => `slug-${i}`);
+    await lookup.resolveMany(slugs);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [firstUrl, secondUrl] = fetchMock.mock.calls as [[string], [string]];
+    expect(firstUrl[0]).toContain(`limit=100`);
+    expect(firstUrl[0]).toContain(`slugs=slug-0%2C`);
+    expect(secondUrl[0]).toContain(`limit=50`);
+    expect(secondUrl[0]).toContain(`slugs=slug-100%2C`);
+  });
+
+  it("makes no request when asked for no slugs", async () => {
+    const fetchMock = vi.fn();
+    const lookup = createProjectsLookup({ ...config, fetch: fetchMock, logger: { warn } });
+
+    expect((await lookup.resolveMany([])).size).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("skips the request and returns an empty list for a blank query", async () => {

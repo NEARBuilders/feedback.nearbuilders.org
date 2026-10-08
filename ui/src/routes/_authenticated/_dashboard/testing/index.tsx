@@ -113,7 +113,7 @@ function TesterRoundCard({ round }: { round: WorkspaceRound }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <Link
-            to="/testing/$slug/$n"
+            to="/projects/$slug/$n/submit"
             params={roundParams(round)}
             className="text-sm font-medium text-foreground hover:underline"
           >
@@ -139,7 +139,7 @@ function TesterRoundCard({ round }: { round: WorkspaceRound }) {
               size="sm"
               variant={action.kind === "give-feedback" ? "default" : "outline"}
             >
-              <Link to="/testing/$slug/$n" params={roundParams(round)}>
+              <Link to="/projects/$slug/$n/submit" params={roundParams(round)}>
                 <PenLine className="h-3.5 w-3.5" />
                 {action.label}
               </Link>

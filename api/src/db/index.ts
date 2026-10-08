@@ -6,6 +6,9 @@ import * as schema from "./schema";
 
 export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
 
+/** A drizzle transaction handle, derived from `Database.transaction`. */
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
 export interface DatabaseDriver {
   readonly db: Database;
   close(): Promise<void>;

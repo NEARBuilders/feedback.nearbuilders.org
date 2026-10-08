@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  contributionsLabel,
   filterStandings,
-  isLeaderboardMetric,
   isLeaderboardPeriod,
   leaderboardState,
   paginate,
   periodLabel,
-  submissionsLabel,
 } from "./leaderboard";
 
 describe("leaderboard helpers", () => {
@@ -23,10 +22,10 @@ describe("leaderboard helpers", () => {
     expect(periodLabel("all-time")).toBe("All time");
   });
 
-  it("pluralises submissions", () => {
-    expect(submissionsLabel(1)).toBe("1 submission");
-    expect(submissionsLabel(0)).toBe("0 submissions");
-    expect(submissionsLabel(12)).toBe("12 submissions");
+  it("pluralises contributions", () => {
+    expect(contributionsLabel(1)).toBe("1 contribution");
+    expect(contributionsLabel(0)).toBe("0 contributions");
+    expect(contributionsLabel(12)).toBe("12 contributions");
   });
 });
 
@@ -78,14 +77,5 @@ describe("leaderboardState", () => {
     expect(leaderboardState({ configured: true, available: true, data: [] }, 0)).toBe("empty");
     expect(leaderboardState(ok, 0)).toBe("no-match");
     expect(leaderboardState(ok, 1)).toBe("ready");
-  });
-});
-
-describe("isLeaderboardMetric", () => {
-  it("recognises only the supported metrics", () => {
-    expect(isLeaderboardMetric("submissions")).toBe(true);
-    expect(isLeaderboardMetric("points")).toBe(true);
-    expect(isLeaderboardMetric("score")).toBe(false);
-    expect(isLeaderboardMetric(undefined)).toBe(false);
   });
 });

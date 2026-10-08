@@ -30,11 +30,19 @@ export interface ProjectsLookupOptions {
 export interface ProjectsLookup {
   /** True when a gateway base URL is configured. */
   readonly enabled: boolean;
-  /** Search public projects by title/slug; null if the gateway is unreachable. */
+  /** Search testable projects by title/slug; null if the gateway is unreachable. */
   search(query: string): Promise<NearBuildersProject[] | null>;
   /** Resolve a slug to its canonical project; null if not found or unreachable. */
   resolveBySlug(slug: string): Promise<NearBuildersProject | null>;
+  /**
+   * Resolve many slugs at once, keyed by slug. Rendering a list of projects
+   * needs their registry metadata, and one request beats N round-trips.
+   */
+  resolveMany(slugs: string[]): Promise<Map<string, NearBuildersProject>>;
 }
+
+/** Keeps one batch request inside the gateway's page size. */
+const MAX_SLUGS_PER_LOOKUP = 100;
 
 export function createProjectsLookup(options: ProjectsLookupOptions = {}): ProjectsLookup {
   const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
@@ -70,13 +78,16 @@ export function createProjectsLookup(options: ProjectsLookupOptions = {}): Proje
       const trimmed = query.trim();
       if (!trimmed) return [];
       const result = await read("listProjects", () =>
+        // `kind: project` keeps ideas, scopes and results out of the picker:
+        // they are write-ups, not products anyone can be asked to test.
         // No `limit`: nearbuilders.org's REST layer rejects numeric query
-        // params (no string coercion), so any limit 400s and the picker
-        // degrades. The endpoint's default page size is plenty.
+        // params (no string coercion) until nearbuilders.org#265 lands, so
+        // any limit 400s and the picker degrades. The endpoint's default
+        // page size is plenty for a typeahead.
         // No `visibility`: omitting it lets unlisted projects (owner-named
         // for a feedback round, still not private) appear alongside public
         // ones; private is excluded upstream either way.
-        client.listProjects({ query: trimmed }),
+        client.listProjects({ query: trimmed, kind: "project" }),
       );
       return result?.data ?? null;
     },
@@ -84,6 +95,22 @@ export function createProjectsLookup(options: ProjectsLookupOptions = {}): Proje
     resolveBySlug: async (slug) => {
       if (!enabled) return null;
       return read("getProjectBySlug", () => client.getProjectBySlug(slug));
+    },
+
+    resolveMany: async (slugs) => {
+      if (!enabled) return new Map();
+      const unique = [...new Set(slugs)];
+      const resolved = new Map<string, NearBuildersProject>();
+      // One request per batch of slugs, so a long list stays a handful of
+      // calls rather than one per project — and no slug is silently dropped.
+      for (let i = 0; i < unique.length; i += MAX_SLUGS_PER_LOOKUP) {
+        const batch = unique.slice(i, i + MAX_SLUGS_PER_LOOKUP);
+        const result = await read("listProjectsBySlugs", () =>
+          client.listProjects({ slugs: batch.join(","), limit: batch.length }),
+        );
+        for (const project of result?.data ?? []) resolved.set(project.slug, project);
+      }
+      return resolved;
     },
   };
 }

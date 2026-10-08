@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { Star } from "lucide-react";
 import type { ApiClient } from "@/app";
 import { Badge } from "@/components";
 import {
@@ -10,36 +9,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { type LeaderboardMetric, submissionsLabel } from "@/lib/leaderboard";
-import { acceptedLabel } from "@/lib/points";
+import { contributionsLabel } from "@/lib/leaderboard";
 
-type LeaderboardEntry = Awaited<ReturnType<ApiClient["getLeaderboard"]>>["data"][number] & {
-  /** Accepted submissions a round manager starred (points board only, #104). */
-  starredCount?: number;
-};
+type LeaderboardEntry = Awaited<ReturnType<ApiClient["getLeaderboard"]>>["data"][number];
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentAccountId?: string | null;
-  metric?: LeaderboardMetric;
 }
 
-export function LeaderboardTable({
-  entries,
-  currentAccountId,
-  metric = "submissions",
-}: LeaderboardTableProps) {
-  const isPoints = metric === "points";
+export function LeaderboardTable({ entries, currentAccountId }: LeaderboardTableProps) {
   return (
     <Table data-testid="leaderboard-table">
       <TableHeader>
         <TableRow>
           <TableHead className="w-16">Rank</TableHead>
           <TableHead>Builder</TableHead>
-          <TableHead className="text-right">{isPoints ? "Accepted" : "Submissions"}</TableHead>
-          <TableHead className={`text-right ${isPoints ? "" : "hidden sm:table-cell"}`}>
-            {isPoints ? "Points" : "Score"}
-          </TableHead>
+          <TableHead className="text-right">Contributions</TableHead>
+          <TableHead className="text-right">Score</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -61,21 +48,9 @@ export function LeaderboardTable({
               {entry.actor === currentAccountId && <Badge className="ml-2 text-[10px]">you</Badge>}
             </TableCell>
             <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
-              {isPoints ? acceptedLabel(entry.eventCount) : submissionsLabel(entry.eventCount)}
-              {isPoints && (entry.starredCount ?? 0) > 0 && (
-                <span className="ml-2 inline-flex items-center gap-0.5" data-testid="starred-count">
-                  <Star className="h-3 w-3 fill-current" />
-                  {entry.starredCount}
-                </span>
-              )}
+              {contributionsLabel(entry.eventCount)}
             </TableCell>
-            <TableCell
-              className={`text-right text-sm tabular-nums ${
-                isPoints
-                  ? "font-semibold text-foreground"
-                  : "hidden sm:table-cell text-muted-foreground"
-              }`}
-            >
+            <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">
               {entry.score}
             </TableCell>
           </TableRow>

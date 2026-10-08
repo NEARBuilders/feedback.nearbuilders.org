@@ -70,6 +70,15 @@ export function roundEndorsementsQueryOptions(apiClient: ApiClient, roundIds: st
   });
 }
 
+export function ownerSummaryQueryOptions(apiClient: ApiClient, orgId: string | null) {
+  return queryOptions({
+    queryKey: [...roundKeys.all, "owner-summary", orgId] as const,
+    queryFn: () => apiClient.getOwnerSummary(),
+    enabled: !!orgId,
+    staleTime: 30 * 1000,
+  });
+}
+
 export function invalidateRoundQueries(queryClient: QueryClient) {
   return queryClient.invalidateQueries({ queryKey: roundKeys.all });
 }

@@ -81,7 +81,7 @@ describe("createRound", () => {
     await expect(client.createRound({ ...fresh(), formats: [] })).rejects.toThrow();
   });
 
-  it("stores a resolved projectId alongside the slug when the picker supplied one", async () => {
+  it("stores the picker's resolved project id on the project, not just the slug", async () => {
     const client = await getPluginClient(nearAuthedContext("picker-owner.near"));
     const round = await client.createRound({
       ...baseInput,
@@ -89,14 +89,16 @@ describe("createRound", () => {
       projectId: "proj_1",
     });
 
-    expect(round.projectId).toBe("proj_1");
+    const project = await client.getProjectBySlug({ slug: round.projectSlug });
+    expect(project.nearbuildersProjectId).toBe("proj_1");
   });
 
-  it("defaults projectId to null for a free-text slug with no resolved project", async () => {
+  it("defaults to no resolved project for a free-text slug", async () => {
     const client = await getPluginClient(nearAuthedContext("freetext-owner.near"));
     const round = await client.createRound(fresh());
 
-    expect(round.projectId).toBeNull();
+    const project = await client.getProjectBySlug({ slug: round.projectSlug });
+    expect(project.nearbuildersProjectId).toBeNull();
   });
 
   it("rejects the issues format without a repo URL", async () => {
@@ -825,11 +827,6 @@ describe("project picker (PROJECTS_API_BASE_URL unset in tests)", () => {
   it("getProjectSearchStatus reports search as not configured", async () => {
     const client = await getPluginClient();
     await expect(client.getProjectSearchStatus()).resolves.toEqual({ enabled: false });
-  });
-
-  it("resolveProjectBySlug degrades to null rather than erroring", async () => {
-    const client = await getPluginClient();
-    await expect(client.resolveProjectBySlug({ slug: "onboarding-flow" })).resolves.toBeNull();
   });
 });
 

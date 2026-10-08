@@ -54,9 +54,11 @@ function ProjectConsolePage() {
               {project.status === "approved" && (
                 <Button asChild size="sm">
                   <Link
-                    to="/manage/$slug/new"
-                    params={{ slug }}
-                    search={latest ? { from: latest.projectRoundNumber } : {}}
+                    to="/manage/new"
+                    search={{
+                      project: slug,
+                      ...(latest ? { from: latest.projectRoundNumber } : {}),
+                    }}
                   >
                     <PlusCircle className="h-3.5 w-3.5" />
                     start round

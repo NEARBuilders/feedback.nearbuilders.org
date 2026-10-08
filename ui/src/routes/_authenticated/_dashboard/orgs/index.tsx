@@ -2,17 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Building2, Mail, Plus, RefreshCw, Users } from "lucide-react";
 import { toast } from "sonner";
-import {
-  type Organization,
-  type SessionData,
-  sessionQueryOptions,
-  useApiClient,
-  useAuthClient,
-} from "@/app";
+import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, Card, Chip, PageHeader } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
 import { pageHead } from "@/lib/page-title";
-import { tenantOrganizationIdsQueryOptions } from "@/lib/queries/tenants";
 
 type AuthClientType = import("@/app").AuthClient;
 type UserInvitationsResponse = Awaited<
@@ -53,7 +46,6 @@ export const Route = createFileRoute("/_authenticated/_dashboard/orgs/")({
 
 function OrganizationsList() {
   const auth = useAuthClient();
-  const apiClient = useApiClient();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
@@ -81,14 +73,6 @@ function OrganizationsList() {
   });
 
   const orgs = organizations || [];
-
-  const { data: tenantOrgIds = new Set<string>() } = useQuery({
-    ...tenantOrganizationIdsQueryOptions(
-      apiClient,
-      orgs.map((organization) => organization.id),
-    ),
-    enabled: orgs.length > 0,
-  });
 
   const pendingInvitations = userInvitations.filter((i) => i.status === "pending");
 
@@ -242,8 +226,6 @@ function OrganizationsList() {
               const isPersonal = user
                 ? org.slug === user.id || org.metadata?.isPersonal === true
                 : false;
-              const hasTenant = tenantOrgIds.has(org.id);
-
               return (
                 <Card key={org.id} className="p-6 space-y-5 hover:shadow-md">
                   <div className="flex items-start gap-4">
@@ -265,7 +247,6 @@ function OrganizationsList() {
                         </span>
                         {isActive && <Chip>active</Chip>}
                         {isPersonal && <Chip>personal</Chip>}
-                        {hasTenant && <Chip>tenant</Chip>}
                       </div>
                       <div className="text-sm font-mono text-muted-foreground">@{org.slug}</div>
                     </div>

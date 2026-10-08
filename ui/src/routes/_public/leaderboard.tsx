@@ -8,14 +8,10 @@ import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import {
-  DEFAULT_LEADERBOARD_METRIC,
   DEFAULT_LEADERBOARD_PERIOD,
   filterStandings,
-  isLeaderboardMetric,
   isLeaderboardPeriod,
-  LEADERBOARD_METRICS,
   LEADERBOARD_PERIODS,
-  type LeaderboardMetric,
   type LeaderboardPeriod,
   leaderboardState,
   paginate,
@@ -27,11 +23,8 @@ import { useNearAccountStatus } from "@/lib/use-near-account";
 const LEADERBOARD_LIMIT = 50;
 
 export const Route = createFileRoute("/_public/leaderboard")({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { period: LeaderboardPeriod; metric: LeaderboardMetric } => ({
+  validateSearch: (search: Record<string, unknown>): { period: LeaderboardPeriod } => ({
     period: isLeaderboardPeriod(search.period) ? search.period : DEFAULT_LEADERBOARD_PERIOD,
-    metric: isLeaderboardMetric(search.metric) ? search.metric : DEFAULT_LEADERBOARD_METRIC,
   }),
   head: () =>
     pageHead(
@@ -42,7 +35,7 @@ export const Route = createFileRoute("/_public/leaderboard")({
 });
 
 function LeaderboardPage() {
-  const { period, metric } = Route.useSearch();
+  const { period } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const apiClient = useApiClient();
   const { accountId } = useNearAccountStatus();
@@ -50,33 +43,14 @@ function LeaderboardPage() {
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["leaderboard", metric, period, LEADERBOARD_LIMIT],
-    queryFn: async () => {
-      if (metric === "points") {
-        const board = await apiClient.getPointsLeaderboard({ period, limit: LEADERBOARD_LIMIT });
-        return {
-          period: board.period,
-          configured: true,
-          available: true,
-          data: board.data.map((entry) => ({
-            rank: entry.rank,
-            actor: entry.actor,
-            score: entry.points,
-            eventCount: entry.acceptedCount,
-            starredCount: entry.starredCount,
-          })),
-        };
-      }
-      return apiClient.getLeaderboard({ period, limit: LEADERBOARD_LIMIT });
-    },
+    queryKey: ["leaderboard", period, LEADERBOARD_LIMIT],
+    queryFn: () => apiClient.getLeaderboard({ period, limit: LEADERBOARD_LIMIT }),
     staleTime: 60_000,
   });
 
   useEffect(() => {
     setPage(1);
-  }, [period, metric, query]);
-
-  const isPoints = metric === "points";
+  }, [period, query]);
 
   const filtered = useMemo(() => filterStandings(data?.data ?? [], query), [data, query]);
   const paged = paginate(filtered, page);
@@ -89,22 +63,10 @@ function LeaderboardPage() {
           icon={Trophy}
           label="Leaderboard"
           title="Top testers"
-          description={
-            isPoints
-              ? "Builders ranked by points: 10 for every feedback item a round owner accepts, plus a 5 point bonus when they star it."
-              : "Builders ranked by the feedback they've submitted across rounds."
-          }
+          description="Builders ranked by the credit they've earned across feedback rounds."
         />
 
         <div className="flex flex-wrap items-center gap-3">
-          <SegmentedToggle
-            value={metric}
-            onValueChange={(next) =>
-              void navigate({ search: (prev) => ({ ...prev, metric: next }) })
-            }
-            options={LEADERBOARD_METRICS}
-            ariaLabel="Leaderboard ranking"
-          />
           <SegmentedToggle
             value={period}
             onValueChange={(next) =>
@@ -169,11 +131,7 @@ function LeaderboardPage() {
         ) : state === "empty" ? (
           <EmptyState
             icon={Trophy}
-            title={
-              isPoints
-                ? `No accepted feedback yet for ${periodLabel(period).toLowerCase()}.`
-                : `No leaderboard activity yet for ${periodLabel(period).toLowerCase()}.`
-            }
+            title={`No leaderboard activity yet for ${periodLabel(period).toLowerCase()}.`}
             className="min-h-[30vh]"
           />
         ) : state === "no-match" ? (
@@ -184,11 +142,7 @@ function LeaderboardPage() {
           />
         ) : (
           <div className="space-y-3">
-            <LeaderboardTable
-              entries={paged.items}
-              currentAccountId={accountId || null}
-              metric={metric}
-            />
+            <LeaderboardTable entries={paged.items} currentAccountId={accountId || null} />
             {paged.pageCount > 1 && (
               <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
                 <span>

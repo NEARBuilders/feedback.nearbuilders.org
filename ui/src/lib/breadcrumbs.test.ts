@@ -15,7 +15,7 @@ describe("getBreadcrumbs", () => {
 
   it("labels known routes", () => {
     expect(getBreadcrumbs("/how-to-integrate")[0].label).toBe("how it works");
-    expect(getBreadcrumbs("/feed/request")[1].label).toBe("request a round");
+    expect(getBreadcrumbs("/manage/new")[1].label).toBe("request a round");
   });
 
   it("labels the round number in canonical round URLs", () => {

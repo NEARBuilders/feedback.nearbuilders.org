@@ -7,8 +7,6 @@ interface TeamAccessLogger {
 }
 
 export interface TeamAccess {
-  /** Whether the auth plugin is available to answer team questions. */
-  readonly enabled: boolean;
   /** Fails closed: any lookup error counts as "not a member". */
   isMember(context: Record<string, unknown>, teamId: string, userId: string): Promise<boolean>;
   /** The ids of the teams in an organization, or null when they could not be read. */
@@ -23,8 +21,6 @@ export function createTeamAccess(
   logger: TeamAccessLogger = console,
 ): TeamAccess {
   return {
-    enabled: typeof auth === "function",
-
     isMember: async (context, teamId, userId) => {
       if (!auth) return false;
       try {

@@ -17,6 +17,7 @@
  * `./activity-client`, the ported activity.nearbuilders.org reference client.
  */
 
+import type { ActivityEventType } from "../db/schema";
 import {
   ActivityApiError,
   ActivityClient,
@@ -26,11 +27,7 @@ import {
   type JsonValue,
 } from "./activity-client";
 
-export type ActivityEventType =
-  | "round.opened"
-  | "feedback.posted"
-  | "round.closed"
-  | "credit.awarded";
+export type { ActivityEventType };
 
 const REQUEST_TIMEOUT_MS = 5000;
 
@@ -102,6 +99,14 @@ export interface ActivityEmitter {
   readonly enabled: boolean;
   /** True when a gateway URL is set. Reads are public, so no API key is needed. */
   readonly readable: boolean;
+  /**
+   * Submit a pre-built event, letting errors propagate.
+   *
+   * The `emit*` helpers below swallow failures, which is right for events the
+   * leaderboard does not score. Reputation-bearing events go through the outbox
+   * instead, which needs the throw to drive its retry.
+   */
+  submitRaw(event: ActivityEventSubmission): Promise<string | null>;
   /** Returns the gateway's event id on success, or null if disabled/failed. */
   emitRoundOpened(round: RoundOpenedInput): Promise<string | null>;
   emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<string | null>;
@@ -117,7 +122,7 @@ export interface ActivityEmitter {
   listActorEvents(input: ActorEventsInput): Promise<ActivityEvent[] | null>;
 }
 
-interface ActivityEventSubmission {
+export interface ActivityEventSubmission {
   eventType: ActivityEventType;
   actor: string;
   idempotencyKey: string;
@@ -180,6 +185,12 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
   return {
     enabled,
     readable,
+
+    submitRaw: async (event) => {
+      if (!enabled) return null;
+      const { eventId } = await client.submit(event);
+      return eventId;
+    },
 
     emitRoundOpened: (round) =>
       submit({

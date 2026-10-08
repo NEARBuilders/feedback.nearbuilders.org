@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, FolderKanban, LayoutDashboard, PlayCircle } from "lucide-react";
+import { FolderKanban, LayoutDashboard, PlayCircle } from "lucide-react";
 import { Button } from "@/components";
 import { ActionCard } from "@/components/action-card";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeader } from "@/components/layout/section-header";
+import { ProductLink, ProjectLinks } from "@/components/project-identity";
 import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
@@ -14,7 +15,7 @@ import { roundParams } from "@/lib/round-links";
 export const Route = createFileRoute("/_public/projects/$slug/")({
   loader: async ({ context, params }) => {
     const project = await loadProject(context, params.slug);
-    return { name: project.name, description: project.nearbuilders?.description ?? undefined };
+    return { name: project.name, description: project.identity?.description ?? undefined };
   },
   head: ({ loaderData }) => pageHead(loaderData?.name, loaderData?.description),
   pendingComponent: RoutePending,
@@ -27,7 +28,7 @@ function ProjectPage() {
   const { slug } = Route.useParams();
   const project = useProject(slug);
   const current = project.rounds.filter((round) => round.status === "open").at(-1);
-  const nearbuilders = project.nearbuilders;
+  const identity = project.identity;
 
   return (
     <PageContainer>
@@ -37,21 +38,11 @@ function ProjectPage() {
           label="Project"
           title={project.name}
           subtitle={project.slug}
-          description={nearbuilders?.description ?? `Feedback rounds for ${project.name}.`}
+          description={identity?.description ?? `Feedback rounds for ${project.name}.`}
           actions={
             <>
-              {nearbuilders && (
-                <Button asChild variant="outline" size="sm">
-                  <a
-                    href={`https://nearbuilders.org/projects/${nearbuilders.kind}/${nearbuilders.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    nearbuilders.org
-                  </a>
-                </Button>
-              )}
+              <ProductLink identity={identity} />
+              <ProjectLinks identity={identity} slug={project.slug} />
               {project.canManage && (
                 <Button asChild size="sm">
                   <Link to="/manage/$slug" params={{ slug }}>

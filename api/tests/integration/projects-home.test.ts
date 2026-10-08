@@ -37,7 +37,7 @@ describe("getProjectBySlug (#119)", () => {
     const { ownerClient } = await createOpenRound("home-owner2.near", { projectSlug: slug });
 
     const asOwner = await ownerClient.getProjectBySlug({ slug });
-    expect(asOwner).toMatchObject({ slug, canManage: true, nearbuilders: null });
+    expect(asOwner).toMatchObject({ slug, canManage: true, identity: null });
     expect(asOwner.rounds).toHaveLength(1);
 
     const asVisitor = await (await getPluginClient()).getProjectBySlug({ slug });

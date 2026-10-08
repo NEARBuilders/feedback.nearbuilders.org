@@ -1,69 +1,38 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Home as HomeIcon, Settings } from "lucide-react";
-import { useMemo } from "react";
 import {
-  getAccount,
-  type SessionData,
-  sessionQueryOptions,
-  useApiClient,
-  useAuthClient,
-} from "@/app";
-import {
-  Button,
-  Card,
-  InfoRow,
-  MyProjects,
-  PageHeader,
-  SectionHeader,
-  Skeleton,
-} from "@/components";
-import { RoundStatusBadge } from "@/components/round-status-badge";
+  ArrowRight,
+  ClipboardCheck,
+  Home as HomeIcon,
+  LayoutDashboard,
+  Settings,
+} from "lucide-react";
+import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { Button, Card } from "@/components";
+import { PageHeader } from "@/components/layout/page-header";
+import { StatCard } from "@/components/stat-card";
 import { pageHead } from "@/lib/page-title";
 import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
-import type { RoundStatus } from "@/lib/queries/rounds";
-import { roundParams } from "@/lib/round-links";
+import { ownerSummaryQueryOptions } from "@/lib/queries/rounds";
+import { groupWorkspaceRounds } from "@/lib/tester-workspace";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
+/**
+ * The post-login landing place. It answers one question a builder who is both
+ * a tester and an owner has nowhere else: "what, across both roles, needs me
+ * right now?" Everything here summarizes and links elsewhere — it holds no
+ * list of its own, so there is nothing here to duplicate /testing or /manage.
+ */
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard/")({
-  beforeLoad: async ({ context }) => {
-    const { apiClient, runtimeConfig } = context;
-    const accountId = getAccount(runtimeConfig);
-    let tenant: Awaited<ReturnType<typeof apiClient.resolveTenant>> | null = null;
-    try {
-      tenant = await apiClient.resolveTenant({ accountId });
-    } catch {
-      tenant = null;
-    }
-    return { tenant };
-  },
   head: () => pageHead("Dashboard", "Your workspace."),
   component: Home,
 });
 
 function Home() {
   const auth = useAuthClient();
-  const apiClient = useApiClient();
-  const { tenant } = Route.useRouteContext();
-  const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth, undefined));
-  const user = session?.user;
-
-  const { accountId: nearAccountId, isDetecting } = useNearAccountStatus();
-
-  const joinedRoundsQuery = useQuery({
-    ...joinedRoundsQueryOptions(apiClient),
-    enabled: !!nearAccountId,
-  });
-
-  const joinedRounds = useMemo(() => {
-    const rounds = joinedRoundsQuery.data ?? [];
-    return [...rounds].sort((a, b) => {
-      if ((a.status === "open") !== (b.status === "open")) return a.status === "open" ? -1 : 1;
-      return 0;
-    });
-  }, [joinedRoundsQuery.data]);
-
-  const openCount = joinedRounds.filter((round) => round.status === "open").length;
+  const { data: session } = useQuery(sessionQueryOptions(auth));
+  const user = session?.user ?? null;
+  const activeOrgId = session?.session?.activeOrganizationId ?? null;
 
   return (
     <div className="space-y-8">
@@ -74,7 +43,7 @@ function Home() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
-              <Link to="/feed/request" preload="intent">
+              <Link to="/manage/new" preload="intent">
                 request a round
               </Link>
             </Button>
@@ -88,154 +57,86 @@ function Home() {
         }
       />
 
-      {!user ? (
-        <div className="text-muted-foreground text-center py-12 text-sm">Loading…</div>
-      ) : (
-        <>
-          <JoinedRounds
-            query={joinedRoundsQuery}
-            rounds={joinedRounds}
-            openCount={openCount}
-            hasNear={!!nearAccountId}
-            settled={!isDetecting}
-          />
-
-          <MyProjects />
-        </>
-      )}
-
-      {tenant && (
-        <Card className="p-6 space-y-4">
-          <div className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-            Tenant
-          </div>
-          <div className="flex flex-col gap-2">
-            <InfoRow label="name" value={tenant.name} />
-            <InfoRow label="id" value={tenant.id} mono />
-            <InfoRow label="account" value={tenant.accountId} mono />
-            <InfoRow
-              label="created"
-              value={tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : "—"}
-            />
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/admin" preload="intent">
-                manage tenant
-              </Link>
-            </Button>
-          </div>
-        </Card>
-      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TestingSummary />
+        {activeOrgId && <OwnerSummary orgId={activeOrgId} />}
+      </div>
     </div>
   );
 }
 
-function JoinedRounds({
-  query,
-  rounds,
-  openCount,
-  hasNear,
-  settled,
-}: {
-  query: { isLoading: boolean };
-  rounds: Array<{
-    roundId: string;
-    roundTitle: string;
-    projectSlug: string;
-    projectRoundNumber: number;
-    status: RoundStatus;
-    participantCount: number;
-  }>;
-  openCount: number;
-  hasNear: boolean;
-  settled: boolean;
-}) {
-  if (!hasNear) {
-    if (!settled) {
-      return (
-        <div className="space-y-3">
-          <SectionHeader title="Rounds you're testing" />
-          <div className="space-y-2">
-            {[1, 2, 3].map((n) => (
-              <Skeleton key={n} className="h-16 w-full" />
-            ))}
-          </div>
-        </div>
-      );
-    }
+function TestingSummary() {
+  const apiClient = useApiClient();
+  const { accountId, isDetecting } = useNearAccountStatus();
+  const { data: joined, isLoading } = useQuery({
+    ...joinedRoundsQueryOptions(apiClient),
+    enabled: !!accountId,
+  });
+
+  if (!accountId && !isDetecting) {
     return (
-      <div className="space-y-3">
-        <SectionHeader title="Rounds you're testing" />
-        <Card className="p-6 space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Link a NEAR account to see the rounds you've joined as a tester.
-          </p>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/settings/auth-methods">link a NEAR account</Link>
-          </Button>
-        </Card>
-      </div>
+      <Card className="space-y-3 p-6">
+        <SummaryHeader icon={ClipboardCheck} title="Testing" />
+        <p className="text-sm text-muted-foreground">
+          Link a NEAR account to join rounds and give feedback.{" "}
+          <Link to="/settings/auth-methods" className="text-foreground underline">
+            Link one now
+          </Link>
+          .
+        </p>
+      </Card>
     );
   }
 
+  const groups = groupWorkspaceRounds(joined ?? []);
+
   return (
-    <div className="space-y-3">
-      <SectionHeader
-        title="Rounds you're testing"
-        action={
-          rounds.length > 0 ? (
-            <span className="flex items-center gap-3 text-sm text-muted-foreground">
-              {openCount} open · {rounds.length} total
-              <Link to="/testing" className="text-foreground underline">
-                open tester workspace
-              </Link>
-            </span>
-          ) : undefined
-        }
-      />
-      {query.isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((n) => (
-            <Skeleton key={n} className="h-16 w-full" />
-          ))}
-        </div>
-      ) : rounds.length === 0 ? (
-        <Card className="p-6 space-y-3">
-          <p className="text-sm text-muted-foreground">You haven't joined any rounds yet.</p>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/rounds">browse open rounds</Link>
-          </Button>
-        </Card>
-      ) : (
-        <ul className="space-y-2">
-          {rounds.map((round) => (
-            <li key={round.roundId}>
-              <Card className="p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <Link
-                      to="/projects/$slug/$n"
-                      params={roundParams(round)}
-                      className="text-sm font-medium text-foreground underline-offset-2 hover:underline"
-                    >
-                      {round.roundTitle}
-                    </Link>
-                    <p className="text-xs font-mono text-muted-foreground">{round.projectSlug}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RoundStatusBadge status={round.status} />
-                    <span className="text-xs text-muted-foreground">
-                      {round.participantCount}{" "}
-                      {round.participantCount === 1 ? "builder" : "builders"}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+    <Card className="space-y-4 p-6">
+      <SummaryHeader icon={ClipboardCheck} title="Testing" />
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard
+          label="Need your feedback"
+          value={isLoading ? "—" : groups.needsFeedback.length}
+        />
+        <StatCard label="Rounds joined" value={isLoading ? "—" : (joined?.length ?? 0)} />
+      </div>
+      <Button asChild variant="outline" size="sm">
+        <Link to="/testing">
+          go to testing
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </Button>
+    </Card>
+  );
+}
+
+function OwnerSummary({ orgId }: { orgId: string }) {
+  const apiClient = useApiClient();
+  const { data, isLoading } = useQuery(ownerSummaryQueryOptions(apiClient, orgId));
+
+  return (
+    <Card className="space-y-4 p-6">
+      <SummaryHeader icon={LayoutDashboard} title="Managing" />
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Open rounds" value={isLoading ? "—" : (data?.openRounds ?? 0)} />
+        <StatCard label="Unresolved" value={isLoading ? "—" : (data?.unresolvedFeedback ?? 0)} />
+        <StatCard label="Pending" value={isLoading ? "—" : (data?.pendingProjects ?? 0)} />
+      </div>
+      <Button asChild variant="outline" size="sm">
+        <Link to="/manage">
+          go to manage
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </Button>
+    </Card>
+  );
+}
+
+function SummaryHeader({ icon: Icon, title }: { icon: typeof ClipboardCheck; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
     </div>
   );
 }

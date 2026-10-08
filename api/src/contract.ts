@@ -11,22 +11,6 @@ const ErrorTestKindSchema = z.enum([
   "internal",
 ]);
 
-export const TenantStatusSchema = z.enum(["active", "pending", "suspended", "pending_deletion"]);
-
-export const TenantSchema = z.object({
-  id: z.string(),
-  subdomain: z.string(),
-  accountId: z.string(),
-  orgId: z.string(),
-  name: z.string(),
-  status: TenantStatusSchema,
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  deletedAt: z.string().nullable(),
-});
-
-export type Tenant = z.infer<typeof TenantSchema>;
-
 // "in_progress" (auto-locked once tester slots fill) is part of the README's
 // full planned lifecycle but depends on a signup/slot-selection system that
 // doesn't exist yet — out of scope here (#48 only covers the pending admin
@@ -56,7 +40,27 @@ export const ProjectSchema = z.object({
 
 export type Project = z.infer<typeof ProjectSchema>;
 
+/**
+ * Identity resolved from the nearbuilders.org registry, which owns it. Null
+ * when the registry has no entry for the slug or is unreachable — this app
+ * deliberately keeps no mirrored copy to drift out of date.
+ */
+export const ProjectIdentitySchema = z
+  .object({
+    title: z.string(),
+    description: z.string().nullable(),
+    domain: z.string().nullable(),
+    repository: z.string().nullable(),
+    logoUrl: z.string().nullable(),
+    /** Part of the registry's canonical URL for the project. */
+    kind: z.enum(["project", "idea", "scope", "result"]),
+  })
+  .nullable();
+
+export type ProjectIdentity = z.infer<typeof ProjectIdentitySchema>;
+
 export const ProjectWithRoundsSchema = ProjectSchema.extend({
+  identity: ProjectIdentitySchema,
   rounds: z.array(
     z.object({
       id: z.string(),
@@ -73,8 +77,6 @@ export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
   projectSlug: z.string(),
-  /** nearbuilders.org project id this round resolved against, if any (#23). */
-  projectId: z.string().nullable(),
   /** The approved-project anchor this round hangs off (#69). */
   projectRecordId: z.string(),
   projectRoundNumber: z.number().int().positive(),
@@ -99,6 +101,11 @@ export const RoundSchema = z.object({
 export type Round = z.infer<typeof RoundSchema>;
 
 export const RoundDetailSchema = RoundSchema.extend({
+  /**
+   * The product under test, from the nearbuilders.org registry. A round is
+   * useless to a tester who can't tell what they're testing or reach it.
+   */
+  identity: ProjectIdentitySchema,
   participantCount: z.number().int().nonnegative(),
   /** First three participants, for the avatar row. Only set by getRound and getRoundBySlug. */
   participantPreview: z.array(z.string()).optional(),
@@ -161,9 +168,7 @@ export const FeedbackDetailSchema = RoundFeedbackSchema.extend({
 
 export type FeedbackDetail = z.infer<typeof FeedbackDetailSchema>;
 
-export const MyFeedbackSchema = FeedbackDetailSchema.extend({
-  points: z.number().int().nonnegative(),
-});
+export const MyFeedbackSchema = FeedbackDetailSchema;
 
 export type MyFeedback = z.infer<typeof MyFeedbackSchema>;
 
@@ -295,6 +300,15 @@ export const MyJoinedRoundSchema = z.object({
   joinedAt: z.string(),
 });
 
+/** Counts for the owner's home-page overview; nothing here is scoped to one round. */
+export const OwnerSummarySchema = z.object({
+  openRounds: z.number().int().nonnegative(),
+  unresolvedFeedback: z.number().int().nonnegative(),
+  pendingProjects: z.number().int().nonnegative(),
+});
+
+export type OwnerSummary = z.infer<typeof OwnerSummarySchema>;
+
 export type MyJoinedRound = z.infer<typeof MyJoinedRoundSchema>;
 
 export const CreditCandidateSchema = z.object({
@@ -323,40 +337,21 @@ export const LeaderboardSchema = z.object({
 
 export type Leaderboard = z.infer<typeof LeaderboardSchema>;
 
-export const PointsEntrySchema = z.object({
-  rank: z.number().int().positive(),
-  actor: z.string(),
-  points: z.number().int().nonnegative(),
-  acceptedCount: z.number().int().positive(),
-  /** Accepted submissions a round manager also starred (#104). */
-  starredCount: z.number().int().nonnegative(),
-  /** The part of `points` that came from stars. */
-  bonusPoints: z.number().int().nonnegative(),
-});
+/**
+ * One builder's all-time standing, read from activity rather than computed here.
+ * `null` when the gateway is unreachable or the builder has not scored yet.
+ */
+export const BuilderStandingSchema = z
+  .object({
+    accountId: z.string(),
+    rank: z.number().int().positive(),
+    score: z.number(),
+    /** Scored events behind the score: accepted feedback and round credits. */
+    eventCount: z.number().int().nonnegative(),
+  })
+  .nullable();
 
-export const PointsLeaderboardSchema = z.object({
-  period: LeaderboardPeriodSchema,
-  /** Points awarded for each feedback item the round owner accepts (marks resolved). */
-  pointsPerAcceptedFeedback: z.number().int().positive(),
-  /** Extra points when a round manager stars an accepted item (#104). */
-  bonusPointsPerStarredFeedback: z.number().int().positive(),
-  data: z.array(PointsEntrySchema),
-});
-
-export type PointsLeaderboard = z.infer<typeof PointsLeaderboardSchema>;
-
-export const BuilderPointsSchema = z.object({
-  accountId: z.string(),
-  points: z.number().int().nonnegative(),
-  acceptedCount: z.number().int().nonnegative(),
-  starredCount: z.number().int().nonnegative(),
-  bonusPoints: z.number().int().nonnegative(),
-  submittedCount: z.number().int().nonnegative(),
-  /** All-time rank by points, or null when the builder has no points yet. */
-  rank: z.number().int().positive().nullable(),
-});
-
-export type BuilderPoints = z.infer<typeof BuilderPointsSchema>;
+export type BuilderStanding = z.infer<typeof BuilderStandingSchema>;
 
 export const RoundEndorsementSchema = z.object({
   eventId: z.string(),
@@ -376,6 +371,36 @@ export const BuilderActivityEventSchema = z.object({
 
 export type BuilderActivityEvent = z.infer<typeof BuilderActivityEventSchema>;
 
+/**
+ * One undeliverable row from the activity outbox, for operator inspection.
+ * Dates arrive as ISO strings; the local Date objects are serialized by the
+ * handler before returning.
+ */
+export const ActivityOutboxRowSchema = z.object({
+  id: z.uuid(),
+  operation: z.enum(["emit", "retract"]),
+  /** Set for emit; null for retract. */
+  eventType: z.string().nullable(),
+  actor: z.string().nullable(),
+  payload: z.record(z.string(), z.unknown()).nullable(),
+  /** Set for retract: the gateway event id being hidden, and why. */
+  targetEventId: z.string().nullable(),
+  reason: z.string().nullable(),
+  idempotencyKey: z.string(),
+  /** Where the gateway's event id is written back once delivered. */
+  subjectKind: z.string().nullable(),
+  subjectId: z.string().nullable(),
+  status: z.enum(["pending", "sent", "failed", "cancelled"]),
+  attempts: z.number().int().nonnegative(),
+  lastError: z.string().nullable(),
+  nextAttemptAt: z.iso.datetime(),
+  eventId: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  sentAt: z.iso.datetime().nullable(),
+});
+
+export type ActivityOutboxRow = z.infer<typeof ActivityOutboxRowSchema>;
+
 export const NearBuildersProjectSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -384,13 +409,16 @@ export const NearBuildersProjectSchema = z.object({
   kind: z.enum(["project", "idea", "scope", "result"]),
   status: z.enum(["active", "paused", "archived"]),
   visibility: z.enum(["private", "unlisted", "public"]),
+  /** Where a tester goes to actually use the product. */
+  domain: z.string().nullable(),
+  repository: z.string().nullable(),
+  logoUrl: z.string().nullable(),
 });
 
 export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
 
 export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
   canManage: z.boolean(),
-  nearbuilders: NearBuildersProjectSchema.nullable(),
 });
 
 export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;
@@ -474,89 +502,6 @@ export const contract = oc.router({
       }),
     )
     .errors({ UNAUTHORIZED }),
-
-  listTenants: oc
-    .route({ method: "GET", path: "/tenants" })
-    .output(z.array(TenantSchema))
-    .errors({ UNAUTHORIZED, FORBIDDEN }),
-
-  createTenant: oc
-    .route({ method: "POST", path: "/tenants" })
-    .input(
-      z.object({
-        subdomain: z.string(),
-        name: z.string(),
-        accountId: z.string(),
-        status: z.enum(["active", "pending"]).optional(),
-      }),
-    )
-    .output(TenantSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
-
-  updateTenant: oc
-    .route({ method: "PATCH", path: "/tenants/{tenantId}" })
-    .input(
-      z.object({
-        tenantId: z.string(),
-        name: z.string().optional(),
-        subdomain: z.string().optional(),
-        accountId: z.string().optional(),
-        status: TenantStatusSchema.optional(),
-      }),
-    )
-    .output(TenantSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
-
-  deleteTenant: oc
-    .route({ method: "POST", path: "/tenants/{tenantId}/delete" })
-    .input(z.object({ tenantId: z.string() }))
-    .output(TenantSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
-
-  suspendTenant: oc
-    .route({ method: "POST", path: "/tenants/{tenantId}/suspend" })
-    .input(z.object({ tenantId: z.string() }))
-    .output(TenantSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
-
-  reactivateTenant: oc
-    .route({ method: "POST", path: "/tenants/{tenantId}/reactivate" })
-    .input(z.object({ tenantId: z.string() }))
-    .output(TenantSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
-
-  resolveTenant: oc
-    .route({ method: "GET", path: "/tenants/account/{accountId}" })
-    .input(z.object({ accountId: z.string() }))
-    .output(TenantSchema.nullable()),
-
-  resolveTenantByOrgId: oc
-    .route({ method: "GET", path: "/tenants/org/{orgId}" })
-    .input(z.object({ orgId: z.string() }))
-    .output(TenantSchema)
-    .errors({ NOT_FOUND }),
-
-  tenantPreflight: oc
-    .route({ method: "POST", path: "/tenants/preflight" })
-    .input(
-      z.object({
-        subdomain: z.string(),
-        parentAccount: z.string(),
-      }),
-    )
-    .output(
-      z.object({
-        subdomain: z.object({
-          available: z.boolean(),
-          reserved: z.boolean(),
-        }),
-        accountId: z.object({
-          format: z.enum(["valid", "invalid"]),
-          available: z.boolean(),
-        }),
-      }),
-    )
-    .errors({ UNAUTHORIZED, BAD_REQUEST }),
 
   createRound: oc
     .route({ method: "POST", path: "/rounds" })
@@ -674,6 +619,11 @@ export const contract = oc.router({
   listMyJoinedRounds: oc
     .route({ method: "GET", path: "/rounds/joined" })
     .output(z.array(MyJoinedRoundSchema))
+    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+
+  getOwnerSummary: oc
+    .route({ method: "GET", path: "/my/owner-summary" })
+    .output(OwnerSummarySchema)
     .errors({ UNAUTHORIZED, BAD_REQUEST }),
 
   getMyLegionAccess: oc
@@ -892,25 +842,10 @@ export const contract = oc.router({
     .output(z.object({ recipients: z.number().int().nonnegative() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
-  resolveProjectBySlug: oc
-    .route({ method: "GET", path: "/projects/by-slug/{slug}" })
-    .input(z.object({ slug: z.string().min(1).max(100) }))
-    .output(NearBuildersProjectSchema.nullable()),
-
-  getPointsLeaderboard: oc
-    .route({ method: "GET", path: "/points/leaderboard" })
-    .input(
-      z.object({
-        period: LeaderboardPeriodSchema.default("all-time"),
-        limit: z.number().int().positive().max(100).optional(),
-      }),
-    )
-    .output(PointsLeaderboardSchema),
-
-  getBuilderPoints: oc
-    .route({ method: "GET", path: "/builders/{accountId}/points" })
-    .input(z.object({ accountId: z.string() }))
-    .output(BuilderPointsSchema),
+  getBuilderStanding: oc
+    .route({ method: "GET", path: "/builders/{accountId}/standing" })
+    .input(z.object({ accountId: z.string().min(1) }))
+    .output(BuilderStandingSchema),
 
   getLeaderboard: oc
     .route({ method: "GET", path: "/activity/leaderboard" })
@@ -922,13 +857,49 @@ export const contract = oc.router({
     )
     .output(LeaderboardSchema),
 
+  listFailedActivityEvents: oc
+    .route({
+      method: "GET",
+      path: "/activity-outbox/failed",
+      summary: "List undeliverable activity events",
+      description:
+        "Reputation events that exhausted their retries, for operator inspection. Site-admin only: a parked row means the gateway never received the event.",
+      tags: ["Activity"],
+    })
+    .output(z.array(ActivityOutboxRowSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  retryFailedActivityEvents: oc
+    .route({
+      method: "POST",
+      path: "/activity-outbox/failed/retry",
+      summary: "Re-queue undeliverable activity events",
+      description:
+        "Re-queues parked outbox rows, e.g. after the gateway comes back. Site-admin only.",
+      tags: ["Activity"],
+    })
+    .input(z.object({ ids: z.array(z.uuid()).min(1) }))
+    .output(z.object({ retried: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+
+  getActivityOutboxDepth: oc
+    .route({
+      method: "GET",
+      path: "/activity-outbox/depth",
+      summary: "Activity outbox queue depth",
+      description: "Row counts by outbox status, for health checks. Site-admin only.",
+      tags: ["Activity"],
+    })
+    .output(z.object({ byStatus: z.record(z.string(), z.number().int().nonnegative()) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
   testError: oc
     .route({
       method: "GET",
       path: "/errors",
       summary: "Trigger a specific error kind",
       description:
-        "Regression-test helper that throws the requested error kind so the host error surface can be validated.",
+        "Admin-only error-injection helper, so the host error surface can be validated without exposing a probe endpoint to the internet.",
       tags: ["Testing"],
     })
     .input(

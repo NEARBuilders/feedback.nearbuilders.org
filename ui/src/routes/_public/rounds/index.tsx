@@ -13,7 +13,6 @@ import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { RoundsTable } from "@/components/rounds-table";
 import { RouteError, RoutePending } from "@/components/route-states";
-import { TopTesters } from "@/components/top-testers";
 import { pageHead } from "@/lib/page-title";
 import { roundEndorsementsQueryOptions, roundsQueryOptions } from "@/lib/queries/rounds";
 import { oneOf, positiveInt } from "@/lib/search";
@@ -45,7 +44,7 @@ export const Route = createFileRoute("/_public/rounds/")({
   loaderDeps: ({ search }) => ({ status: search.status }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(roundsQueryOptions(context.apiClient, deps.status)),
-  head: () => pageHead("Rounds", "Browse feedback rounds and join one."),
+  head: () => pageHead("Rounds", "Products looking for testers. Join a round and report back."),
   pendingComponent: RoutePending,
   errorComponent: RouteError,
   component: RoundsPage,
@@ -67,9 +66,13 @@ function RoundsPage() {
     const q = query.trim().toLowerCase();
     if (!q) return rounds;
     return rounds.filter((round) =>
-      [round.title, round.description, round.projectSlug].some((field) =>
-        field.toLowerCase().includes(q),
-      ),
+      [
+        round.title,
+        round.description,
+        round.projectSlug,
+        round.identity?.title ?? "",
+        round.identity?.domain ?? "",
+      ].some((field) => field.toLowerCase().includes(q)),
     );
   }, [rounds, query]);
 
@@ -77,7 +80,12 @@ function RoundsPage() {
     <PageContainer variant="default">
       <div className="space-y-8">
         <div className="space-y-4">
-          <PageHeader icon={MessageSquare} label="Feedback Rounds" title="Rounds" />
+          <PageHeader
+            icon={MessageSquare}
+            label="Feedback Rounds"
+            title="Rounds"
+            description="Products looking for testers right now. Join one, try it, report back."
+          />
 
           <div className="flex flex-wrap items-center gap-3">
             <SegmentedToggle
@@ -91,14 +99,12 @@ function RoundsPage() {
               <Input
                 value={query}
                 onChange={(e) => setSearch({ q: e.target.value })}
-                placeholder="Search rounds"
+                placeholder="Search rounds and projects"
                 className="pl-9"
               />
             </div>
           </div>
         </div>
-
-        <TopTesters />
 
         {filtered.length === 0 ? (
           <EmptyState

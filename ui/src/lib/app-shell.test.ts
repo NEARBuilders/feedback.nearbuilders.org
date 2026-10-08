@@ -25,9 +25,9 @@ describe("shouldUseAppShell", () => {
   });
 
   it("drops the shell for the compact pop-out workspace", () => {
-    expect(shouldUseAppShell(true, "/testing/near-wallet/3", { compact: 1 })).toBe(false);
-    expect(shouldUseAppShell(true, "/testing/near-wallet/3", { compact: "1" })).toBe(false);
-    expect(shouldUseAppShell(true, "/testing/near-wallet/3", { compact: 0 })).toBe(true);
+    expect(shouldUseAppShell(true, "/projects/near-wallet/3/submit", { compact: 1 })).toBe(false);
+    expect(shouldUseAppShell(true, "/projects/near-wallet/3/submit", { compact: "1" })).toBe(false);
+    expect(shouldUseAppShell(true, "/projects/near-wallet/3/submit", { compact: 0 })).toBe(true);
   });
 
   it("keeps the landing page and login on the marketing shell", () => {

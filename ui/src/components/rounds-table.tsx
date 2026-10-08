@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import type { ApiClient } from "@/app";
 import { Badge, Button } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
+import { ProjectLabel } from "@/components/project-identity";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import {
   Table,
@@ -29,8 +30,8 @@ type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
 
 /** Columns that collapse on narrow screens; the title column is always visible. */
 const COLUMN_VISIBILITY: Record<string, string> = {
+  project: "",
   title: "",
-  projectSlug: "hidden sm:table-cell",
   status: "",
   formats: "hidden lg:table-cell",
   participantCount: "hidden md:table-cell",
@@ -53,6 +54,20 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
   const columns = useMemo<ColumnDef<RoundDetail>[]>(
     () => [
       {
+        id: "project",
+        header: "Project",
+        accessorFn: (round) => (round.identity?.title ?? round.projectSlug).toLowerCase(),
+        cell: ({ row }) => (
+          <Link to="/projects/$slug" params={{ slug: row.original.projectSlug }}>
+            <ProjectLabel
+              identity={row.original.identity}
+              name={row.original.identity?.title ?? row.original.projectSlug}
+              className="hover:underline"
+            />
+          </Link>
+        ),
+      },
+      {
         id: "title",
         header: "Round",
         accessorFn: (round) => round.title.toLowerCase(),
@@ -62,18 +77,9 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
             params={roundParams(row.original)}
             className="font-medium text-foreground hover:underline"
           >
+            <span className="text-muted-foreground">#{row.original.projectRoundNumber}</span>{" "}
             {row.original.title}
           </Link>
-        ),
-      },
-      {
-        id: "projectSlug",
-        header: "Project",
-        accessorKey: "projectSlug",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
-            {row.original.projectSlug}
-          </span>
         ),
       },
       {

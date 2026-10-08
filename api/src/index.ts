@@ -2,29 +2,24 @@ import { createPlugin } from "every-plugin";
 import { Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
-import { contract } from "./contract";
-import { DatabaseLive } from "./db/layer";
+import { contract, type ProjectIdentity } from "./contract";
+import { DatabaseLive, DatabaseTag } from "./db/layer";
+import type { activityOutbox as activityOutboxTable } from "./db/schema";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
+import { createActivityOutboxWorker } from "./services/activity-outbox";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
 import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import { NotificationsLive, NotificationsTag } from "./services/notifications";
-import {
-  BONUS_POINTS_PER_STARRED_FEEDBACK,
-  bonusPointsForStarred,
-  POINTS_PER_ACCEPTED_FEEDBACK,
-  periodStart,
-  rankStandings,
-  totalPoints,
-} from "./services/points";
 import type { ProjectRecord } from "./services/project-records";
 import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
+import type { NearBuildersProject } from "./services/projects-client";
 import {
   canManageProject,
   canManageRound,
@@ -37,58 +32,33 @@ import {
 import { type RoundDetailRecord, RoundsLive, RoundsTag } from "./services/rounds";
 import { createTeamAccess } from "./services/team-access";
 import { createTelegramTipLookup } from "./services/telegram-tip";
-import { TenantsLive, TenantsTag } from "./services/tenants";
-
-const SUBDOMAIN_SEGMENT_REGEX = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
-const ACCOUNT_ID_REGEX =
-  /^(?=.{2,64}$)([a-z0-9]+(?:[-_][a-z0-9]+)*)(\.([a-z0-9]+(?:[-_][a-z0-9]+)*))*$/;
-const RESERVED_SUBDOMAINS = new Set([
-  "root",
-  "www",
-  "admin",
-  "api",
-  "dashboard",
-  "mail",
-  "status",
-  "help",
-  "support",
-  "docs",
-  "blog",
-  "dev",
-  "test",
-  "app",
-  "beta",
-  "demo",
-  "staging",
-  "internal",
-  "moderation",
-  "abuse",
-]);
-
-function validateSubdomain(subdomain: string): void {
-  if (!SUBDOMAIN_SEGMENT_REGEX.test(subdomain)) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Invalid subdomain format",
-      data: { hint: "Lowercase alphanumeric with hyphens or underscores only" },
-    });
-  }
-}
-
-function validateAccountId(accountId: string): void {
-  if (!ACCOUNT_ID_REGEX.test(accountId)) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Invalid accountId format",
-      data: { hint: "Must be a valid NEAR account ID" },
-    });
-  }
-}
 
 const MAX_FEEDBACK_PER_TESTER = 500;
+
+/**
+ * How deep to scan the activity board when resolving one builder's standing.
+ * The gateway has no per-actor lookup, so an unranked builder is one who does
+ * not appear this far down.
+ */
+// The gateway hard-caps its leaderboard at 100 entries per request with no
+// cursor, so a builder ranked below the top 100 reads as unscored. Widening
+// this needs activity.nearbuilders.org to page the board.
+const BUILDER_STANDING_SCAN_LIMIT = 100;
 
 const MAX_NOTES_PER_FEEDBACK = 20;
 
 const isPublic = (round: { status: string }) =>
   round.status === "open" || round.status === "closed";
+
+const toIsoDateTime = (value: Date | string): string =>
+  value instanceof Date ? value.toISOString() : String(value);
+
+const toActivityOutboxRow = (row: typeof activityOutboxTable.$inferSelect) => ({
+  ...row,
+  nextAttemptAt: toIsoDateTime(row.nextAttemptAt),
+  createdAt: toIsoDateTime(row.createdAt),
+  sentAt: row.sentAt ? toIsoDateTime(row.sentAt) : null,
+});
 
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
@@ -126,12 +96,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
   initialize: (config, plugins, tools) =>
     Effect.gen(function* () {
       const database = DatabaseLive(config.secrets.API_DATABASE_URL);
-      const tenantsLayer = TenantsLive.pipe(Layer.provide(database));
+      const db = yield* tools.buildService(DatabaseTag, database);
       const roundsLayer = RoundsLive.pipe(Layer.provide(database));
       const projectRecordsLayer = ProjectRecordsLive.pipe(Layer.provide(database));
       const notificationsLayer = NotificationsLive.pipe(Layer.provide(database));
 
-      const tenantsService = yield* tools.buildService(TenantsTag, tenantsLayer);
       const roundsService = yield* tools.buildService(RoundsTag, roundsLayer);
       const projectRecordsService = yield* tools.buildService(
         ProjectRecordsTag,
@@ -168,16 +137,21 @@ export default createPlugin.withPlugins<PluginsClient>()({
         token: config.secrets.GITHUB_API_TOKEN,
       });
 
+      // activity is the only source of reputation, so its reputation-bearing
+      // events are queued durably and drained here rather than fired and forgotten.
+      const activityOutbox = createActivityOutboxWorker({ db, emitter: activityEvents });
+      activityOutbox.start();
+
       console.log(
         `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"}, projects lookup ${projectsLookup.enabled ? "enabled" : "disabled"}, github issues token ${config.secrets.GITHUB_API_TOKEN ? "configured" : "anonymous"})`,
       );
 
       return {
-        tenants: tenantsService,
         rounds: roundsService,
         projectRecords: projectRecordsService,
         notifications: notificationsService,
         activityEvents,
+        activityOutbox,
         feedbackNostr,
         projectsLookup,
         teamAccess,
@@ -187,30 +161,61 @@ export default createPlugin.withPlugins<PluginsClient>()({
       };
     }),
 
-  shutdown: () => Effect.log("[API] Shutdown"),
+  shutdown: (services) =>
+    Effect.sync(() => {
+      services.activityOutbox.stop();
+      console.log("[API] Shutdown");
+    }),
 
   createRouter: (services, builder) => {
-    const { requireAuth, requireAdmin, requireOrganization, requireOrgRole } =
-      createAuthMiddleware(builder);
+    const { requireAuth, requireAdmin, requireOrganization } = createAuthMiddleware(builder);
 
-    const authorizedTenant = async (
-      input: { tenantId: string },
-      context: { organization: { activeOrganizationId: string } },
-    ) => {
-      const activeOrgId = context.organization.activeOrganizationId;
-      const tenant = await services.tenants.resolveTenantById(input.tenantId);
-      if (!tenant) {
-        throw new ORPCError("NOT_FOUND", {
-          message: "Tenant not found",
-          data: { resource: "tenant", resourceId: input.tenantId },
-        });
-      }
-      if (tenant.orgId !== activeOrgId) {
-        throw new ORPCError("FORBIDDEN", {
-          message: "You are not a member of this tenant's organization",
-        });
-      }
-      return tenant;
+    /**
+     * Project identity lives in the nearbuilders.org registry, not here. These
+     * helpers attach it at read time so there is no mirrored copy to drift.
+     */
+    const toIdentity = (project: NearBuildersProject | undefined | null): ProjectIdentity =>
+      project
+        ? {
+            title: project.title,
+            description: project.description,
+            domain: project.domain,
+            repository: project.repository,
+            logoUrl: project.logoUrl,
+            kind: project.kind,
+          }
+        : null;
+
+    const withIdentity = async <T extends { slug: string }>(project: T) => ({
+      ...project,
+      identity: toIdentity(await services.projectsLookup.resolveBySlug(project.slug)),
+    });
+
+    /** One batch lookup for a list, rather than a request per project. */
+    const withIdentities = async <T extends { slug: string }>(projects: T[]) => {
+      const registry = await services.projectsLookup.resolveMany(
+        projects.map((project) => project.slug),
+      );
+      return projects.map((project) => ({
+        ...project,
+        identity: toIdentity(registry.get(project.slug)),
+      }));
+    };
+
+    const withRoundIdentity = async <T extends { projectSlug: string }>(round: T) => ({
+      ...round,
+      identity: toIdentity(await services.projectsLookup.resolveBySlug(round.projectSlug)),
+    });
+
+    /** Same batch lookup, for rounds, which carry their project's slug. */
+    const withRoundIdentities = async <T extends { projectSlug: string }>(rounds: T[]) => {
+      const registry = await services.projectsLookup.resolveMany(
+        rounds.map((round) => round.projectSlug),
+      );
+      return rounds.map((round) => ({
+        ...round,
+        identity: toIdentity(registry.get(round.projectSlug)),
+      }));
     };
 
     interface ActorContext {
@@ -318,7 +323,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const canManage = canManageRound(round, project, await resolveActor(project, context));
       const hidden = round.status === "pending" || round.status === "rejected";
       if (hidden && !managesRound({ canManage }, context)) throw roundNotFound(resourceId);
-      return { ...round, canManage };
+      return {
+        ...round,
+        canManage,
+        identity: toIdentity(await services.projectsLookup.resolveBySlug(round.projectSlug)),
+      };
     };
 
     const requireRound = async (id: string) => {
@@ -381,132 +390,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
         emailConfigured: !!process.env.EMAIL_PROVIDER,
         smsConfigured: !!process.env.SMS_PROVIDER,
       })),
-
-      listTenants: builder.listTenants
-        .use(requireAuth)
-        .use(requireOrganization)
-        .handler(async ({ context }) =>
-          services.tenants.listTenantsByOrgIds([context.organization.activeOrganizationId]),
-        ),
-
-      createTenant: builder.createTenant
-        .use(requireAuth)
-        .use(requireOrganization)
-        .handler(async ({ input, context }) => {
-          validateSubdomain(input.subdomain);
-          validateAccountId(input.accountId);
-          if (!input.accountId.startsWith(`${input.subdomain}.`)) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "accountId must start with subdomain",
-              data: { subdomain: input.subdomain, accountId: input.accountId },
-            });
-          }
-          return await services.tenants.createTenant({
-            subdomain: input.subdomain,
-            name: input.name,
-            accountId: input.accountId,
-            orgId: context.organization.activeOrganizationId,
-            status: input.status,
-          });
-        }),
-
-      updateTenant: builder.updateTenant
-        .use(requireAuth)
-        .use(requireOrgRole("owner"))
-        .handler(async ({ input, context }) => {
-          const tenant = await authorizedTenant(input, context);
-          if (input.subdomain !== undefined) validateSubdomain(input.subdomain);
-          if (input.accountId !== undefined) validateAccountId(input.accountId);
-          return await services.tenants.updateTenant(tenant.id, {
-            name: input.name,
-            subdomain: input.subdomain,
-            accountId: input.accountId,
-            status: input.status,
-          });
-        }),
-
-      deleteTenant: builder.deleteTenant
-        .use(requireAuth)
-        .use(requireOrgRole("owner"))
-        .handler(async ({ input, context }) => {
-          await authorizedTenant(input, context);
-          const result = await services.tenants.softDeleteTenant(input.tenantId);
-          if (!result) {
-            throw new ORPCError("NOT_FOUND", {
-              message: "Tenant not found",
-              data: { resource: "tenant", resourceId: input.tenantId },
-            });
-          }
-          return result;
-        }),
-
-      suspendTenant: builder.suspendTenant
-        .use(requireAuth)
-        .use(requireOrgRole("admin"))
-        .handler(async ({ input, context }) => {
-          await authorizedTenant(input, context);
-          const result = await services.tenants.suspendTenant(input.tenantId);
-          if (!result) {
-            throw new ORPCError("NOT_FOUND", {
-              message: "Tenant not found",
-              data: { resource: "tenant", resourceId: input.tenantId },
-            });
-          }
-          return result;
-        }),
-
-      reactivateTenant: builder.reactivateTenant
-        .use(requireAuth)
-        .use(requireOrgRole("admin"))
-        .handler(async ({ input, context }) => {
-          await authorizedTenant(input, context);
-          const result = await services.tenants.reactivateTenant(input.tenantId);
-          if (!result) {
-            throw new ORPCError("NOT_FOUND", {
-              message: "Tenant not found",
-              data: { resource: "tenant", resourceId: input.tenantId },
-            });
-          }
-          return result;
-        }),
-
-      resolveTenant: builder.resolveTenant.handler(async ({ input }) => {
-        const tenant = await services.tenants.resolveTenantByAccountId(input.accountId);
-        return tenant ?? null;
-      }),
-
-      resolveTenantByOrgId: builder.resolveTenantByOrgId.handler(async ({ input, errors }) => {
-        const tenant = await services.tenants.resolveTenantByOrgId(input.orgId);
-        if (!tenant) {
-          throw errors.NOT_FOUND({
-            message: "Tenant not found",
-            data: { resource: "tenant", resourceId: input.orgId },
-          });
-        }
-        return tenant;
-      }),
-
-      tenantPreflight: builder.tenantPreflight.use(requireAuth).handler(async ({ input }) => {
-        const subdomainValid = SUBDOMAIN_SEGMENT_REGEX.test(input.subdomain);
-        const accountId = `${input.subdomain}.${input.parentAccount}`;
-        const accountFormat = ACCOUNT_ID_REGEX.test(accountId)
-          ? ("valid" as const)
-          : ("invalid" as const);
-
-        const reserved = RESERVED_SUBDOMAINS.has(input.subdomain);
-        const existingSubdomain = subdomainValid
-          ? await services.tenants.resolveTenantBySubdomain(input.subdomain)
-          : null;
-        const existingAccount = subdomainValid
-          ? await services.tenants.resolveTenantByAccountId(accountId)
-          : null;
-        const accountAvailable = accountFormat === "valid" && !existingAccount;
-
-        return {
-          subdomain: { available: !reserved && !existingSubdomain, reserved },
-          accountId: { format: accountFormat, available: accountAvailable },
-        };
-      }),
 
       createRound: builder.createRound
         .use(requireAuth)
@@ -590,21 +473,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
           });
         }
         const rounds = await services.rounds.listRounds(input.status);
-        if (input.status) return rounds;
         // No filter: this is the public browse listing, so pending/rejected
         // rounds — visible only to their owning org or an admin — never appear in it.
-        return rounds.filter(isPublic);
+        const visible = input.status ? rounds : rounds.filter(isPublic);
+        return withRoundIdentities(visible);
       }),
 
       listProjects: builder.listProjects
         .use(requireAdmin)
-        .handler(async ({ input }) => services.projectRecords.listProjects(input.status)),
+        .handler(async ({ input }) =>
+          withIdentities(await services.projectRecords.listProjects(input.status)),
+        ),
 
       listMyProjects: builder.listMyProjects
         .use(requireAuth)
         .use(requireOrganization)
         .handler(async ({ context }) =>
-          services.projectRecords.listProjectsByOrg(context.organization.activeOrganizationId),
+          withIdentities(
+            await services.projectRecords.listProjectsByOrg(
+              context.organization.activeOrganizationId,
+            ),
+          ),
         ),
 
       approveProject: builder.approveProject
@@ -631,7 +520,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resourceId: input.id },
             });
           }
-          return project;
+          return withIdentity(project);
         }),
 
       rejectProject: builder.rejectProject.use(requireAdmin).handler(async ({ input, errors }) => {
@@ -647,7 +536,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (!project) {
           throw errors.NOT_FOUND({ message: "Project not found", data: { resourceId: input.id } });
         }
-        return project;
+        return withIdentity(project);
       }),
 
       setProjectManagingTeam: builder.setProjectManagingTeam
@@ -699,7 +588,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resourceId: input.id },
             });
           }
-          return updated;
+          return withIdentity(updated);
         }),
 
       deleteRound: builder.deleteRound
@@ -780,7 +669,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (!detail) {
           throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
         }
-        return detail;
+        return withRoundIdentity(detail);
       }),
 
       leaveRound: builder.leaveRound
@@ -805,7 +694,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (!detail) {
             throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
           }
-          return detail;
+          return withRoundIdentity(detail);
         }),
 
       getMyParticipation: builder.getMyParticipation
@@ -830,6 +719,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .handler(async ({ context }) => {
           return services.rounds.listMyJoinedRounds(linkedAccountIds(context));
         }),
+
+      getOwnerSummary: builder.getOwnerSummary
+        .use(requireAuth)
+        .use(requireOrganization)
+        .handler(async ({ context }) =>
+          services.rounds.getOwnerSummary(context.organization.activeOrganizationId),
+        ),
 
       postFeedback: builder.postFeedback
         .use(requireAuth)
@@ -930,12 +826,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return items.map((feedback) => ({
             ...feedback,
             notes: notes.filter((note) => note.feedbackId === feedback.id),
-            // Points include the star bonus (#104): 10 per accepted item, +5 if a manager
-            // starred it, so a tester's own view matches their builder-profile total.
-            points: totalPoints(
-              feedback.status === "resolved" ? 1 : 0,
-              feedback.status === "resolved" && feedback.starredAt ? 1 : 0,
-            ),
           }));
         }),
 
@@ -1234,7 +1124,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             if (!credit.contributedMeaningfully) continue;
             await services.activityEvents.emitCreditAwarded(credit);
           }
-          return detail;
+          return withRoundIdentity(detail);
         }),
 
       listRoundCredits: builder.listRoundCredits.handler(async ({ input, context, errors }) => {
@@ -1312,7 +1202,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listPublicProjects: builder.listPublicProjects.handler(async () => {
         const projects = await services.projectRecords.listProjects("approved");
-        return projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) }));
+        return withIdentities(
+          projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) })),
+        );
       }),
 
       getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, context }) => {
@@ -1323,10 +1215,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const canSeeAll = managesRound({ canManage }, context);
         if (project.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
         return {
-          ...project,
+          ...(await withIdentity(project)),
           rounds: canSeeAll ? project.rounds : project.rounds.filter(isPublic),
           canManage,
-          nearbuilders: await services.projectsLookup.resolveBySlug(project.slug),
         };
       }),
 
@@ -1356,47 +1247,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return { recipients };
       }),
 
-      resolveProjectBySlug: builder.resolveProjectBySlug.handler(async ({ input }) => {
-        return await services.projectsLookup.resolveBySlug(input.slug);
-      }),
-
-      getPointsLeaderboard: builder.getPointsLeaderboard.handler(async ({ input }) => {
-        const counts = await services.rounds.listAcceptedCounts(periodStart(input.period));
-        const standings = rankStandings(counts).slice(0, input.limit ?? 50);
-        return {
-          period: input.period,
-          pointsPerAcceptedFeedback: POINTS_PER_ACCEPTED_FEEDBACK,
-          bonusPointsPerStarredFeedback: BONUS_POINTS_PER_STARRED_FEEDBACK,
-          data: standings.map((entry) => ({
-            rank: entry.rank,
-            actor: entry.accountId,
-            points: entry.points,
-            acceptedCount: entry.acceptedCount,
-            starredCount: entry.starredCount,
-            bonusPoints: entry.bonusPoints,
-          })),
-        };
-      }),
-
-      getBuilderPoints: builder.getBuilderPoints.handler(async ({ input }) => {
-        const totals = await services.rounds.getFeedbackTotals(input.accountId);
-        const standings = rankStandings(await services.rounds.listAcceptedCounts(null));
-        const rank = standings.find((entry) => entry.accountId === input.accountId)?.rank ?? null;
+      getBuilderStanding: builder.getBuilderStanding.handler(async ({ input }) => {
+        // activity owns the scoring, so a builder's standing is read back off
+        // the same board the leaderboard page renders rather than recomputed.
+        const board = await services.activityEvents.leaderboard({
+          period: "all-time",
+          limit: BUILDER_STANDING_SCAN_LIMIT,
+        });
+        const entry = board?.data.find((row) => row.actor === input.accountId);
+        if (!entry) return null;
         return {
           accountId: input.accountId,
-          points: totalPoints(totals.acceptedCount, totals.starredCount),
-          acceptedCount: totals.acceptedCount,
-          starredCount: Math.min(totals.starredCount, totals.acceptedCount),
-          bonusPoints: bonusPointsForStarred(totals.starredCount, totals.acceptedCount),
-          submittedCount: totals.submittedCount,
-          rank,
+          rank: entry.rank,
+          score: entry.score,
+          eventCount: entry.eventCount,
         };
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
+        // No `type` filter: activity scores the whole source, so credit.awarded
+        // and feedback.accepted count alongside (unscored) feedback.posted.
         const result = await services.activityEvents.leaderboard({
           period: input.period,
-          type: "feedback.posted",
           limit: input.limit,
         });
         return result
@@ -1419,7 +1291,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
             };
       }),
 
-      testError: builder.testError.handler(async ({ input }) => {
+      listFailedActivityEvents: builder.listFailedActivityEvents
+        .use(requireAdmin)
+        .handler(async () => {
+          const rows = await services.activityOutbox.listFailed();
+          return rows.map(toActivityOutboxRow);
+        }),
+
+      retryFailedActivityEvents: builder.retryFailedActivityEvents
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const retried = await services.activityOutbox.retryFailed(input.ids);
+          return { retried };
+        }),
+
+      getActivityOutboxDepth: builder.getActivityOutboxDepth
+        .use(requireAdmin)
+        .handler(async () => ({ byStatus: await services.activityOutbox.depth() })),
+
+      // Admin-only: an error-injection route is a probe surface, and it has
+      // never been exercised by the regression suite despite the "regression-
+      // test helper" description — nothing needs it open to the internet.
+      testError: builder.testError.use(requireAdmin).handler(async ({ input }) => {
         switch (input.kind) {
           case "unauthorized":
             throw new ORPCError("UNAUTHORIZED", { message: "test unauthorized error" });

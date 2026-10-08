@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -10,6 +11,24 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+/**
+ * DEAD, KEPT ON PURPOSE. No application code reads or writes this table —
+ * it was unused template scaffolding with no relationship to the feedback
+ * domain, and every route and UI surface for it has been removed.
+ *
+ * It cannot be dropped: `everything-dev`'s migration drift detector
+ * (`extractExpectedTables`) scans every `CREATE TABLE` across this plugin's
+ * entire migration history and never accounts for a later `DROP TABLE`, so a
+ * migration that drops this table makes every future boot — including a
+ * brand-new, empty database — fail with `drift-manual`, which throws and
+ * refuses to start. `bos db repair` explicitly refuses to fix that
+ * diagnosis too ("manual intervention required"). Confirmed by reproducing
+ * it against a fresh PGlite instance; this is not an artifact of a stale
+ * environment.
+ *
+ * Tracked upstream: https://github.com/NEARBuilders/everything-dev (file
+ * before attempting to drop this or any other table).
+ */
 export const tenantStatus = pgEnum("tenant_status", [
   "active",
   "pending",
@@ -82,9 +101,6 @@ export const rounds = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     ownerAccountId: text("owner_account_id").notNull(),
     projectSlug: text("project_slug").notNull(),
-    // nearbuilders.org project id this round resolved against, if the owner
-    // picked a real project rather than typing a free-text slug (#23).
-    projectId: text("project_id"),
     projectRecordId: uuid("project_record_id")
       .notNull()
       .references(() => projects.id, { onDelete: "restrict" }),
@@ -167,6 +183,9 @@ export const roundFeedback = pgTable(
     starredByAccountId: text("starred_by_account_id"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     activityEventId: text("activity_event_id"),
+    // Gateway id of the `feedback.accepted` event, so un-accepting can retract it.
+    // Distinct from `activityEventId`, which holds the `feedback.posted` event.
+    acceptedActivityEventId: text("accepted_activity_event_id"),
     nostrEventId: text("nostr_event_id"),
   },
   (table) => ({
@@ -255,5 +274,70 @@ export const notifications = pgTable(
       table.readAt,
     ),
     roundIdx: index("notifications_round_idx").on(table.roundId),
+  }),
+);
+
+export const activityOutboxOperation = pgEnum("activity_outbox_operation", ["emit", "retract"]);
+
+export const activityOutboxStatus = pgEnum("activity_outbox_status", [
+  "pending",
+  "sent",
+  "failed",
+  "cancelled",
+]);
+
+/** The event types this app emits to activity.nearbuilders.org. */
+export type ActivityEventType =
+  | "round.opened"
+  | "feedback.posted"
+  /** A round owner accepted (resolved) a submission. The scored contribution. */
+  | "feedback.accepted"
+  | "round.closed"
+  | "credit.awarded";
+
+/** Where the gateway's event id is written back to once delivered. */
+export type ActivitySubjectKind = "round" | "feedback" | "feedback_accepted";
+
+/**
+ * Durable queue for activity.nearbuilders.org submissions.
+ *
+ * activity is the sole source of truth for tester reputation, so emission can
+ * no longer be fire-and-forget: rows are written in the same transaction as the
+ * domain change that caused them, and a worker drains them with retry. A
+ * gateway outage delays events, it never loses them.
+ *
+ * `subjectKind`/`subjectId` tell the worker where to write the gateway's event
+ * id back to, so a later retraction can reference it.
+ */
+export const activityOutbox = pgTable(
+  "activity_outbox",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    operation: activityOutboxOperation("operation").notNull(),
+    // Set for `emit`; null for `retract`.
+    eventType: text("event_type").$type<ActivityEventType>(),
+    actor: text("actor"),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    // Set for `retract`: the gateway event id being hidden, and why.
+    targetEventId: text("target_event_id"),
+    reason: text("reason"),
+    // Deduped by the gateway, and used here to cancel a still-pending emit.
+    idempotencyKey: text("idempotency_key").notNull(),
+    // Where to write `eventId` back to, as an `ActivitySubjectKind`.
+    subjectKind: text("subject_kind").$type<ActivitySubjectKind>(),
+    subjectId: uuid("subject_id"),
+    status: activityOutboxStatus("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    eventId: text("event_id"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    sentAt: timestamp("sent_at", { mode: "date", withTimezone: true }),
+  },
+  (table) => ({
+    idempotencyKeyIdx: uniqueIndex("activity_outbox_idempotency_key_idx").on(table.idempotencyKey),
+    dueIdx: index("activity_outbox_due_idx").on(table.status, table.nextAttemptAt),
   }),
 );

@@ -47,7 +47,6 @@ import { Input as LocalInput } from "./ui/input";
 import { Label as LocalLabel } from "./ui/label";
 import { ScrollArea as LocalScrollArea, ScrollBar as LocalScrollBar } from "./ui/scroll-area";
 import { Skeleton as LocalSkeleton } from "./ui/skeleton";
-import { StepList as LocalStepList } from "./ui/stepper";
 import {
   Tabs as LocalTabs,
   TabsContent as LocalTabsContent,
@@ -67,7 +66,6 @@ export { EmptyState } from "./empty-state";
 export { AppHeader } from "./layout/app-header";
 export { AppShell } from "./layout/app-shell";
 export { AppSidebar } from "./layout/app-sidebar";
-export { BetaBanner } from "./layout/beta-banner";
 export { Chip } from "./layout/chip";
 export {
   filterSidebarByRole,
@@ -91,10 +89,8 @@ export { SidebarOrgSwitcher } from "./layout/sidebar-org-switcher";
 export { SidebarUserNav } from "./layout/sidebar-user-nav";
 export { ThemeToggle } from "./layout/theme-toggle";
 export { UserNav } from "./layout/user-nav";
-export { Logo } from "./logo";
 export { MyProjects } from "./my-projects";
 export { SegmentedToggle } from "./segmented-toggle";
-export { type Step, type StepState, useStepper } from "./ui/stepper";
 export { UnderConstruction } from "./under-construction";
 
 // Generic design-system primitives (#56): each wrapped in federated() so it renders
@@ -142,7 +138,6 @@ export const Label = federated("Label", LocalLabel);
 export const ScrollArea = federated("ScrollArea", LocalScrollArea);
 export const ScrollBar = federated("ScrollBar", LocalScrollBar);
 export const Skeleton = federated("Skeleton", LocalSkeleton);
-export const StepList = federated("StepList", LocalStepList);
 export const Tabs = federated("Tabs", LocalTabs);
 export const TabsContent = federated("TabsContent", LocalTabsContent);
 export const TabsList = federated("TabsList", LocalTabsList);

@@ -31,7 +31,7 @@ function ManagePage() {
           description="Review feedback and run the rounds your organization owns."
           actions={
             <Button asChild variant="outline">
-              <Link to="/feed/request">
+              <Link to="/manage/new">
                 <PlusCircle className="h-4 w-4" />
                 request a round
               </Link>
