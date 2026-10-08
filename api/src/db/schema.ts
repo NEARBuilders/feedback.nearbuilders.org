@@ -79,10 +79,15 @@ export const projects = pgTable(
     managingTeamId: text("managing_team_id"),
     // nearbuilders.org project id, when the slug resolved to a real project (#23).
     nearbuildersProjectId: text("nearbuilders_project_id"),
+    // Contact the requester volunteered on the round form (telegram/email/URL) for admin diligence.
+    contact: text("contact"),
     status: projectStatus("status").default("pending").notNull(),
     approvedAt: timestamp("approved_at", { mode: "date", withTimezone: true }),
     rejectedAt: timestamp("rejected_at", { mode: "date", withTimezone: true }),
     rejectionReason: text("rejection_reason"),
+    // Admin-toggled diligence mark, independent of approval; who set it is kept for the audit trail.
+    verifiedAt: timestamp("verified_at", { mode: "date", withTimezone: true }),
+    verifiedByAccountId: text("verified_by_account_id"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },

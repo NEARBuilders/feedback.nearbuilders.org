@@ -7,7 +7,8 @@ import {
   PenLine,
   PictureInPicture2,
 } from "lucide-react";
-import { Button } from "@/components";
+import { Button, VerifiedBadge } from "@/components";
+import { AccountAvatar } from "@/components/account-avatar";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProductLink } from "@/components/project-identity";
@@ -42,6 +43,22 @@ function popOut() {
     `${window.location.pathname}?compact=1`,
     "feedback-workspace",
     "popup,width=520,height=900",
+  );
+}
+
+function OwnerLine({ ownerAccountId }: { ownerAccountId: string }) {
+  return (
+    <div className="flex items-center gap-2" data-testid="round-owner">
+      <AccountAvatar accountId={ownerAccountId} className="h-6 w-6" />
+      <span className="text-sm text-muted-foreground">run by</span>
+      <Link
+        to="/$accountId"
+        params={{ accountId: ownerAccountId }}
+        className="font-mono text-sm text-foreground hover:underline"
+      >
+        {ownerAccountId}
+      </Link>
+    </div>
   );
 }
 
@@ -100,13 +117,19 @@ function RoundLayout() {
             compact ? (
               <>
                 <RoundStatusBadge status={round.status} />
+                {round.projectVerifiedAt && <VerifiedBadge />}
                 <ProductLink identity={round.identity} />
               </>
             ) : (
-              <RoundStatusBadge status={round.status} />
+              <>
+                <RoundStatusBadge status={round.status} />
+                {round.projectVerifiedAt && <VerifiedBadge />}
+              </>
             )
           }
         />
+
+        {!compact && <OwnerLine ownerAccountId={round.ownerAccountId} />}
 
         {!compact && (
           <RouteTabs label="Round sections">

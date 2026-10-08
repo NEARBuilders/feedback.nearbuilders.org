@@ -131,6 +131,20 @@ export function RoundFieldsEditor({ value, onChange, disabled }: RoundFieldsEdit
       </Field>
 
       <Field>
+        <FieldLabel htmlFor="round-contact">contact (optional)</FieldLabel>
+        <Input
+          id="round-contact"
+          value={value.contact}
+          onChange={(e) => set("contact", e.target.value)}
+          placeholder="@handle, email, or link admins can reach you at"
+          disabled={disabled}
+        />
+        <span className="text-xs text-muted-foreground">
+          Only platform admins see this; used while reviewing your project.
+        </span>
+      </Field>
+
+      <Field>
         <FieldLabel>access</FieldLabel>
         <div className="mt-1 space-y-2.5">
           <label className="flex cursor-pointer items-start gap-2.5" htmlFor="round-private">

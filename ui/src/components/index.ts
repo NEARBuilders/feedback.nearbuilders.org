@@ -94,6 +94,7 @@ export { MarkdownEditor } from "./markdown-editor";
 export { MyProjects } from "./my-projects";
 export { SegmentedToggle } from "./segmented-toggle";
 export { UnderConstruction } from "./under-construction";
+export { VerifiedBadge } from "./verified-badge";
 
 // Generic design-system primitives (#56): each wrapped in federated() so it renders
 // nearbuilders.org's version once the components remote resolves, falling back to the local

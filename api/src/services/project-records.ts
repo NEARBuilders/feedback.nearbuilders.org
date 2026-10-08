@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { Database } from "../db";
@@ -21,10 +21,15 @@ export interface ProjectRecord {
   /** Team the owning org delegated round management to; null means any org member. */
   managingTeamId: string | null;
   nearbuildersProjectId: string | null;
+  /** Contact the requester volunteered on the round form (telegram/email/URL). */
+  contact: string | null;
   status: ProjectStatus;
   approvedAt: string | null;
   rejectedAt: string | null;
   rejectionReason: string | null;
+  /** Admin-toggled diligence mark, independent of approval. */
+  verifiedAt: string | null;
+  verifiedByAccountId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +64,10 @@ export interface ProjectRecordsService {
   approveProject(id: string): Promise<ProjectDecisionResult>;
   /** Pending -> rejected with a reason, rejecting the project's pending rounds with it. */
   rejectProject(id: string, reason: string): Promise<ProjectDecisionResult>;
+  /** Sets the admin-toggled verified mark on any non-rejected project. */
+  verifyProject(id: string, verifiedByAccountId: string | null): Promise<ProjectRecord | null>;
+  /** Clears the verified mark. */
+  unverifyProject(id: string): Promise<ProjectRecord | null>;
 }
 
 export class ProjectRecordsTag extends Context.Tag("api/ProjectRecords")<
@@ -82,10 +91,13 @@ export function toProjectRecord(row: ProjectRow): ProjectRecord {
     ownerOrgId: row.ownerOrgId,
     managingTeamId: row.managingTeamId,
     nearbuildersProjectId: row.nearbuildersProjectId,
+    contact: row.contact,
     status: row.status,
     approvedAt: iso(row.approvedAt),
     rejectedAt: iso(row.rejectedAt),
     rejectionReason: row.rejectionReason,
+    verifiedAt: iso(row.verifiedAt),
+    verifiedByAccountId: row.verifiedByAccountId,
     createdAt: iso(row.createdAt) ?? "",
     updatedAt: iso(row.updatedAt) ?? "",
   };
@@ -106,6 +118,8 @@ export interface EnsureProjectInput {
   /** The requesting builder; lets them claim a legacy project they already own rounds in. */
   requesterAccountId: string;
   nearbuildersProjectId?: string | null;
+  /** Contact volunteered on the round request form, stored for admin diligence. */
+  contact?: string | null;
 }
 
 /**
@@ -125,6 +139,7 @@ export async function ensureProject(
       name: input.name,
       ownerOrgId: input.ownerOrgId,
       nearbuildersProjectId: input.nearbuildersProjectId ?? null,
+      contact: input.contact?.trim() || null,
     })
     .onConflictDoNothing({ target: projectsTable.slug })
     .returning();
@@ -161,6 +176,7 @@ export async function ensureProject(
         ownerOrgId: input.ownerOrgId,
         nearbuildersProjectId:
           existing.nearbuildersProjectId ?? input.nearbuildersProjectId ?? null,
+        ...(input.contact?.trim() ? { contact: input.contact.trim() } : {}),
         updatedAt: new Date(),
       })
       .where(eq(projectsTable.id, existing.id))
@@ -172,6 +188,14 @@ export async function ensureProject(
     throw new ORPCError("FORBIDDEN", {
       message: "This project belongs to another organization",
     });
+  }
+  if (input.contact?.trim() && input.contact.trim() !== existing.contact) {
+    const [updated] = await tx
+      .update(projectsTable)
+      .set({ contact: input.contact.trim(), updatedAt: new Date() })
+      .where(eq(projectsTable.id, existing.id))
+      .returning();
+    return { project: toProjectRecord(updated ?? existing), created: false };
   }
   return { project: toProjectRecord(existing), created: false };
 }
@@ -347,6 +371,36 @@ export const ProjectRecordsLive = Layer.effect(
             { status: "rejected", rejectedAt: now, rejectionReason: reason },
             { status: "rejected", rejectedAt: now, rejectionReason: reason },
           );
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      verifyProject: async (id, verifiedByAccountId) => {
+        try {
+          const [row] = await db
+            .update(projectsTable)
+            .set({
+              verifiedAt: new Date(),
+              verifiedByAccountId,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(projectsTable.id, id), ne(projectsTable.status, "rejected")))
+            .returning();
+          return row ? toProjectRecord(row) : null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      unverifyProject: async (id) => {
+        try {
+          const [row] = await db
+            .update(projectsTable)
+            .set({ verifiedAt: null, verifiedByAccountId: null, updatedAt: new Date() })
+            .where(eq(projectsTable.id, id))
+            .returning();
+          return row ? toProjectRecord(row) : null;
         } catch (error) {
           throw toOrpcError(error);
         }
