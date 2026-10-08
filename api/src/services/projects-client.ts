@@ -4,21 +4,15 @@
  * Read-only: `listProjects` and `getProjectBySlug` are public routes with no
  * auth requirement (see nearbuilders.org's `plugins/projects/src/contract.ts`),
  * so unlike `ActivityClient` this never needs an API key.
+ *
+ * Responses are parsed through `NearBuildersProjectSchema`: the registry owns
+ * this shape, so untrusted wire data is validated and normalized here instead
+ * of flowing raw into this app's output contracts.
  */
 
-export type NearBuildersProject = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  kind: "project" | "idea" | "scope" | "result";
-  status: "active" | "paused" | "archived";
-  visibility: "private" | "unlisted" | "public";
-  /** The product itself — where a tester goes to try it. */
-  domain: string | null;
-  repository: string | null;
-  logoUrl: string | null;
-};
+import { type NearBuildersProject, NearBuildersProjectSchema } from "../contract";
+
+export type { NearBuildersProject };
 
 export type NearBuildersProjectList = {
   data: NearBuildersProject[];
@@ -62,15 +56,20 @@ export class ProjectsClient {
     slugs?: string;
     limit?: number;
   }): Promise<NearBuildersProjectList> {
-    return this.#json(`/v1/projects${queryString(input)}`);
+    return this.#json<{ data: unknown; meta: NearBuildersProjectList["meta"] }>(
+      `/v1/projects${queryString(input)}`,
+    ).then(async (body) => ({
+      data: await NearBuildersProjectSchema.array().parseAsync(body.data),
+      meta: body.meta,
+    }));
   }
 
   async getProjectBySlug(slug: string): Promise<NearBuildersProject | null> {
     try {
-      const { data } = await this.#json<{ data: NearBuildersProject }>(
+      const { data } = await this.#json<{ data: unknown }>(
         `/v1/projects/by-slug/${encodeURIComponent(slug)}`,
       );
-      return data;
+      return await NearBuildersProjectSchema.parseAsync(data);
     } catch (error) {
       if (error instanceof ProjectsApiError && error.status === 404) return null;
       throw error;

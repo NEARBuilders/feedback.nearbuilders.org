@@ -179,15 +179,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
     /**
      * Project identity lives in the nearbuilders.org registry, not here. These
      * helpers attach it at read time so there is no mirrored copy to drift.
+     * The `?? null` guards keep an omitted registry field from becoming an
+     * undefined that fails output validation.
      */
     const toIdentity = (project: NearBuildersProject | undefined | null): ProjectIdentity =>
       project
         ? {
             title: project.title,
-            description: project.description,
-            domain: project.domain,
-            repository: project.repository,
-            logoUrl: project.logoUrl,
+            description: project.description ?? null,
+            domain: project.domain ?? null,
+            repository: project.repository ?? null,
+            logoUrl: project.logoUrl ?? null,
             kind: project.kind,
           }
         : null;

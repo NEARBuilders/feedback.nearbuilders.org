@@ -401,18 +401,29 @@ export const ActivityOutboxRowSchema = z.object({
 
 export type ActivityOutboxRow = z.infer<typeof ActivityOutboxRowSchema>;
 
+/**
+ * The registry sometimes omits nullable fields entirely rather than sending
+ * null (its JSON dropped `logoUrl`, 500-ing every round read for that
+ * project), so parsed values are normalized from missing to null. Also used
+ * to validate the registry's own responses at the client boundary.
+ */
+const RegistryTextSchema = z
+  .string()
+  .nullish()
+  .transform((value) => value ?? null);
+
 export const NearBuildersProjectSchema = z.object({
   id: z.string(),
   slug: z.string(),
   title: z.string(),
-  description: z.string().nullable(),
+  description: RegistryTextSchema,
   kind: z.enum(["project", "idea", "scope", "result"]),
   status: z.enum(["active", "paused", "archived"]),
   visibility: z.enum(["private", "unlisted", "public"]),
   /** Where a tester goes to actually use the product. */
-  domain: z.string().nullable(),
-  repository: z.string().nullable(),
-  logoUrl: z.string().nullable(),
+  domain: RegistryTextSchema,
+  repository: RegistryTextSchema,
+  logoUrl: RegistryTextSchema,
 });
 
 export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
