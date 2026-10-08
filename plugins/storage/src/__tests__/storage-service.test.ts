@@ -73,7 +73,8 @@ beforeEach(() => {
 });
 
 describe("StorageLive", () => {
-  it("is configured when the R2 coordinates are present", async () => {
+  // First test of the file: it pays for the cold start of the embedded database.
+  it("is configured when the R2 coordinates are present", { timeout: 30_000 }, async () => {
     await withService(async (service) => {
       expect(service.configured).toBe(true);
       await expect(service.ping()).resolves.toMatchObject({
@@ -270,6 +271,53 @@ describe("StorageLive", () => {
       await expect(
         service.deleteFile({ uploaderAccountId: "carol.near", key: requested.key }),
       ).rejects.toThrow("Asset not found");
+    });
+  });
+
+  it("deletes only the uploader's own assets attached to an owner", async () => {
+    r2.generatePresignedPutUrl.mockResolvedValue("https://signed.test/put");
+    r2.headObject.mockResolvedValue({ size: 1024, contentType: "image/png" });
+    r2.deleteObject.mockReset();
+    r2.deleteObject.mockResolvedValue(undefined);
+
+    await withService(async (service) => {
+      const upload = async (account: string, owner: string, name: string) => {
+        const requested = await service.requestUpload({
+          uploaderAccountId: account,
+          filename: name,
+          contentType: "image/png",
+          sizeBytes: 1024,
+        });
+        await service.confirmUpload({ uploaderAccountId: account, key: requested.key });
+        await service.attachAsset({
+          uploaderAccountId: account,
+          key: requested.key,
+          ownerId: owner,
+        });
+        return requested.key;
+      };
+
+      const mine1 = await upload("erin.near", "feedback-owner-1", "a.png");
+      const mine2 = await upload("erin.near", "feedback-owner-1", "b.png");
+      const otherOwner = await upload("erin.near", "feedback-owner-2", "c.png");
+      const someoneElses = await upload("frank.near", "feedback-owner-1", "d.png");
+
+      await expect(
+        service.deleteByOwner({ uploaderAccountId: "erin.near", ownerId: "feedback-owner-1" }),
+      ).resolves.toEqual({ deleted: 2 });
+      expect(r2.deleteObject).toHaveBeenCalledTimes(2);
+      expect(r2.deleteObject).toHaveBeenCalledWith(mine1);
+      expect(r2.deleteObject).toHaveBeenCalledWith(mine2);
+
+      await expect(
+        service.deleteByOwner({ uploaderAccountId: "erin.near", ownerId: "feedback-owner-1" }),
+      ).resolves.toEqual({ deleted: 0 });
+      await expect(
+        service.deleteFile({ uploaderAccountId: "erin.near", key: otherOwner }),
+      ).resolves.toEqual({ success: true });
+      await expect(
+        service.deleteFile({ uploaderAccountId: "frank.near", key: someoneElses }),
+      ).resolves.toEqual({ success: true });
     });
   });
 

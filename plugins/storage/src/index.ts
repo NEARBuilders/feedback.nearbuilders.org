@@ -110,6 +110,15 @@ export default createPlugin({
           });
         }),
 
+      deleteByOwner: builder.deleteByOwner
+        .use(requireNearAccount)
+        .handler(async ({ input, context }) => {
+          return await services.storage.deleteByOwner({
+            uploaderAccountId: context.uploaderAccountId,
+            ownerId: input.ownerId,
+          });
+        }),
+
       deleteFile: builder.deleteFile.use(requireNearAccount).handler(async ({ input, context }) => {
         return await services.storage.deleteFile({
           uploaderAccountId: context.uploaderAccountId,

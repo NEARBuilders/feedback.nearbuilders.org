@@ -166,6 +166,88 @@ The value per accepted item is the `POINTS_PER_ACCEPTED_FEEDBACK` constant in
   leaderboard and builder profiles. Stars on unresolved or dismissed feedback earn nothing, and
   un-starring or un-accepting takes the bonus back.
 
+## R2 bucket setup for feedback image uploads
+
+The storage plugin (`plugins/storage`) uploads feedback images straight from the browser to a
+Cloudflare R2 bucket with presigned `PUT` URLs. Until a bucket is configured the plugin stays in
+"not configured" mode: everything else works and uploads are rejected with a clear hint.
+
+> **These steps need access to the Cloudflare account.** They are tracked in #129 (development
+> bucket) and #107 (production bucket) and are not done by the code in this repository. Nothing
+> here claims a bucket already exists.
+
+### 1. Create the bucket
+
+```sh
+# one bucket per environment
+npx wrangler r2 bucket create feedback-images-dev
+npx wrangler r2 bucket create feedback-images-prod
+```
+
+### 2. Make uploaded images readable
+
+Give the bucket a public URL so a stored image can be fetched by the browser:
+
+- development: enable the bucket's `r2.dev` public URL in the Cloudflare dashboard, or
+- production: attach a custom domain (for example `images.nearbuilders.org`) under the bucket's
+  **Settings → Public access → Custom domains**.
+
+The result is the value for `STORAGE_PUBLIC_URL`, for example `https://images.nearbuilders.org`.
+
+### 3. Allow browser uploads (CORS)
+
+Presigned uploads are a cross-origin `PUT` from the app, so the bucket needs a CORS policy.
+Save this as `cors.json`:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:*", "https://feedback.nearbuilders.org"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["Content-Type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+and apply it (use the dev origins only on the dev bucket, and only the production origin on the
+production bucket):
+
+```sh
+npx wrangler r2 bucket cors set feedback-images-dev --file cors.json
+```
+
+### 4. Create access keys scoped to the bucket
+
+In the dashboard open **R2 → Manage R2 API Tokens → Create API token**, choose **Object Read &
+Write**, and limit it to the one bucket. Keep the **Access Key ID** and **Secret Access Key**; the
+secret is shown once.
+
+### 5. Register the values
+
+| Variable | Value |
+| --- | --- |
+| `STORAGE_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` |
+| `STORAGE_BUCKET` | the bucket name, for example `feedback-images-dev` |
+| `STORAGE_REGION` | `auto` |
+| `STORAGE_PUBLIC_URL` | the public URL from step 2 |
+| `STORAGE_ACCESS_KEY_ID` | the token's Access Key ID |
+| `STORAGE_SECRET_ACCESS_KEY` | the token's Secret Access Key |
+
+- **Local development:** put them in `.env` (see `.env.example`). Never commit real values.
+- **Production:** set them as secrets in the deployment environment. The storage plugin already
+  lists these names under `plugins.storage.secrets` in `bos.config.json`.
+
+The allowed image types and the 5 MB limit are plugin variables (`allowedContentTypes`,
+`maxUploadBytes`) and are checked again in the browser.
+
+### 6. Check it works
+
+1. Restart the app and open a round you joined.
+2. Paste or pick a small PNG in the feedback composer and post the feedback.
+3. Open the image URL in a private window: it should load from `STORAGE_PUBLIC_URL`.
+4. Delete the feedback: the object should disappear from the bucket.
+
 ## Teams and delegated round management
 
 Organizations can group members into teams and delegate a project's rounds to a team. Teams
