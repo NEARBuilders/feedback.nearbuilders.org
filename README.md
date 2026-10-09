@@ -228,6 +228,15 @@ Not covered yet, because the shared auth plugin does not support them:
   email and a role.
 - An active team per session: sessions have an active organization but no active team.
 
+### Sharing the nearbuilders.org auth database
+
+Feedback is moving onto nearbuilders.org's auth database so both apps share users, NEAR
+accounts, organizations and teams (#110). The only feedback data that points into auth are
+`projects.owner_org_id` and `projects.managing_team_id`. `bun run auth:cutover` remaps them, and
+`bun run auth:check-schema` checks the shared DB is on the current auth plugin migration. The
+runbook, including the SSO decision, is in
+[`api/scripts/shared-auth/README.md`](api/scripts/shared-auth/README.md).
+
 ## Tipping testers on Telegram
 
 Round managers can tip a tester from the feedback table. The tester's Telegram handle comes from
