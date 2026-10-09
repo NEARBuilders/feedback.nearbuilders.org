@@ -34,6 +34,7 @@ const TYPE_LABELS: Record<string, string> = {
   "round.opened": "Opened round",
   "round.closed": "Closed round",
   "feedback.posted": "Posted feedback",
+  "feedback.accepted": "Feedback accepted",
   "credit.awarded": "Credited on round",
 };
 

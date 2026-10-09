@@ -673,7 +673,7 @@ export const contract = oc.router({
 
   getRoundBySlug: oc
     .route({ method: "GET", path: "/projects/{slug}/rounds/{number}" })
-    .input(z.object({ slug: z.string().min(1), number: z.number().int().positive() }))
+    .input(z.object({ slug: z.string().min(1), number: z.coerce.number().int().positive() }))
     .output(RoundDetailSchema)
     .errors({ NOT_FOUND }),
 
@@ -733,11 +733,11 @@ export const contract = oc.router({
       z.object({
         id: z.string(),
         cursor: z.string().max(100).optional(),
-        limit: z.number().int().min(1).max(100).optional(),
+        limit: z.coerce.number().int().min(1).max(100).optional(),
         status: RoundFeedbackStatusSchema.optional(),
         author: z.string().min(1).optional(),
         /** Only starred submissions (#104). */
-        starred: z.boolean().optional(),
+        starred: z.union([z.boolean(), z.stringbool()]).optional(),
       }),
     )
     .output(FeedbackPageSchema)
@@ -818,7 +818,7 @@ export const contract = oc.router({
 
   listNotifications: oc
     .route({ method: "GET", path: "/notifications" })
-    .input(z.object({ limit: z.number().int().positive().max(100).default(30) }))
+    .input(z.object({ limit: z.coerce.number().int().positive().max(100).default(30) }))
     .output(NotificationListSchema)
     .errors({ UNAUTHORIZED }),
 
@@ -885,7 +885,7 @@ export const contract = oc.router({
     .input(
       z.object({
         accountId: z.string(),
-        limit: z.number().int().positive().max(50).default(20),
+        limit: z.coerce.number().int().positive().max(50).default(20),
       }),
     )
     .output(z.array(BuilderActivityEventSchema)),
@@ -937,7 +937,7 @@ export const contract = oc.router({
     .input(
       z.object({
         period: LeaderboardPeriodSchema.default("all-time"),
-        limit: z.number().int().positive().max(100).optional(),
+        limit: z.coerce.number().int().positive().max(100).optional(),
       }),
     )
     .output(LeaderboardSchema),
