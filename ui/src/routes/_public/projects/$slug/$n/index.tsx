@@ -10,7 +10,7 @@ import { RoundJoinCta } from "@/components/round-join-cta";
 import { RoundParticipants } from "@/components/round-participants";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundRepoLinks } from "@/components/round-repo-links";
-import { useLegionAccess } from "@/hooks/use-legion-access";
+import { type LegionAccessResult, useLegionAccess } from "@/hooks/use-legion-access";
 import { roundEndorsementsQueryOptions, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { type RoundDetail, useRound } from "@/lib/round-route";
@@ -65,11 +65,8 @@ function JoinCard({
   });
   const faces = (participantsQuery.data ?? []).slice(0, 3);
   const needsLegionCheck = round.legionOnly && viewer.cta.kind === "join";
-  const { legionAccess, isLoading: legionCheckPending } = useLegionAccess();
-  // A gated round can't be joined until the holder check resolves: the button
-  // waits while it loads and stays disabled when the wallet fails it.
-  const legionBlocked =
-    needsLegionCheck && (legionCheckPending || (!!legionAccess && !legionAccess.hasAccess));
+  const { legionAccess } = useLegionAccess(needsLegionCheck);
+  const legionBlocked = needsLegionCheck && legionAccess?.hasAccess !== true;
 
   return (
     <Card className="space-y-4 p-5" data-testid="round-join-card">
@@ -97,7 +94,7 @@ function JoinCard({
         />
       )}
 
-      {needsLegionCheck && <LegionEligibility />}
+      {needsLegionCheck && legionAccess && <LegionEligibility legionAccess={legionAccess} />}
       {viewer.isExpired && (
         <p className="text-sm text-muted-foreground" data-testid="round-expired-notice">
           This round has expired, so joining and posting are closed.
@@ -160,9 +157,7 @@ function DetailsCard({
   );
 }
 
-function LegionEligibility() {
-  const { legionAccess, isLoading } = useLegionAccess();
-  if (isLoading || !legionAccess) return null;
+function LegionEligibility({ legionAccess }: { legionAccess: LegionAccessResult }) {
   if (legionAccess.hasAccess) {
     return (
       <p className="text-sm text-muted-foreground" data-testid="legion-eligible">
