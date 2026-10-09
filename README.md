@@ -23,7 +23,7 @@ Feedback Rounds is matchmaking plus a paper trail: a project posts what it needs
 
 ## API
 
-All endpoints are under `/api/v1`. Open rounds and leaderboards are public; everything else needs a signed-in session.
+All endpoints are under `/api`. Open rounds and leaderboards are public; everything else needs a signed-in session.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ The project chooses one or more formats when requesting a round:
 
 ### Builder profile feed
 
-`GET /api/v1/builders/{accountId}/rounds` is public and needs no sign-in. It returns the
+`GET /api/builders/{accountId}/rounds` is public and needs no sign-in. It returns the
 closed rounds the builder holds a credit record on, newest first, for the "Feedback rounds"
 section on their `nearbuilders.org` profile.
 
@@ -118,10 +118,10 @@ standing — the leaderboard, a builder's rank, and the "Earned credit" card on 
 from it, with no local fallback. A reachability problem with the gateway shows up as an empty
 leaderboard, not a locally-computed stand-in.
 
-- `GET /api/v1/activity/leaderboard?period=weekly|monthly|all-time&limit=` is public and proxies
+- `GET /api/activity/leaderboard?period=weekly|monthly|all-time&limit=` is public and proxies
   activity's leaderboard for this app's Activity Source, unfiltered by event type — the gateway's
   own per-type scoring (see below) decides what counts, not this app.
-- `GET /api/v1/builders/{accountId}/standing` is public and returns one builder's entry from that
+- `GET /api/builders/{accountId}/standing` is public and returns one builder's entry from that
   same all-time board — `{ accountId, rank, score, eventCount }`, or `null` if they have not
   scored yet.
 
@@ -237,7 +237,7 @@ linked". The tip button copies the tip-bot message and opens a `t.me` link with 
 it is disabled with an explanation when no handle is linked. If both sources are unreachable the
 lookup degrades to "unavailable" instead of failing.
 
-`GET /api/v1/builders/{accountId}/telegram` (signed-in callers only) returns
+`GET /api/builders/{accountId}/telegram` (signed-in callers only) returns
 `{ handle, source, available, message, shareUrl }`. The message comes from the
 `TIP_MESSAGE_TEMPLATE` secret (default `/tip @{handle}`; `{handle}` and `{account}` are replaced),
 so the bot's command format can change without a code change.

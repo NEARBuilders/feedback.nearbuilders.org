@@ -489,3 +489,54 @@ describe("accepting feedback", () => {
     });
   });
 });
+
+describe("deleting feedback", () => {
+  it("cancels a queued feedback.accepted emit when accepted feedback is deleted", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "delete-queued");
+
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      await rounds.deleteFeedback(feedback.id);
+
+      const rows = await db.select().from(activityOutbox);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ operation: "emit", status: "cancelled" });
+    });
+  });
+
+  it("retracts a delivered feedback.accepted event when accepted feedback is deleted", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "delete-delivered");
+
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      const worker = createActivityOutboxWorker({ db, emitter: fakeEmitter() });
+      await worker.drain();
+
+      await rounds.deleteFeedback(feedback.id);
+
+      const retraction = (await db.select().from(activityOutbox)).find(
+        (row) => row.operation === "retract",
+      );
+      expect(retraction).toMatchObject({
+        targetEventId: "event-1",
+        reason: "feedback deleted",
+        status: "pending",
+      });
+    });
+  });
+
+  it("queues nothing when the deleted feedback was never accepted", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { feedback } = await openRoundWithFeedback(harness, "delete-plain");
+
+      const result = await rounds.deleteFeedback(feedback.id);
+
+      expect(result?.roundId).toBeDefined();
+      expect(await db.select().from(activityOutbox)).toHaveLength(0);
+      expect(await rounds.deleteFeedback(feedback.id)).toBeNull();
+    });
+  });
+});
