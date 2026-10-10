@@ -33,20 +33,20 @@ function RoundOverviewPage() {
   const endorsement = endorsements?.[round.id];
 
   return (
-    <div
-      className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]"
-      data-testid="round-overview"
-    >
-      <div className="min-w-0">
-        <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
+    <div className="space-y-8" data-testid="round-overview">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0">
+          <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
+        </div>
+
+        <aside className="min-w-0 space-y-4 lg:sticky lg:top-6">
+          <JoinCard round={round} viewer={viewer} />
+          <DetailsCard round={round} endorsement={endorsement} />
+          {round.status === "closed" && <RoundCredits roundId={round.id} />}
+        </aside>
       </div>
 
-      <aside className="space-y-4 lg:sticky lg:top-6">
-        <JoinCard round={round} viewer={viewer} />
-        <DetailsCard round={round} endorsement={endorsement} />
-        {round.status === "closed" && <RoundCredits roundId={round.id} />}
-        {viewer.canSeeParticipants && <RoundParticipants roundId={round.id} />}
-      </aside>
+      {viewer.canSeeParticipants && <RoundParticipants roundId={round.id} />}
     </div>
   );
 }
@@ -89,6 +89,7 @@ function JoinCard({
         <RoundJoinCta
           round={round}
           cta={viewer.cta}
+          size="sm"
           legionBlocked={legionBlocked}
           canPost={viewer.canPost}
         />
