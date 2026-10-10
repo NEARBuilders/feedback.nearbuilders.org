@@ -9,5 +9,5 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n
 function ParticipantsTab() {
   const params = Route.useParams();
   const round = useRound(params);
-  return <RoundParticipants roundId={round.id} consoleParams={params} />;
+  return <RoundParticipants roundId={round.id} params={params} surface="console" />;
 }

@@ -4,25 +4,36 @@ import { useApiClient } from "@/app";
 import { Skeleton } from "@/components";
 import { SectionHeader } from "@/components/layout/section-header";
 import { roundParticipantsQueryOptions } from "@/lib/queries/rounds";
-import type { RoundParams } from "@/lib/round-links";
+import {
+  type ParticipantPostsSurface,
+  participantPostLink,
+  type RoundParams,
+} from "@/lib/round-links";
+import { cn } from "@/lib/utils";
 
 function postsLabel(count: number) {
   return `${count} ${count === 1 ? "post" : "posts"}`;
 }
 
+const rowClassName =
+  "grid grid-cols-1 items-start gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4";
+
 export function RoundParticipants({
   roundId,
-  consoleParams,
+  params,
+  surface = "public",
 }: {
   roundId: string;
-  consoleParams?: RoundParams;
+  params?: RoundParams;
+  surface?: ParticipantPostsSurface;
 }) {
   const apiClient = useApiClient();
   const participantsQuery = useQuery(roundParticipantsQueryOptions(apiClient, roundId));
   const participants = participantsQuery.data ?? [];
+  const dest = params ? { surface, params } : undefined;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="round-participants">
       <SectionHeader
         title="Participants"
         action={
@@ -38,32 +49,53 @@ export function RoundParticipants({
       ) : participants.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nobody has joined this round yet.</p>
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
-          {participants.map((participant) => (
-            <li
-              key={participant.accountId}
-              className="flex items-center justify-between gap-3 px-4 py-2.5"
-            >
-              <span className="font-mono text-sm text-foreground break-all">
-                {participant.accountId}
-              </span>
-              <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                {consoleParams && participant.feedbackCount > 0 ? (
+        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+          {participants.map((participant) => {
+            const postLink = participantPostLink(
+              participant.accountId,
+              participant.feedbackCount,
+              dest,
+            );
+            const meta = (
+              <>
+                <span
+                  className={cn(
+                    "text-xs",
+                    postLink ? "font-medium text-foreground underline" : "text-muted-foreground",
+                  )}
+                >
+                  {postsLabel(participant.feedbackCount)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Joined {new Date(participant.joinedAt).toLocaleDateString()}
+                </span>
+              </>
+            );
+
+            return (
+              <li key={participant.accountId}>
+                {postLink ? (
                   <Link
-                    to="/manage/$slug/$n"
-                    params={consoleParams}
-                    search={{ status: "all", author: participant.accountId }}
-                    className="text-foreground underline"
+                    {...postLink}
+                    className={cn(rowClassName, "hover:bg-accent")}
+                    data-testid="participant-posts-link"
                   >
-                    {postsLabel(participant.feedbackCount)}
+                    <span className="font-mono text-sm text-foreground break-all">
+                      {participant.accountId}
+                    </span>
+                    {meta}
                   </Link>
                 ) : (
-                  postsLabel(participant.feedbackCount)
+                  <div className={rowClassName}>
+                    <span className="font-mono text-sm text-foreground break-all">
+                      {participant.accountId}
+                    </span>
+                    {meta}
+                  </div>
                 )}
-                <span>Joined {new Date(participant.joinedAt).toLocaleDateString()}</span>
-              </span>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
