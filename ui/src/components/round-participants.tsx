@@ -38,16 +38,16 @@ export function RoundParticipants({
       ) : participants.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nobody has joined this round yet.</p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+        <ul className="divide-y divide-border rounded-lg border border-border">
           {participants.map((participant) => (
             <li
               key={participant.accountId}
-              className="flex min-w-0 flex-col gap-1 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              className="flex items-center justify-between gap-3 px-4 py-2.5"
             >
-              <span className="min-w-0 font-mono text-sm text-foreground break-words">
+              <span className="font-mono text-sm text-foreground break-all">
                 {participant.accountId}
               </span>
-              <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
                 {consoleParams && participant.feedbackCount > 0 ? (
                   <Link
                     to="/manage/$slug/$n/testers"
