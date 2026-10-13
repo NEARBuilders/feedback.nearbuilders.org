@@ -68,7 +68,10 @@ export function RoundReadme({ roundId, readme, canEdit }: RoundReadmeProps) {
             disabled={saveMutation.isPending}
           />
           <div className="flex gap-2">
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || draft.length > README_MAX_LENGTH}
+            >
               {saveMutation.isPending ? "Saving..." : "Save readme"}
             </Button>
             <Button

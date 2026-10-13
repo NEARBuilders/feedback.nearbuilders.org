@@ -1,4 +1,4 @@
-export const FEEDBACK_TEXT_MAX = 10000;
+export const FEEDBACK_TEXT_MAX = 30000;
 
 const MARKDOWN_IMAGE = /!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?[^)]*\)/g;
 const MARKDOWN_LINK = /\[([^\]]*)\]\([^)]*\)/g;
@@ -27,4 +27,15 @@ export function feedbackTextLength(body: string): number {
     .replace(ESCAPE, "$1")
     .replace(BLANK_LINES, "\n")
     .trim().length;
+}
+
+/**
+ * True when an image is still embedded as file data instead of an uploaded URL: an upload
+ * that failed or hasn't finished. Posting it would store the whole image in the body.
+ */
+export function hasUnuploadedImage(body: string): boolean {
+  for (const match of body.matchAll(MARKDOWN_IMAGE)) {
+    if (/^(?:data|blob):/i.test(match[2] ?? "")) return true;
+  }
+  return false;
 }

@@ -39,6 +39,17 @@ export interface RoundParticipantRecord {
   feedbackCount: number;
 }
 
+export interface FeedbackAuthorRecord {
+  accountId: string;
+  feedbackCount: number;
+  unresolvedCount: number;
+  resolvedCount: number;
+  dismissedCount: number;
+  starredCount: number;
+  firstPostedAt: string;
+  lastPostedAt: string;
+}
+
 export interface RoundSettingsPatch {
   readme?: string;
   /** New banner URL, or null to remove it. */
@@ -301,6 +312,8 @@ export interface RoundsService {
   addFeedbackNote(note: NewFeedbackNote): Promise<FeedbackNoteRecord>;
   listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
+  /** Everyone who posted in the round, with their submission counts by status. */
+  listFeedbackAuthors(roundId: string): Promise<FeedbackAuthorRecord[]>;
   getCreditCandidates(roundId: string): Promise<CreditCandidate[]>;
   closeRound(roundId: string, credits: CloseRoundCreditInput[]): Promise<RoundDetailRecord>;
   listRoundCredits(roundId: string): Promise<RoundCreditRecord[]>;
@@ -387,6 +400,28 @@ function acceptanceKey(row: RoundFeedbackRow): string {
 }
 
 /**
+ * Undo a `feedback.accepted` emit: cancel it if it was never delivered,
+ * otherwise queue a retraction of the delivered event.
+ */
+async function reverseAcceptance(
+  tx: Transaction,
+  prior: RoundFeedbackRow,
+  reason: string,
+): Promise<void> {
+  const cancelled = await cancelPendingActivity(tx, acceptanceKey(prior));
+  const deliveredEventId =
+    prior.acceptedActivityEventId ?? (await findEmittedEventId(tx, acceptanceKey(prior)));
+  if (!cancelled && deliveredEventId) {
+    await enqueueActivity(tx, {
+      operation: "retract",
+      idempotencyKey: `retract:${deliveredEventId}`,
+      targetEventId: deliveredEventId,
+      reason,
+    });
+  }
+}
+
+/**
  * Queue the reputation events for feedback that crossed the accepted boundary.
  *
  * activity scores `feedback.accepted`, so both directions matter: accepting
@@ -423,17 +458,7 @@ async function queueAcceptanceEvents(
       continue;
     }
 
-    const cancelled = await cancelPendingActivity(tx, acceptanceKey(prior));
-    const deliveredEventId =
-      prior.acceptedActivityEventId ?? (await findEmittedEventId(tx, acceptanceKey(prior)));
-    if (!cancelled && deliveredEventId) {
-      await enqueueActivity(tx, {
-        operation: "retract",
-        idempotencyKey: `retract:${deliveredEventId}`,
-        targetEventId: deliveredEventId,
-        reason: "feedback no longer accepted",
-      });
-    }
+    await reverseAcceptance(tx, prior, "feedback no longer accepted");
     await tx
       .update(roundFeedbackTable)
       .set({ acceptedActivityEventId: null })
@@ -985,6 +1010,37 @@ export const RoundsLive = Layer.effect(
         }
       },
 
+      listFeedbackAuthors: async (roundId) => {
+        try {
+          const countWhere = (condition: ReturnType<typeof sql>) =>
+            sql<number>`count(*) filter (where ${condition})`.mapWith(Number);
+          const rows = await db
+            .select({
+              accountId: roundFeedbackTable.authorAccountId,
+              feedbackCount: count(roundFeedbackTable.id),
+              unresolvedCount: countWhere(sql`${roundFeedbackTable.status} = 'unresolved'`),
+              resolvedCount: countWhere(sql`${roundFeedbackTable.status} = 'resolved'`),
+              dismissedCount: countWhere(sql`${roundFeedbackTable.status} = 'dismissed'`),
+              starredCount: countWhere(sql`${roundFeedbackTable.starredAt} is not null`),
+              firstPostedAt: sql<string>`min(${roundFeedbackTable.createdAt})`,
+              lastPostedAt: sql<string>`max(${roundFeedbackTable.createdAt})`,
+            })
+            .from(roundFeedbackTable)
+            .where(eq(roundFeedbackTable.roundId, roundId))
+            .groupBy(roundFeedbackTable.authorAccountId)
+            .orderBy(desc(sql`max(${roundFeedbackTable.createdAt})`));
+          const iso = (value: unknown) =>
+            new Date(value instanceof Date ? value : String(value)).toISOString();
+          return rows.map((row) => ({
+            ...row,
+            firstPostedAt: iso(row.firstPostedAt),
+            lastPostedAt: iso(row.lastPostedAt),
+          }));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
       getCreditCandidates: async (roundId) => {
         try {
           const rows = await db
@@ -1327,14 +1383,21 @@ export const RoundsLive = Layer.effect(
 
       deleteFeedback: async (feedbackId) => {
         try {
-          const [row] = await db
-            .delete(roundFeedbackTable)
-            .where(eq(roundFeedbackTable.id, feedbackId))
-            .returning({
-              roundId: roundFeedbackTable.roundId,
-              activityEventId: roundFeedbackTable.activityEventId,
-            });
-          return row ? { roundId: row.roundId, activityEventId: row.activityEventId } : null;
+          return await db.transaction(async (tx) => {
+            const [prior] = await tx
+              .select()
+              .from(roundFeedbackTable)
+              .where(eq(roundFeedbackTable.id, feedbackId))
+              .limit(1);
+            if (!prior) return null;
+            // Deleting accepted feedback takes its score with it, or an author
+            // could delete their own accepted item and keep the points.
+            if (prior.status === "resolved") {
+              await reverseAcceptance(tx, prior, "feedback deleted");
+            }
+            await tx.delete(roundFeedbackTable).where(eq(roundFeedbackTable.id, feedbackId));
+            return { roundId: prior.roundId, activityEventId: prior.activityEventId };
+          });
         } catch (error) {
           throw toOrpcError(error);
         }

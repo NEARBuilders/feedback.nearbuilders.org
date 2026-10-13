@@ -50,9 +50,9 @@ export function RoundParticipants({
               <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 {consoleParams && participant.feedbackCount > 0 ? (
                   <Link
-                    to="/manage/$slug/$n"
+                    to="/manage/$slug/$n/testers"
                     params={consoleParams}
-                    search={{ status: "all", author: participant.accountId }}
+                    search={{ status: "all", account: participant.accountId }}
                     className="text-foreground underline"
                   >
                     {postsLabel(participant.feedbackCount)}

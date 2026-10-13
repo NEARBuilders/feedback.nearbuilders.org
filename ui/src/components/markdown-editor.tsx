@@ -35,7 +35,10 @@ interface MarkdownEditorProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
-  /** Hard cap on stored markdown length: edits that would exceed it are reverted. */
+  /**
+   * Length limit. Edits past it are kept and flagged rather than dropped, so what the editor
+   * shows is always what gets saved; callers block saving with `isOverLimit`.
+   */
   maxLength?: number;
   /** How a value is measured against maxLength; defaults to its raw length. */
   measureLength?: (value: string) => number;
@@ -71,27 +74,33 @@ function MarkdownEditorSurface({
     return file ? { kind: "file", file } : null;
   }, []);
 
-  const handleChange = (next: string) => {
-    if (maxLength != null && measureLength(next) > maxLength) return;
-    onChange(next);
-  };
+  const overBy = maxLength == null ? 0 : measureLength(value) - maxLength;
 
   return (
-    <Editor
-      id={id}
-      aria-label={ariaLabel}
-      value={value}
-      onChange={handleChange}
-      disabled={disabled}
-      format="markdown"
-      enableImages
-      enableImagePasteDrop
-      onUploadImage={handleUploadImage}
-      onRequestImage={handleRequestImage}
-      onPendingUploadsChange={onPendingUploadsChange}
-      className={className}
-      editorClassName={editorClassName}
-    />
+    <>
+      <Editor
+        id={id}
+        aria-label={ariaLabel}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        format="markdown"
+        enableImages
+        enableImagePasteDrop
+        onUploadImage={handleUploadImage}
+        onRequestImage={handleRequestImage}
+        onPendingUploadsChange={onPendingUploadsChange}
+        className={className}
+        editorClassName={editorClassName}
+        aria-invalid={overBy > 0 || undefined}
+      />
+      {overBy > 0 && (
+        <p role="alert" className="text-xs text-destructive" data-testid="editor-over-limit">
+          {overBy.toLocaleString()} {overBy === 1 ? "character" : "characters"} over the{" "}
+          {maxLength?.toLocaleString()} limit. Shorten it to save.
+        </p>
+      )}
+    </>
   );
 }
 

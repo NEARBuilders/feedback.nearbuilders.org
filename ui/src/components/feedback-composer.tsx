@@ -14,12 +14,13 @@ import {
   SegmentedToggle,
 } from "@/components";
 import { useClientValue } from "@/hooks";
-import { FEEDBACK_TEXT_MAX, feedbackTextLength } from "@/lib/feedback-body";
+import { FEEDBACK_TEXT_MAX, feedbackTextLength, hasUnuploadedImage } from "@/lib/feedback-body";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 import { myFeedbackHref, roundParams } from "@/lib/round-links";
 import type { RoundDetail } from "@/lib/round-route";
 import { absoluteUrl, copyUrl, shareUrl } from "@/lib/share";
+import { cn } from "@/lib/utils";
 
 type FeedbackFormat = "written" | "recorded";
 
@@ -50,6 +51,7 @@ export function FeedbackComposer({ round, accountId }: FeedbackComposerProps) {
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
   const [pendingUploads, setPendingUploads] = useState(0);
   const [posted, setPosted] = useState(false);
+  const [draftSaveFailed, setDraftSaveFailed] = useState(false);
   const canShare = useClientValue(() => typeof navigator.share === "function", false);
   const draftKey = `feedback-draft:${accountId}:${round.id}`;
 
@@ -67,11 +69,17 @@ export function FeedbackComposer({ round, accountId }: FeedbackComposerProps) {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (draft.body || draft.url) {
-        localStorage.setItem(draftKey, JSON.stringify(draft));
-      } else {
-        localStorage.removeItem(draftKey);
+      try {
+        if (draft.body || draft.url) {
+          localStorage.setItem(draftKey, JSON.stringify(draft));
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      } catch {
+        setDraftSaveFailed(true);
+        return;
       }
+      setDraftSaveFailed(false);
     }, 300);
     return () => clearTimeout(timer);
   }, [draft, draftKey]);
@@ -97,9 +105,14 @@ export function FeedbackComposer({ round, accountId }: FeedbackComposerProps) {
 
   if (writable.length === 0) return null;
 
+  const textLength = feedbackTextLength(draft.body);
+  const overLimit = format === "written" && textLength > FEEDBACK_TEXT_MAX;
+  const stuckImage = format === "written" && pendingUploads === 0 && hasUnuploadedImage(draft.body);
   const canSubmit =
     !postMutation.isPending &&
     pendingUploads === 0 &&
+    !overLimit &&
+    !stuckImage &&
     (format === "written" ? draft.body.trim().length > 0 : draft.url.trim().length > 0);
 
   if (posted && accountId) {
@@ -176,12 +189,25 @@ export function FeedbackComposer({ round, accountId }: FeedbackComposerProps) {
             disabled={postMutation.isPending}
             onPendingUploadsChange={setPendingUploads}
           />
-          <span className="text-right text-xs text-muted-foreground">
-            {feedbackTextLength(draft.body)}/{FEEDBACK_TEXT_MAX}
+          <span
+            className={cn(
+              "text-right text-xs",
+              overLimit ? "text-destructive" : "text-muted-foreground",
+            )}
+          >
+            {textLength.toLocaleString()}/{FEEDBACK_TEXT_MAX.toLocaleString()}
             {pendingUploads > 0
               ? ` · uploading ${pendingUploads} image${pendingUploads > 1 ? "s" : ""}...`
-              : " · draft saved on this device"}
+              : draftSaveFailed
+                ? " · too large to save a draft on this device"
+                : " · draft saved on this device"}
           </span>
+          {stuckImage && (
+            <p role="alert" className="text-xs text-destructive">
+              An image didn't finish uploading (outlined in red). Remove it or paste it again before
+              posting.
+            </p>
+          )}
         </Field>
       ) : (
         <Field>

@@ -1,7 +1,12 @@
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
-import { FEEDBACK_TEXT_MAX, feedbackTextLength } from "./lib/feedback-body";
+import {
+  FEEDBACK_BODY_RAW_MAX,
+  FEEDBACK_TEXT_MAX,
+  feedbackTextLength,
+  hasUnuploadedImage,
+} from "./lib/feedback-body";
 
 const ErrorTestKindSchema = z.enum([
   "unauthorized",
@@ -139,6 +144,21 @@ export const RoundParticipantSchema = z.object({
 });
 
 export type RoundParticipant = z.infer<typeof RoundParticipantSchema>;
+
+export const FeedbackAuthorSchema = z.object({
+  accountId: z.string(),
+  /** Telegram handle without `@`, from the tester's nearbuilders.org or NEAR Social profile. */
+  telegramHandle: z.string().nullable(),
+  feedbackCount: z.number().int().nonnegative(),
+  unresolvedCount: z.number().int().nonnegative(),
+  resolvedCount: z.number().int().nonnegative(),
+  dismissedCount: z.number().int().nonnegative(),
+  starredCount: z.number().int().nonnegative(),
+  firstPostedAt: z.string(),
+  lastPostedAt: z.string(),
+});
+
+export type FeedbackAuthor = z.infer<typeof FeedbackAuthorSchema>;
 
 export const RoundFeedbackStatusSchema = z.enum(["unresolved", "resolved", "dismissed"]);
 
@@ -458,8 +478,12 @@ export type ProjectSearchResult = z.infer<typeof ProjectSearchResultSchema>;
 
 const FeedbackBodySchema = z
   .string()
+  .max(FEEDBACK_BODY_RAW_MAX, "Feedback is too large")
   .refine((body) => feedbackTextLength(body) <= FEEDBACK_TEXT_MAX, {
     message: `Feedback can be at most ${FEEDBACK_TEXT_MAX} characters, not counting images`,
+  })
+  .refine((body) => !hasUnuploadedImage(body), {
+    message: "An image didn't finish uploading. Remove it or paste it again, then post.",
   });
 
 const PostFeedbackInputSchema = z
@@ -680,7 +704,7 @@ export const contract = oc.router({
 
   getRoundBySlug: oc
     .route({ method: "GET", path: "/projects/{slug}/rounds/{number}" })
-    .input(z.object({ slug: z.string().min(1), number: z.number().int().positive() }))
+    .input(z.object({ slug: z.string().min(1), number: z.coerce.number().int().positive() }))
     .output(RoundDetailSchema)
     .errors({ NOT_FOUND }),
 
@@ -740,11 +764,11 @@ export const contract = oc.router({
       z.object({
         id: z.string(),
         cursor: z.string().max(100).optional(),
-        limit: z.number().int().min(1).max(100).optional(),
+        limit: z.coerce.number().int().min(1).max(100).optional(),
         status: RoundFeedbackStatusSchema.optional(),
         author: z.string().min(1).optional(),
         /** Only starred submissions (#104). */
-        starred: z.boolean().optional(),
+        starred: z.union([z.boolean(), z.stringbool()]).optional(),
       }),
     )
     .output(FeedbackPageSchema)
@@ -811,6 +835,18 @@ export const contract = oc.router({
     .output(z.array(RoundFeedbackSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
+  listFeedbackAuthors: oc
+    .route({
+      method: "GET",
+      path: "/rounds/{id}/testers",
+      summary: "Everyone who posted feedback in a round, with counts by status",
+      description:
+        "Round managers only. One row per tester, newest activity first, with their Telegram handle when one is linked.",
+    })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(FeedbackAuthorSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
   listParticipants: oc
     .route({ method: "GET", path: "/rounds/{id}/participants" })
     .input(z.object({ id: z.string() }))
@@ -825,7 +861,7 @@ export const contract = oc.router({
 
   listNotifications: oc
     .route({ method: "GET", path: "/notifications" })
-    .input(z.object({ limit: z.number().int().positive().max(100).default(30) }))
+    .input(z.object({ limit: z.coerce.number().int().positive().max(100).default(30) }))
     .output(NotificationListSchema)
     .errors({ UNAUTHORIZED }),
 
@@ -892,7 +928,7 @@ export const contract = oc.router({
     .input(
       z.object({
         accountId: z.string(),
-        limit: z.number().int().positive().max(50).default(20),
+        limit: z.coerce.number().int().positive().max(50).default(20),
       }),
     )
     .output(z.array(BuilderActivityEventSchema)),
@@ -944,7 +980,7 @@ export const contract = oc.router({
     .input(
       z.object({
         period: LeaderboardPeriodSchema.default("all-time"),
-        limit: z.number().int().positive().max(100).optional(),
+        limit: z.coerce.number().int().positive().max(100).optional(),
       }),
     )
     .output(LeaderboardSchema),

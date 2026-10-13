@@ -36,6 +36,7 @@ import { createTeamAccess } from "./services/team-access";
 import { createTelegramTipLookup } from "./services/telegram-tip";
 
 const MAX_FEEDBACK_PER_TESTER = 500;
+const TELEGRAM_LOOKUP_CONCURRENCY = 8;
 
 /**
  * How deep to scan the activity board when resolving one builder's standing.
@@ -1203,6 +1204,33 @@ export default createPlugin.withPlugins<PluginsClient>()({
             input.starred,
             starredBy,
           );
+        }),
+
+      listFeedbackAuthors: builder.listFeedbackAuthors
+        .use(requireAuthOrApiKey)
+        .handler(async ({ input, context }) => {
+          const round = await requireRound(input.id);
+          await assertCanManageRound(
+            round,
+            context,
+            "Only the round owner can list the round's testers",
+          );
+          const authors = await services.rounds.listFeedbackAuthors(round.id);
+          const handles = new Map<string, string | null>();
+          for (let i = 0; i < authors.length; i += TELEGRAM_LOOKUP_CONCURRENCY) {
+            const batch = authors.slice(i, i + TELEGRAM_LOOKUP_CONCURRENCY);
+            const resolved = await Promise.all(
+              batch.map(async (author) => {
+                const { handle } = await services.telegramTip.resolveHandle(author.accountId);
+                return [author.accountId, handle] as const;
+              }),
+            );
+            for (const [accountId, handle] of resolved) handles.set(accountId, handle);
+          }
+          return authors.map((author) => ({
+            ...author,
+            telegramHandle: handles.get(author.accountId) ?? null,
+          }));
         }),
 
       listParticipants: builder.listParticipants

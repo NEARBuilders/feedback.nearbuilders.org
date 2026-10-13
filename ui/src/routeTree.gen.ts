@@ -52,6 +52,7 @@ import { Route as PublicProjectsSlugNSubmitRouteImport } from './routes/_public/
 import { Route as PublicProjectsSlugNFeedbackRouteImport } from './routes/_public/projects/$slug/$n/feedback'
 import { Route as AuthenticatedDashboardOrgsInvitesIdRouteImport } from './routes/_authenticated/_dashboard/orgs/invites.$id'
 import { Route as AuthenticatedDashboardManageSlugNRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n'
+import { Route as AuthenticatedDashboardManageSlugNTestersRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/testers'
 import { Route as AuthenticatedDashboardManageSlugNSettingsRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/settings'
 import { Route as AuthenticatedDashboardManageSlugNParticipantsRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/participants'
 import { Route as AuthenticatedDashboardManageSlugNCloseRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/close'
@@ -293,6 +294,12 @@ const AuthenticatedDashboardManageSlugNRoute =
     path: '/manage/$slug/$n',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardManageSlugNTestersRoute =
+  AuthenticatedDashboardManageSlugNTestersRouteImport.update({
+    id: '/testers',
+    path: '/testers',
+    getParentRoute: () => AuthenticatedDashboardManageSlugNRoute,
+  } as any)
 const AuthenticatedDashboardManageSlugNSettingsRoute =
   AuthenticatedDashboardManageSlugNSettingsRouteImport.update({
     id: '/settings',
@@ -378,6 +385,7 @@ export interface FileRoutesByFullPath {
   '/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
   '/manage/$slug/$n/settings': typeof AuthenticatedDashboardManageSlugNSettingsRoute
+  '/manage/$slug/$n/testers': typeof AuthenticatedDashboardManageSlugNTestersRoute
   '/manage/$slug/$n/$feedbackId': typeof AuthenticatedDashboardManageSlugNInboxFeedbackIdRoute
   '/manage/$slug/$n/': typeof AuthenticatedDashboardManageSlugNInboxIndexRoute
 }
@@ -418,6 +426,7 @@ export interface FileRoutesByTo {
   '/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
   '/manage/$slug/$n/settings': typeof AuthenticatedDashboardManageSlugNSettingsRoute
+  '/manage/$slug/$n/testers': typeof AuthenticatedDashboardManageSlugNTestersRoute
   '/manage/$slug/$n/$feedbackId': typeof AuthenticatedDashboardManageSlugNInboxFeedbackIdRoute
 }
 export interface FileRoutesById {
@@ -470,6 +479,7 @@ export interface FileRoutesById {
   '/_authenticated/_dashboard/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/_authenticated/_dashboard/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
   '/_authenticated/_dashboard/manage/$slug/$n/settings': typeof AuthenticatedDashboardManageSlugNSettingsRoute
+  '/_authenticated/_dashboard/manage/$slug/$n/testers': typeof AuthenticatedDashboardManageSlugNTestersRoute
   '/_authenticated/_dashboard/manage/$slug/$n/_inbox/$feedbackId': typeof AuthenticatedDashboardManageSlugNInboxFeedbackIdRoute
   '/_authenticated/_dashboard/manage/$slug/$n/_inbox/': typeof AuthenticatedDashboardManageSlugNInboxIndexRoute
 }
@@ -518,6 +528,7 @@ export interface FileRouteTypes {
     | '/manage/$slug/$n/close'
     | '/manage/$slug/$n/participants'
     | '/manage/$slug/$n/settings'
+    | '/manage/$slug/$n/testers'
     | '/manage/$slug/$n/$feedbackId'
     | '/manage/$slug/$n/'
   fileRoutesByTo: FileRoutesByTo
@@ -558,6 +569,7 @@ export interface FileRouteTypes {
     | '/manage/$slug/$n/close'
     | '/manage/$slug/$n/participants'
     | '/manage/$slug/$n/settings'
+    | '/manage/$slug/$n/testers'
     | '/manage/$slug/$n/$feedbackId'
   id:
     | '__root__'
@@ -609,6 +621,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_dashboard/manage/$slug/$n/close'
     | '/_authenticated/_dashboard/manage/$slug/$n/participants'
     | '/_authenticated/_dashboard/manage/$slug/$n/settings'
+    | '/_authenticated/_dashboard/manage/$slug/$n/testers'
     | '/_authenticated/_dashboard/manage/$slug/$n/_inbox/$feedbackId'
     | '/_authenticated/_dashboard/manage/$slug/$n/_inbox/'
   fileRoutesById: FileRoutesById
@@ -922,6 +935,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardManageSlugNRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/_authenticated/_dashboard/manage/$slug/$n/testers': {
+      id: '/_authenticated/_dashboard/manage/$slug/$n/testers'
+      path: '/testers'
+      fullPath: '/manage/$slug/$n/testers'
+      preLoaderRoute: typeof AuthenticatedDashboardManageSlugNTestersRouteImport
+      parentRoute: typeof AuthenticatedDashboardManageSlugNRoute
+    }
     '/_authenticated/_dashboard/manage/$slug/$n/settings': {
       id: '/_authenticated/_dashboard/manage/$slug/$n/settings'
       path: '/settings'
@@ -1096,6 +1116,7 @@ interface AuthenticatedDashboardManageSlugNRouteChildren {
   AuthenticatedDashboardManageSlugNCloseRoute: typeof AuthenticatedDashboardManageSlugNCloseRoute
   AuthenticatedDashboardManageSlugNParticipantsRoute: typeof AuthenticatedDashboardManageSlugNParticipantsRoute
   AuthenticatedDashboardManageSlugNSettingsRoute: typeof AuthenticatedDashboardManageSlugNSettingsRoute
+  AuthenticatedDashboardManageSlugNTestersRoute: typeof AuthenticatedDashboardManageSlugNTestersRoute
 }
 
 const AuthenticatedDashboardManageSlugNRouteChildren: AuthenticatedDashboardManageSlugNRouteChildren =
@@ -1110,6 +1131,8 @@ const AuthenticatedDashboardManageSlugNRouteChildren: AuthenticatedDashboardMana
       AuthenticatedDashboardManageSlugNParticipantsRoute,
     AuthenticatedDashboardManageSlugNSettingsRoute:
       AuthenticatedDashboardManageSlugNSettingsRoute,
+    AuthenticatedDashboardManageSlugNTestersRoute:
+      AuthenticatedDashboardManageSlugNTestersRoute,
   }
 
 const AuthenticatedDashboardManageSlugNRouteWithChildren =

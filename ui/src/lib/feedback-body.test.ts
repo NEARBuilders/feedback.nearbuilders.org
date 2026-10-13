@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { feedbackTextLength } from "./feedback-body";
+import { feedbackTextLength, hasUnuploadedImage } from "./feedback-body";
 
 const url = `https://cdn.test/uploads/${"a".repeat(150)}.png`;
 
@@ -29,5 +29,17 @@ describe("feedbackTextLength", () => {
     expect(feedbackTextLength("1\\. not a list \\*")).toBe("1. not a list *".length);
     expect(feedbackTextLength("```ts\nconst a = 1;\n```")).toBe("const a = 1;".length);
     expect(feedbackTextLength("a\n\n&nbsp;\n\nb")).toBe("a\n \nb".length);
+  });
+});
+
+describe("hasUnuploadedImage", () => {
+  it("flags images still embedded as file data", () => {
+    expect(hasUnuploadedImage("a\n\n![shot.png](data:image/png;base64,iVBORw0KGgo=)")).toBe(true);
+    expect(hasUnuploadedImage("![shot.png](blob:https://x.test/123)")).toBe(true);
+  });
+
+  it("accepts uploaded images and plain text", () => {
+    expect(hasUnuploadedImage(`![shot.png](${url})`)).toBe(false);
+    expect(hasUnuploadedImage("data: not an image")).toBe(false);
   });
 });
