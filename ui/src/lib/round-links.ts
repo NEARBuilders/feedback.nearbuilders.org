@@ -29,9 +29,9 @@ export type ParticipantPostLink =
       search: { author: string };
     }
   | {
-      to: "/manage/$slug/$n";
+      to: "/manage/$slug/$n/testers";
       params: RoundParams;
-      search: { status: "all"; author: string };
+      search: { status: "all"; account: string };
     };
 
 export function participantPostLink(
@@ -42,9 +42,9 @@ export function participantPostLink(
   if (feedbackCount <= 0 || !dest) return null;
   if (dest.surface === "console") {
     return {
-      to: "/manage/$slug/$n",
+      to: "/manage/$slug/$n/testers",
       params: dest.params,
-      search: { status: "all", author: accountId },
+      search: { status: "all", account: accountId },
     };
   }
   return {

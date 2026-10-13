@@ -28,6 +28,13 @@ describe("toActivityEventViews", () => {
     });
   });
 
+  it("labels accepted feedback", () => {
+    const [view] = toActivityEventViews([
+      { ...base, type: "feedback.accepted", payload: { feedbackId: "f1", roundId: "r1" } },
+    ]);
+    expect(view?.summary).toBe("Feedback accepted");
+  });
+
   it("falls back to the raw type for other apps' events and tolerates empty payloads", () => {
     const [view] = toActivityEventViews([
       { ...base, sourceDisplayName: "", source: "github", type: "github.pr.merged", payload: {} },

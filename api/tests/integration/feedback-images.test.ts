@@ -56,6 +56,44 @@ describe("feedback images", () => {
     });
   });
 
+  it("doesn't count image links toward the length limit", async () => {
+    const { round } = await openRound();
+    const images = Array.from(
+      { length: 60 },
+      (_, i) => `![](https://cdn.test/img/${"a".repeat(150)}-${i}.png)`,
+    ).join("\n");
+    const body = `${"w".repeat(9000)}\n${images}`;
+    const { feedback } = await post("img-tester-10.near", round.id, body);
+    expect(feedback.body).toBe(body);
+  });
+
+  it("rejects feedback whose text is over the limit", async () => {
+    const { round } = await openRound();
+    await expect(post("img-tester-11.near", round.id, "w".repeat(30001))).rejects.toThrow();
+  });
+
+  it("keeps a long write-up with ten illustrated sections whole", async () => {
+    const { round } = await openRound();
+    const body = Array.from(
+      { length: 10 },
+      (_, i) =>
+        `## Section ${i + 1}\n\n![Screenshot ${i + 1}.png](https://cdn.test/img/${"a".repeat(100)}-${i}.png)\n\n${"w".repeat(1100)}`,
+    ).join("\n\n");
+    const { feedback } = await post("img-tester-12.near", round.id, body);
+    expect(feedback.body).toBe(body);
+  });
+
+  it("rejects an image that never finished uploading", async () => {
+    const { round } = await openRound();
+    await expect(
+      post(
+        "img-tester-13.near",
+        round.id,
+        "look\n\n![shot.png](data:image/png;base64,iVBORw0KGgo=)",
+      ),
+    ).rejects.toThrow();
+  });
+
   it("doesn't call storage for feedback without images", async () => {
     const { round } = await openRound();
     await post("img-tester-2.near", round.id, "Just words");

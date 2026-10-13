@@ -37,18 +37,22 @@ describe("participantPostLink", () => {
   });
 
   it("opens the public author-filtered feedback page", () => {
-    expect(participantPostLink("alice.near", 1, { surface: "public", params })).toEqual({
+    const link = participantPostLink("alice.near", 1, { surface: "public", params });
+    expect(link).toEqual({
       to: "/projects/$slug/$n/feedback",
       params,
       search: { author: "alice.near" },
     });
+    expect(myFeedbackHref(ROUND, "alice.near")).toBe(
+      "/projects/near-wallet/3/feedback?author=alice.near",
+    );
   });
 
-  it("opens the console inbox filtered to that author", () => {
+  it("opens the console testers tab for that account", () => {
     expect(participantPostLink("alice.near", 2, { surface: "console", params })).toEqual({
-      to: "/manage/$slug/$n",
+      to: "/manage/$slug/$n/testers",
       params,
-      search: { status: "all", author: "alice.near" },
+      search: { status: "all", account: "alice.near" },
     });
   });
 });

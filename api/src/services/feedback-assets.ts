@@ -1,3 +1,4 @@
+import { MARKDOWN_IMAGE } from "../lib/feedback-body";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 
 type StorageClientFactory = PluginsClient["storage"];
@@ -36,14 +37,12 @@ export interface FeedbackAssets {
   deleteRoundBanner(banner: { roundId: string; ownerAccountId: string | null }): Promise<void>;
 }
 
-const MARKDOWN_IMAGE = /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)/g;
-
 /** The image URLs in a markdown body, in order, without duplicates. */
 export function imageUrlsIn(body: string | null | undefined): string[] {
   if (!body) return [];
   const urls = new Set<string>();
   for (const match of body.matchAll(MARKDOWN_IMAGE)) {
-    if (match[1]) urls.add(match[1]);
+    if (match[2]) urls.add(match[2]);
   }
   return [...urls];
 }

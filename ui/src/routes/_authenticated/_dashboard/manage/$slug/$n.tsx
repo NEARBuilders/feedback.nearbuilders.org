@@ -1,5 +1,14 @@
 import { createFileRoute, Link, Outlet, useMatch } from "@tanstack/react-router";
-import { Eye, Inbox, LayoutDashboard, Lock, Megaphone, Settings, Users } from "lucide-react";
+import {
+  Eye,
+  Inbox,
+  LayoutDashboard,
+  Lock,
+  Megaphone,
+  Settings,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { Button, Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -77,6 +86,10 @@ function ConsoleLayout() {
           >
             <Inbox />
             inbox
+          </RouteTab>
+          <RouteTab to="/manage/$slug/$n/testers" params={params} search>
+            <UserCheck />
+            testers
           </RouteTab>
           <RouteTab to="/manage/$slug/$n/participants" params={params}>
             <Users />

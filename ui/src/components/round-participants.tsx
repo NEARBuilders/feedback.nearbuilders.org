@@ -16,7 +16,7 @@ function postsLabel(count: number) {
 }
 
 const rowClassName =
-  "grid grid-cols-1 items-start gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4";
+  "grid min-w-0 grid-cols-1 items-start gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4";
 
 export function RoundParticipants({
   roundId,
@@ -80,14 +80,14 @@ export function RoundParticipants({
                     className={cn(rowClassName, "hover:bg-accent")}
                     data-testid="participant-posts-link"
                   >
-                    <span className="font-mono text-sm text-foreground break-all">
+                    <span className="min-w-0 font-mono text-sm text-foreground break-words">
                       {participant.accountId}
                     </span>
                     {meta}
                   </Link>
                 ) : (
                   <div className={rowClassName}>
-                    <span className="font-mono text-sm text-foreground break-all">
+                    <span className="min-w-0 font-mono text-sm text-foreground break-words">
                       {participant.accountId}
                     </span>
                     {meta}

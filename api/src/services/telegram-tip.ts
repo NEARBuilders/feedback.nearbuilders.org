@@ -11,6 +11,7 @@
  */
 
 const REQUEST_TIMEOUT_MS = 5000;
+const HANDLE_CACHE_TTL_MS = 10 * 60 * 1000;
 const NEAR_SOCIAL_API = "https://api.near.social";
 export const DEFAULT_TIP_MESSAGE_TEMPLATE = "/tip @{handle}";
 
@@ -44,6 +45,8 @@ export interface TelegramTipLookupOptions {
   messageTemplate?: string | null;
   fetch?: FetchLike;
   logger?: LookupLogger;
+  /** How long a resolved lookup is reused; lookups where every source failed aren't cached. */
+  cacheTtlMs?: number;
 }
 
 export interface TelegramTipLookup {
@@ -119,8 +122,21 @@ export function createTelegramTipLookup(options: TelegramTipLookupOptions = {}):
     return normalizeTelegramHandle(body?.[account]?.profile?.linktree?.telegram);
   }
 
+  const cacheTtlMs = options.cacheTtlMs ?? HANDLE_CACHE_TTL_MS;
+  const cache = new Map<string, { result: TelegramHandleResult; expiresAt: number }>();
+
   async function resolveHandle(nearAccountId: string): Promise<TelegramHandleResult> {
     const account = nearAccountId.trim();
+    const cached = cache.get(account);
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+    const result = await lookupHandle(account);
+    if (result.available && cacheTtlMs > 0) {
+      cache.set(account, { result, expiresAt: Date.now() + cacheTtlMs });
+    }
+    return result;
+  }
+
+  async function lookupHandle(account: string): Promise<TelegramHandleResult> {
     const sources: Array<[TelegramHandleSource, (account: string) => Promise<string | null>]> = [];
     if (baseUrl) sources.push(["nearbuilders", fromBuilders]);
     sources.push(["near-social", fromNearSocial]);
