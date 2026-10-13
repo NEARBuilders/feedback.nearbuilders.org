@@ -144,7 +144,7 @@ function RoundFeedbackPage() {
         <FeedbackList
           roundId={round.id}
           entries={entries}
-          currentAccountId={viewer.accountId}
+          currentAccountIds={viewer.accountIds}
           canDelete={round.status === "open"}
         />
       )}

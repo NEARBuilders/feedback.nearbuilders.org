@@ -20,7 +20,7 @@ function useNow(enabled: boolean) {
 export function useRoundViewer(round: RoundDetail) {
   const apiClient = useApiClient();
   const auth = useAuthClient();
-  const { accountId, isDetecting } = useNearAccountStatus();
+  const { accountId, accountIds, isDetecting } = useNearAccountStatus();
   const session = useQuery(sessionQueryOptions(auth));
   const participation = useQuery({
     ...participationQueryOptions(apiClient, round.id),
@@ -30,13 +30,14 @@ export function useRoundViewer(round: RoundDetail) {
   const isAdmin = session.data?.user?.role === "admin";
   const canManage = round.canManage ?? false;
   const joined = participation.data?.joined ?? false;
-  const isOwner = !!accountId && accountId === round.ownerAccountId;
+  const isOwner = accountIds.includes(round.ownerAccountId);
   const isOpen = round.status === "open";
   const now = useNow(isOpen && !!round.endsAt);
   const isExpired = isOpen && !!round.endsAt && new Date(round.endsAt).getTime() <= now;
 
   return {
     accountId,
+    accountIds,
     isAdmin,
     canManage,
     joined,

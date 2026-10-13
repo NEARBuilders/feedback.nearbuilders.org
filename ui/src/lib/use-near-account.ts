@@ -20,7 +20,25 @@ export function resolveListedNearAccount(
   return account?.accountId ?? null;
 }
 
-export function useNearAccountStatus(): { accountId: string | null; isDetecting: boolean } {
+export function resolveListedNearAccountIds(
+  response: ListAccountsResponseT | null | undefined,
+): string[] {
+  if (!response) return [];
+  const ids: string[] = [];
+  const add = (id: string | null | undefined) => {
+    if (id && !ids.includes(id)) ids.push(id);
+  };
+  add(resolveListedNearAccount(response));
+  add(response.activeAccount?.accountId);
+  for (const account of response.accounts) add(account.accountId);
+  return ids;
+}
+
+export function useNearAccountStatus(): {
+  accountId: string | null;
+  accountIds: string[];
+  isDetecting: boolean;
+} {
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearState = auth.$store.atoms.nearState;
@@ -49,7 +67,8 @@ export function useNearAccountStatus(): { accountId: string | null; isDetecting:
     gcTime: 5 * 60_000,
   });
 
-  const accountId = fromStore ?? resolveListedNearAccount(accountsQuery.data) ?? null;
+  const listedIds = resolveListedNearAccountIds(accountsQuery.data);
+  const accountId = fromStore ?? resolveListedNearAccount(accountsQuery.data);
 
   // The wallet probe only answers when a browser wallet is already connected,
   // so it runs last: once the server has said no linked account exists.
@@ -66,8 +85,14 @@ export function useNearAccountStatus(): { accountId: string | null; isDetecting:
     staleTime: 60_000,
   });
 
+  const detectedId = detectQuery.data?.accountId ?? null;
+  const accountIds = [fromStore, ...listedIds, detectedId].filter(
+    (id, index, all): id is string => !!id && all.indexOf(id) === index,
+  );
+
   return {
-    accountId: accountId ?? detectQuery.data?.accountId ?? null,
+    accountId: accountId ?? detectedId,
+    accountIds,
     isDetecting:
       !accountId && ((!!session?.user && accountsQuery.isPending) || detectQuery.isFetching),
   };

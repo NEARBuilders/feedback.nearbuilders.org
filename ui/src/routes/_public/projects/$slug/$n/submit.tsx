@@ -49,12 +49,20 @@ function SubmitFeedbackTab() {
   return (
     <div className="space-y-6">
       {viewer.canPost && <FeedbackComposer round={round} accountId={viewer.accountId} />}
-      <MySubmissions round={round} accountId={viewer.accountId} />
+      <MySubmissions round={round} accountId={viewer.accountId} accountIds={viewer.accountIds} />
     </div>
   );
 }
 
-function MySubmissions({ round, accountId }: { round: RoundDetail; accountId: string | null }) {
+function MySubmissions({
+  round,
+  accountId,
+  accountIds,
+}: {
+  round: RoundDetail;
+  accountId: string | null;
+  accountIds: string[];
+}) {
   const apiClient = useApiClient();
   const { data: mine } = useSuspenseQuery(myFeedbackQueryOptions(apiClient, round.id));
   const shareHref = accountId ? absoluteUrl(myFeedbackHref(round, accountId)) : null;
@@ -86,7 +94,7 @@ function MySubmissions({ round, accountId }: { round: RoundDetail; accountId: st
         <FeedbackList
           roundId={round.id}
           entries={mine}
-          currentAccountId={accountId}
+          currentAccountIds={accountIds}
           canDelete={round.status === "open"}
           renderFooter={(entry) => (
             <>

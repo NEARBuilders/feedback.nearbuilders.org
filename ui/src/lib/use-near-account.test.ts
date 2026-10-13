@@ -1,7 +1,7 @@
 import type { ListAccountsResponseT } from "better-near-auth";
 import { describe, expect, it } from "vitest";
 
-import { resolveListedNearAccount } from "./use-near-account";
+import { resolveListedNearAccount, resolveListedNearAccountIds } from "./use-near-account";
 
 function account(accountId: string, overrides: Partial<{ isPrimary: boolean }> = {}) {
   return {
@@ -50,5 +50,18 @@ describe("resolveListedNearAccount", () => {
   it("returns null when there is no server answer", () => {
     expect(resolveListedNearAccount(null)).toBeNull();
     expect(resolveListedNearAccount(undefined)).toBeNull();
+  });
+});
+
+describe("resolveListedNearAccountIds", () => {
+  it("includes every linked wallet, active first", () => {
+    expect(
+      resolveListedNearAccountIds(
+        listResponse(
+          [account("ballzz.near"), account("misbaahansari.near")],
+          account("misbaahansari.near"),
+        ),
+      ),
+    ).toEqual(["misbaahansari.near", "ballzz.near"]);
   });
 });
