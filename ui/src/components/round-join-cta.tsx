@@ -31,7 +31,7 @@ export function RoundJoinCta({
   if (cta.kind === "none") return null;
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {canPost && (
         <Button asChild variant="outline" size={size}>
           <Link to="/projects/$slug/$n/submit" params={roundParams(round)}>

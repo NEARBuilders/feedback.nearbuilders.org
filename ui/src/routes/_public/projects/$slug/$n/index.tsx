@@ -41,7 +41,7 @@ function RoundOverviewPage() {
         <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
       </div>
 
-      <aside className="space-y-4 lg:sticky lg:top-6">
+      <aside className="min-w-0 space-y-4 lg:sticky lg:top-6">
         <JoinCard round={round} viewer={viewer} />
         <DetailsCard round={round} endorsement={endorsement} />
         {round.status === "closed" && <RoundCredits roundId={round.id} />}
@@ -69,7 +69,7 @@ function JoinCard({
   const legionBlocked = needsLegionCheck && legionAccess?.hasAccess !== true;
 
   return (
-    <Card className="space-y-4 p-5" data-testid="round-join-card">
+    <Card className="min-w-0 space-y-4 p-5" data-testid="round-join-card">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {faces.length > 0 ? (
           <span className="flex -space-x-2">
@@ -89,6 +89,7 @@ function JoinCard({
         <RoundJoinCta
           round={round}
           cta={viewer.cta}
+          size="sm"
           legionBlocked={legionBlocked}
           canPost={viewer.canPost}
         />
@@ -112,7 +113,7 @@ function DetailsCard({
   endorsement?: { totalCount: number };
 }) {
   return (
-    <Card className="space-y-4 p-5" data-testid="round-details">
+    <Card className="min-w-0 space-y-4 p-5" data-testid="round-details">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         details
       </span>
