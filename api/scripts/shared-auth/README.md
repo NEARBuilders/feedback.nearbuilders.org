@@ -23,12 +23,14 @@ All commands run from the repo root. Every database is addressed by an environme
 - `bun run auth:cutover [--overrides overrides.json] [--report plan.json] [--apply]` plans and
   performs the remap:
   - **Orgs** referenced by a project map to the shared org with the same id, else the same
-    slug, else they are copied with their id.
+    slug when the two orgs share at least one member (matched by NEAR account), else they are
+    copied with their id. A slug match with no shared members is a conflict.
   - **Teams** of those orgs map to the shared team with the same id, else the same name
     (case-insensitive) in the mapped org, else they are copied with their id.
   - **Users** holding a membership in those orgs/teams map to the shared user with the same id,
-    else the one owning the same NEAR account, else the same email, else they are copied (user,
-    NEAR accounts, provider accounts) with their ids. Site roles (`user.role`) are never copied.
+    else the one owning the same NEAR account, else the same verified email (both sides
+    `emailVerified`), else they are copied (user, NEAR accounts, provider accounts) with their
+    ids. An unverified email match is a conflict. Site roles (`user.role`) are never copied.
   - **Memberships** missing from the shared DB are added. Where a membership already exists the
     shared role is kept and the difference is reported.
   - **Projects** are rewritten to the mapped ids. Each update only applies while the row still

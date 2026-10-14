@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type AuthSnapshot, type ProjectRef, planRemap } from "../../scripts/shared-auth/plan";
+import {
+  type AuthSnapshot,
+  type ProjectRef,
+  planRemap,
+  summarizePlan,
+} from "../../scripts/shared-auth/plan";
 
 const at = new Date("2026-01-01T00:00:00Z");
 
@@ -18,11 +23,11 @@ function snapshot(partial: Partial<AuthSnapshot> = {}): AuthSnapshot {
   };
 }
 
-const user = (id: string, email = `${id}@example.com`) => ({
+const user = (id: string, email = `${id}@example.com`, emailVerified = true) => ({
   id,
   name: id,
   email,
-  emailVerified: true,
+  emailVerified,
   image: null,
   createdAt: at,
   updatedAt: at,
@@ -132,10 +137,54 @@ describe("planRemap", () => {
     expect(plan.projectUpdates).toEqual([]);
   });
 
-  it("falls back to email when no NEAR account matches", () => {
+  it("falls back to email when no NEAR account matches and both emails are verified", () => {
     const target = snapshot({ users: [user("nb_alice", "FB_ALICE@example.com")] });
     const plan = planRemap(source, target, [project("acme-app", "fb_acme")]);
     expect(plan.users[0]!.resolution).toEqual({ kind: "email", targetId: "nb_alice" });
+  });
+
+  it("refuses a slug match when the orgs share no NEAR members", () => {
+    const source = snapshot({
+      users: [user("alice")],
+      nearAccounts: [near("fn_a", "alice", "alice.near")],
+      organizations: [org("fb_acme", "acme")],
+      members: [member("fm_a", "fb_acme", "alice", "owner")],
+    });
+    const target = snapshot({
+      users: [user("mallory")],
+      nearAccounts: [near("nn_m", "mallory", "mallory.near")],
+      organizations: [org("sh_other", "acme")],
+      members: [member("nm_m", "sh_other", "mallory", "owner")],
+    });
+    const plan = planRemap(source, target, [project("acme-app", "fb_acme")]);
+    expect(plan.conflicts).toEqual([
+      'Org fb_acme matches shared org sh_other by slug "acme" but they share no members; add an override',
+    ]);
+    expect(plan.organizations).toEqual([]);
+    expect(plan.projectUpdates).toEqual([]);
+  });
+
+  it("refuses an email match when either address is unverified", () => {
+    const target = snapshot({ users: [user("nb_alice", "FB_ALICE@example.com", false)] });
+    const plan = planRemap(source, target, [project("acme-app", "fb_acme")]);
+    expect(plan.conflicts).toEqual([
+      "User fb_alice matches shared user nb_alice by email but the email is not verified on both sides; add an override",
+    ]);
+    expect(plan.users.find((mapped) => mapped.sourceId === "fb_alice")).toBeUndefined();
+  });
+
+  it("lists non-same-id org matches and the members they share", () => {
+    const target = snapshot({
+      users: [user("nb_alice", "different@example.com"), user("nb_bob", "bob2@example.com")],
+      nearAccounts: [near("nn_a", "nb_alice", "alice.near"), near("nn_b", "nb_bob", "BOB.near")],
+      organizations: [org("nb_acme", "acme")],
+      teams: [team("nb_ops", "nb_acme", " ops ")],
+      members: [member("nm_a", "nb_acme", "nb_alice", "owner")],
+    });
+    const plan = planRemap(source, target, [project("acme-app", "fb_acme", "fb_ops")]);
+    expect(summarizePlan(plan)).toContain(
+      "acme [fb_acme] -> acme [nb_acme] (slug; shared members alice.near)",
+    );
   });
 
   it("is a no-op once projects already point at shared ids", () => {
@@ -188,8 +237,11 @@ describe("planRemap", () => {
 
   it("refuses ambiguous team names", () => {
     const target = snapshot({
+      users: [user("nb_alice")],
+      nearAccounts: [near("nn_a", "nb_alice", "alice.near")],
       organizations: [org("nb_acme", "acme")],
       teams: [team("nb_ops1", "nb_acme", "Ops"), team("nb_ops2", "nb_acme", "ops")],
+      members: [member("nm_a", "nb_acme", "nb_alice", "owner")],
     });
     const plan = planRemap(source, target, [project("acme-app", "fb_acme", "fb_ops")]);
     expect(plan.conflicts).toEqual([
