@@ -55,4 +55,30 @@ describe("participantPostLink", () => {
       search: { status: "all", account: "alice.near" },
     });
   });
+
+  it("hides other testers' posts from a private-round viewer who cannot read them", () => {
+    expect(
+      participantPostLink("bob.near", 1, {
+        surface: "public",
+        params,
+        viewerAccountId: "alice.near",
+        canReadAll: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps a tester's own row on a private round", () => {
+    expect(
+      participantPostLink("alice.near", 1, {
+        surface: "public",
+        params,
+        viewerAccountId: "alice.near",
+        canReadAll: false,
+      }),
+    ).toEqual({
+      to: "/projects/$slug/$n/feedback",
+      params,
+      search: { author: "alice.near" },
+    });
+  });
 });

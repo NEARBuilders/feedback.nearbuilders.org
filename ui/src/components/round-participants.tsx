@@ -22,15 +22,19 @@ export function RoundParticipants({
   roundId,
   params,
   surface = "public",
+  viewerAccountId,
+  canReadAll,
 }: {
   roundId: string;
   params?: RoundParams;
   surface?: ParticipantPostsSurface;
+  viewerAccountId?: string | null;
+  canReadAll?: boolean;
 }) {
   const apiClient = useApiClient();
   const participantsQuery = useQuery(roundParticipantsQueryOptions(apiClient, roundId));
   const participants = participantsQuery.data ?? [];
-  const dest = params ? { surface, params } : undefined;
+  const dest = params ? { surface, params, viewerAccountId, canReadAll } : undefined;
 
   return (
     <div className="space-y-3" data-testid="round-participants">
@@ -61,7 +65,7 @@ export function RoundParticipants({
                 <span
                   className={cn(
                     "text-xs",
-                    postLink ? "font-medium text-foreground underline" : "text-muted-foreground",
+                    postLink ? "font-medium text-foreground" : "text-muted-foreground",
                   )}
                 >
                   {postsLabel(participant.feedbackCount)}

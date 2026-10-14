@@ -48,7 +48,13 @@ function RoundOverviewPage() {
       </div>
 
       {viewer.canSeeParticipants && (
-        <RoundParticipants roundId={round.id} params={params} surface="public" />
+        <RoundParticipants
+          roundId={round.id}
+          params={params}
+          surface="public"
+          viewerAccountId={viewer.accountId}
+          canReadAll={!round.isPrivate || viewer.canManage || viewer.isAdmin}
+        />
       )}
     </div>
   );

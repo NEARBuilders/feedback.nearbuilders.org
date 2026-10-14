@@ -37,9 +37,17 @@ export type ParticipantPostLink =
 export function participantPostLink(
   accountId: string,
   feedbackCount: number,
-  dest?: { surface: ParticipantPostsSurface; params: RoundParams },
+  dest?: {
+    surface: ParticipantPostsSurface;
+    params: RoundParams;
+    viewerAccountId?: string | null;
+    canReadAll?: boolean;
+  },
 ): ParticipantPostLink | null {
   if (feedbackCount <= 0 || !dest) return null;
+  if (dest.surface === "public" && dest.canReadAll === false && dest.viewerAccountId !== accountId) {
+    return null;
+  }
   if (dest.surface === "console") {
     return {
       to: "/manage/$slug/$n/testers",
