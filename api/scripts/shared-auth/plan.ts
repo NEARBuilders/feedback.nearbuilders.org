@@ -116,6 +116,8 @@ export type Resolution<T extends string> =
 export interface OrgMapping {
   sourceId: string;
   slug: string;
+  targetSlug: string;
+  sharedNearAccounts: string[];
   resolution: Resolution<"slug">;
 }
 
@@ -180,6 +182,27 @@ function byId<T extends { id: string }>(rows: T[]): Map<string, T> {
   return new Map(rows.map((row) => [row.id, row]));
 }
 
+function memberNearAccounts(snapshot: AuthSnapshot, organizationId: string): AuthNearAccount[] {
+  const userIds = new Set(
+    snapshot.members.filter((member) => member.organizationId === organizationId).map((m) => m.userId),
+  );
+  return snapshot.nearAccounts.filter((account) => userIds.has(account.userId));
+}
+
+function sharedNearAccountIds(
+  source: AuthSnapshot,
+  target: AuthSnapshot,
+  sourceOrgId: string,
+  targetOrgId: string,
+): string[] {
+  const targetKeys = new Set(memberNearAccounts(target, targetOrgId).map(nearKey));
+  const shared = new Set<string>();
+  for (const account of memberNearAccounts(source, sourceOrgId)) {
+    if (targetKeys.has(nearKey(account))) shared.add(account.accountId.toLowerCase());
+  }
+  return [...shared].sort();
+}
+
 export function planRemap(
   source: AuthSnapshot,
   target: AuthSnapshot,
@@ -213,22 +236,43 @@ export function planRemap(
     const org = sourceOrgs.get(orgId)!;
     const override = overrides.organizations?.[orgId];
     let resolution: Resolution<"slug">;
+    let targetSlug = org.slug;
+    let sharedMembers: string[] = [];
     if (override) {
       if (!targetOrgs.has(override)) {
         conflicts.push(`Override maps org ${orgId} to ${override}, which is not in the shared DB`);
         continue;
       }
       resolution = { kind: "override", targetId: override };
+      targetSlug = targetOrgs.get(override)!.slug;
+      sharedMembers = sharedNearAccountIds(source, target, orgId, override);
     } else if (targetOrgs.has(orgId)) {
       resolution = { kind: "same-id", targetId: orgId };
+      targetSlug = targetOrgs.get(orgId)!.slug;
+      sharedMembers = sharedNearAccountIds(source, target, orgId, orgId);
     } else if (targetOrgBySlug.has(org.slug)) {
-      resolution = { kind: "slug", targetId: targetOrgBySlug.get(org.slug)!.id };
+      const slugMatch = targetOrgBySlug.get(org.slug)!;
+      sharedMembers = sharedNearAccountIds(source, target, orgId, slugMatch.id);
+      if (sharedMembers.length === 0) {
+        conflicts.push(
+          `Org ${orgId} matches shared org ${slugMatch.id} by slug "${org.slug}" but they share no members; add an override`,
+        );
+        continue;
+      }
+      resolution = { kind: "slug", targetId: slugMatch.id };
+      targetSlug = slugMatch.slug;
     } else {
       resolution = { kind: "copy", targetId: orgId };
       orgInserts.push(org);
     }
     orgMap.set(orgId, resolution.targetId);
-    organizations.push({ sourceId: orgId, slug: org.slug, resolution });
+    organizations.push({
+      sourceId: orgId,
+      slug: org.slug,
+      targetSlug,
+      sharedNearAccounts: sharedMembers,
+      resolution,
+    });
   }
 
   const teamMap = new Map<string, string>();
@@ -331,7 +375,15 @@ export function planRemap(
     } else if (nearMatches.size === 1) {
       resolution = { kind: "near-account", targetId: [...nearMatches][0]! };
     } else if (targetUserByEmail.has(normalizeName(user.email))) {
-      resolution = { kind: "email", targetId: targetUserByEmail.get(normalizeName(user.email))! };
+      const targetUserId = targetUserByEmail.get(normalizeName(user.email))!;
+      const targetUser = targetUsers.get(targetUserId);
+      if (!user.emailVerified || !targetUser?.emailVerified) {
+        conflicts.push(
+          `User ${userId} matches shared user ${targetUserId} by email but the email is not verified on both sides; add an override`,
+        );
+        continue;
+      }
+      resolution = { kind: "email", targetId: targetUserId };
     } else {
       resolution = { kind: "copy", targetId: userId };
       userInserts.push(user);
@@ -453,6 +505,14 @@ export function summarizePlan(plan: RemapPlan): string {
     rows.filter((row) => row.resolution.kind === kind).length;
   const lines = [
     `Organizations: ${plan.organizations.length} (same id ${count(plan.organizations, "same-id")}, by slug ${count(plan.organizations, "slug")}, override ${count(plan.organizations, "override")}, copied ${count(plan.organizations, "copy")})`,
+    ...plan.organizations
+      .filter((org) => org.resolution.kind !== "same-id")
+      .map((org) => {
+        const shared = org.sharedNearAccounts.length
+          ? `; shared members ${org.sharedNearAccounts.join(", ")}`
+          : "";
+        return `  ${org.slug} [${org.sourceId}] -> ${org.targetSlug} [${org.resolution.targetId}] (${org.resolution.kind}${shared})`;
+      }),
     `Teams: ${plan.teams.length} (same id ${count(plan.teams, "same-id")}, by name ${count(plan.teams, "name")}, override ${count(plan.teams, "override")}, copied ${count(plan.teams, "copy")})`,
     `Users: ${plan.users.length} (same id ${count(plan.users, "same-id")}, by NEAR account ${count(plan.users, "near-account")}, by email ${count(plan.users, "email")}, copied ${count(plan.users, "copy")})`,
     `Rows to insert: ${plan.inserts.users.length} users, ${plan.inserts.nearAccounts.length} NEAR accounts, ${plan.inserts.accounts.length} accounts, ${plan.inserts.organizations.length} orgs, ${plan.inserts.teams.length} teams, ${plan.inserts.members.length} members, ${plan.inserts.teamMembers.length} team members`,
