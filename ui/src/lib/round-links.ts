@@ -45,7 +45,11 @@ export function participantPostLink(
   },
 ): ParticipantPostLink | null {
   if (feedbackCount <= 0 || !dest) return null;
-  if (dest.surface === "public" && dest.canReadAll === false && dest.viewerAccountId !== accountId) {
+  if (
+    dest.surface === "public" &&
+    dest.canReadAll === false &&
+    dest.viewerAccountId !== accountId
+  ) {
     return null;
   }
   if (dest.surface === "console") {
