@@ -184,7 +184,9 @@ function byId<T extends { id: string }>(rows: T[]): Map<string, T> {
 
 function memberNearAccounts(snapshot: AuthSnapshot, organizationId: string): AuthNearAccount[] {
   const userIds = new Set(
-    snapshot.members.filter((member) => member.organizationId === organizationId).map((m) => m.userId),
+    snapshot.members
+      .filter((member) => member.organizationId === organizationId)
+      .map((m) => m.userId),
   );
   return snapshot.nearAccounts.filter((account) => userIds.has(account.userId));
 }
