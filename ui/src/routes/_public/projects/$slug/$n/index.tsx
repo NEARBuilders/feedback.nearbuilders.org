@@ -69,7 +69,7 @@ function JoinCard({
   const legionBlocked = needsLegionCheck && legionAccess?.hasAccess !== true;
 
   return (
-    <Card className="space-y-4 p-5" data-testid="round-join-card">
+    <Card className="min-w-0 space-y-4 p-5" data-testid="round-join-card">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {faces.length > 0 ? (
           <span className="flex -space-x-2">
@@ -113,7 +113,7 @@ function DetailsCard({
   endorsement?: { totalCount: number };
 }) {
   return (
-    <Card className="space-y-4 p-5" data-testid="round-details">
+    <Card className="min-w-0 space-y-4 p-5" data-testid="round-details">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         details
       </span>
