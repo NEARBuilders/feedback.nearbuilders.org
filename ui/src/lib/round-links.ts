@@ -19,3 +19,49 @@ export function roundHref(round: RoundRef): string {
 export function myFeedbackHref(round: RoundRef, accountId: string): string {
   return `${roundHref(round)}/feedback?author=${encodeURIComponent(accountId)}`;
 }
+
+export type ParticipantPostsSurface = "public" | "console";
+
+export type ParticipantPostLink =
+  | {
+      to: "/projects/$slug/$n/feedback";
+      params: RoundParams;
+      search: { author: string };
+    }
+  | {
+      to: "/manage/$slug/$n/testers";
+      params: RoundParams;
+      search: { status: "all"; account: string };
+    };
+
+export function participantPostLink(
+  accountId: string,
+  feedbackCount: number,
+  dest?: {
+    surface: ParticipantPostsSurface;
+    params: RoundParams;
+    viewerAccountId?: string | null;
+    canReadAll?: boolean;
+  },
+): ParticipantPostLink | null {
+  if (feedbackCount <= 0 || !dest) return null;
+  if (
+    dest.surface === "public" &&
+    dest.canReadAll === false &&
+    dest.viewerAccountId !== accountId
+  ) {
+    return null;
+  }
+  if (dest.surface === "console") {
+    return {
+      to: "/manage/$slug/$n/testers",
+      params: dest.params,
+      search: { status: "all", account: accountId },
+    };
+  }
+  return {
+    to: "/projects/$slug/$n/feedback",
+    params: dest.params,
+    search: { author: accountId },
+  };
+}
