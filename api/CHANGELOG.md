@@ -1,5 +1,28 @@
 # api
 
+## 2.9.0
+
+### Minor Changes
+
+- c0b0dac: Activity as the sole source of tester standing, registry-backed project identity, and one URL per round.
+
+  - **Reputation**: the local points ledger is gone. Tester standing is read from activity.nearbuilders.org (`getBuilderStanding`, `getLeaderboard`), `feedback.accepted` is emitted through a durable transactional outbox when an owner resolves feedback, and un-accepting now also cancels emits parked after failed retries so a late retry can never deliver a stale event. Failed rows are inspectable and retryable by site admins at `/activity-outbox/failed`, `/activity-outbox/failed/retry`, and `/activity-outbox/depth`.
+  - **Project identity**: projects and rounds carry identity (domain, repository, logoUrl) resolved in batch from the nearbuilders.org registry, surfaced as directory cards, a "open the product" round CTA, and project-led /rounds rows. Depends on nearbuilders.org#265 (batch `?slugs=` lookup, `logoUrl`, `limit` coercion); identity stays null until that ships.
+  - **Rounds**: one URL per round — `/projects/$slug/$n` adapts to the viewer, with a "your feedback" submit tab; `/testing/$slug/$n` is gone. Round creation collapses into `/manage/new` (`?project=`, `?from=`), and `/dashboard` is a two-card overview with per-role counters via `getOwnerSummary`.
+  - **Cleanup**: the dead tenants subsystem (routes, service, queries) and assorted unused UI primitives were removed; unauthenticated `GET /errors` now requires site-admin; Nostr/GitHub/tip-template secrets are declared in `bos.config.json`.
+
+- 53e1350: Organization API keys (`org_…`) can read their org's rounds and feedback — private included — read-only, over HTTP and `/api/mcp` (#111).
+
+  - **Reads**: an org key behaves as an org admin. It lists its organization's rounds in every status (pending and rejected included), reads all feedback of projects the org owns bypassing team delegation, and can open owner-only round data (credit candidates, participants). Projects owned by other organizations stay invisible.
+  - **Writes**: every write procedure refuses org keys with `FORBIDDEN: "Organization API keys are read-only"` instead of a generic auth error.
+  - Personal `api_…` keys are out of scope and remain denied.
+
+### Patch Changes
+
+- 788150d: Deleting accepted feedback now takes its `feedback.accepted` score with it: an undelivered emit is cancelled and a delivered one is retracted. GET routes accept string path and query values, so `?limit=`, `?starred=` and `/projects/{slug}/rounds/{number}` work over plain HTTP. Profile activity labels `feedback.accepted`, and the README documents endpoints under `/api`.
+- a5951d9: The feedback editor no longer silently drops text past the length limit: what you see is what gets posted, and going over the limit shows how much to cut and blocks posting. The limit is now 30,000 visible characters, and posting is blocked while an image hasn't finished uploading. Round consoles get a Testers tab: everyone who posted, with their wallet, Telegram handle and open count, and one click to read all of a tester's feedback and resolve it together.
+- 1542662: The written-feedback limit is now 10,000 characters and counts only visible text: images, link URLs and markdown syntax no longer use it up.
+
 ## 2.8.1
 
 ### Patch Changes
