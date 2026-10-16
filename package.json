@@ -89,6 +89,8 @@
     "db:studio": "bos db:studio",
     "db:generate": "bun run --cwd api drizzle-kit generate",
     "db:migrate": "bun run --cwd api drizzle-kit migrate",
+    "auth:check-schema": "bun run --cwd api auth:check-schema",
+    "auth:cutover": "bun run --cwd api auth:cutover",
     "test": "bun run --if-present --cwd api test && bun run --if-present --cwd ui test && for d in plugins/*; do [ -f \"$d/package.json\" ] && bun run --if-present --cwd \"$d\" test; done",
     "test:api": "bun run --cwd api test",
     "test:integration": "bun run --cwd api test tests/integration/",
