@@ -24,7 +24,7 @@ beforeEach(() => {
 describe("createFeedbackNostrEmitter (disabled)", () => {
   it("is disabled and calls nothing when no secret key is configured", async () => {
     const nostr = vi.fn();
-    const emitter = createFeedbackNostrEmitter({ nostr, logger: { warn } });
+    const emitter = createFeedbackNostrEmitter({ nostr: { client: nostr }, logger: { warn } });
 
     expect(emitter.enabled).toBe(false);
     await expect(emitter.publish(input, {})).resolves.toBeNull();
@@ -38,8 +38,9 @@ describe("createFeedbackNostrEmitter (enabled)", () => {
   it("signs and publishes a comment keyed like nearbuilders.org's project comments", async () => {
     const createComment = vi.fn().mockResolvedValue({ eventId: "evt_test", statuses: [] });
     const nostr = vi.fn().mockReturnValue({ createComment });
+    const nostrEntry = { client: nostr };
     const emitter = createFeedbackNostrEmitter({
-      nostr,
+      nostr: nostrEntry,
       secretKeyHex,
       clientName: "feedback.nearbuilders.org",
       logger: { warn },
@@ -75,7 +76,11 @@ describe("createFeedbackNostrEmitter (enabled)", () => {
   it("swallows and logs a publish failure", async () => {
     const createComment = vi.fn().mockRejectedValue(new Error("relay unavailable"));
     const nostr = vi.fn().mockReturnValue({ createComment });
-    const emitter = createFeedbackNostrEmitter({ nostr, secretKeyHex, logger: { warn } });
+    const emitter = createFeedbackNostrEmitter({
+      nostr: { client: nostr },
+      secretKeyHex,
+      logger: { warn },
+    });
 
     await expect(emitter.publish(input, {})).resolves.toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);

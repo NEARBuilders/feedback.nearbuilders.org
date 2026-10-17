@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { type AssetStatus, assetStatus, storageAssets } from "../db/schema";
 import { R2Client, type StoredObjectHead } from "../r2/client";
@@ -65,7 +65,7 @@ export interface StorageService {
   }): Promise<{ deleted: number }>;
 }
 
-export class StorageTag extends Context.Tag("Storage")<StorageTag, StorageService>() {}
+export class StorageTag extends Context.Service<StorageTag, StorageService>()("Storage") {}
 
 function sanitizeFilename(filename: string): string {
   const cleaned = filename.replace(/[^a-zA-Z0-9._-]/g, "_");

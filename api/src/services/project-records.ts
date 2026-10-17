@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import type { Database } from "../db";
 import { DatabaseTag } from "../db/layer";
 import {
@@ -70,10 +70,9 @@ export interface ProjectRecordsService {
   unverifyProject(id: string): Promise<ProjectRecord | null>;
 }
 
-export class ProjectRecordsTag extends Context.Tag("api/ProjectRecords")<
-  ProjectRecordsService,
-  ProjectRecordsService
->() {}
+export class ProjectRecordsTag extends Context.Service<ProjectRecordsTag, ProjectRecordsService>()(
+  "api/ProjectRecords",
+) {}
 
 type ProjectRow = typeof projectsTable.$inferSelect;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];

@@ -91,19 +91,19 @@ describe("setProjectManagingTeam", () => {
     const plain = await getPluginClient(member(setup, "deleg-plain", "member"));
     await expect(
       plain.setProjectManagingTeam({ id: setup.projectId, teamId: "team-a" }),
-    ).rejects.toThrow("owners and admins");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const otherOrg = await getPluginClient(
       nearAuthedContext("deleg-other.near", "deleg-other-user", "someone-elses-org", "owner"),
     );
     await expect(
       otherOrg.setProjectManagingTeam({ id: setup.projectId, teamId: "team-a" }),
-    ).rejects.toThrow("owners and admins");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const anon = await getPluginClient();
     await expect(
       anon.setProjectManagingTeam({ id: setup.projectId, teamId: "team-a" }),
-    ).rejects.toThrow("Authentication required");
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("rejects a team that is not in the project's organization", async () => {
@@ -111,7 +111,7 @@ describe("setProjectManagingTeam", () => {
     const owner = await getPluginClient(setup.asOwner);
     await expect(
       owner.setProjectManagingTeam({ id: setup.projectId, teamId: "team-from-elsewhere" }),
-    ).rejects.toThrow("doesn't belong");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("rejects delegation when the teams cannot be verified", async () => {
@@ -120,7 +120,7 @@ describe("setProjectManagingTeam", () => {
     authListTeams.mockRejectedValue(new Error("auth down"));
     await expect(
       owner.setProjectManagingTeam({ id: setup.projectId, teamId: "team-a" }),
-    ).rejects.toThrow("verify");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("fails with not found for an unknown project", async () => {
@@ -162,12 +162,12 @@ describe("managing rounds on a delegated project", () => {
 
     const round = await outsider.getRound({ id: setup.roundId });
     expect(round.canManage).toBe(false);
-    await expect(outsider.updateRound({ id: setup.roundId, readme: "Nope" })).rejects.toThrow(
-      "round owner",
+    await expect(outsider.updateRound({ id: setup.roundId, readme: "Nope" })).rejects.toMatchObject(
+      { code: "FORBIDDEN" },
     );
     await expect(
       outsider.broadcastToRound({ id: setup.roundId, kind: "round_opened" }),
-    ).rejects.toThrow("round owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("always lets the org's owners and admins manage, without a team lookup", async () => {
@@ -188,9 +188,9 @@ describe("managing rounds on a delegated project", () => {
       nearAuthedContext("teamed.near", "teamed-user", setup.orgId, "member"),
     );
     expect((await teamed.getRound({ id: setup.roundId })).canManage).toBe(false);
-    await expect(teamed.updateRound({ id: setup.roundId, readme: "Nope" })).rejects.toThrow(
-      "round owner",
-    );
+    await expect(teamed.updateRound({ id: setup.roundId, readme: "Nope" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   it("never grants access across organizations, even to a team member", async () => {

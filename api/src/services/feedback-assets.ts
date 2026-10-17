@@ -73,7 +73,7 @@ export function createFeedbackAssets(
       const urls = imageUrlsIn(feedback.body);
       if (!storage || urls.length === 0) return;
       try {
-        await storage(asAccount(feedback.authorAccountId)).attachByUrls({
+        await storage.client(asAccount(feedback.authorAccountId)).attachByUrls({
           ownerId: feedback.id,
           urls,
         });
@@ -86,7 +86,7 @@ export function createFeedbackAssets(
       // Anonymous feedback has no uploader to act as, and no attached assets (#89).
       if (!storage || !feedback.authorAccountId) return;
       try {
-        await storage(asAccount(feedback.authorAccountId)).deleteByOwner({
+        await storage.client(asAccount(feedback.authorAccountId)).deleteByOwner({
           ownerId: feedback.id,
         });
       } catch (error) {
@@ -97,7 +97,7 @@ export function createFeedbackAssets(
     attachRoundBanner: async (banner) => {
       if (!storage || !banner.bannerUrl || !banner.ownerAccountId) return;
       try {
-        await storage(asAccount(banner.ownerAccountId)).attachByUrls({
+        await storage.client(asAccount(banner.ownerAccountId)).attachByUrls({
           ownerId: banner.roundId,
           urls: [banner.bannerUrl],
         });
@@ -109,7 +109,7 @@ export function createFeedbackAssets(
     deleteRoundBanner: async (banner) => {
       if (!storage || !banner.ownerAccountId) return;
       try {
-        await storage(asAccount(banner.ownerAccountId)).deleteByOwner({
+        await storage.client(asAccount(banner.ownerAccountId)).deleteByOwner({
           ownerId: banner.roundId,
         });
       } catch (error) {

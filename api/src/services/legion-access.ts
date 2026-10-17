@@ -37,7 +37,7 @@ export function createLegionAccess(
       if (!nearAccountId) return denied(null);
       if (!legion) return denied(nearAccountId);
       try {
-        const { hasAccess } = await legion(context).checkAccess({
+        const { hasAccess } = await legion.client(context).checkAccess({
           nearAccountId,
         });
         return {

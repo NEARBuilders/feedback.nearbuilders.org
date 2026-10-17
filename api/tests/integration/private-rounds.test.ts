@@ -58,9 +58,9 @@ describe("private rounds (#101)", () => {
   it("refuses the settings change to everyone who can't manage the round", async () => {
     const { round } = await privateRound();
     const outsider = await getPluginClient(nearAuthedContext("priv-outsider.near"));
-    await expect(outsider.updateRoundSettings({ id: round.id, isPrivate: false })).rejects.toThrow(
-      "Only the round owner",
-    );
+    await expect(
+      outsider.updateRoundSettings({ id: round.id, isPrivate: false }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     const anon = await getPluginClient();
     await expect(anon.updateRoundSettings({ id: round.id, isPrivate: false })).rejects.toThrow();
   });

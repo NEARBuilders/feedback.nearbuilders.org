@@ -1,7 +1,7 @@
-import { createPlugin } from "every-plugin";
-import { Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
+import { buildScopedContext, createPlugin } from "every-plugin";
+import { z } from "zod";
 import { contract, type ProjectIdentity } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import type { activityOutbox as activityOutboxTable } from "./db/schema";
@@ -14,12 +14,24 @@ import { createFeedbackAssets } from "./services/feedback-assets";
 import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
-import { actingAccountId, linkedAccountIds } from "./services/linked-accounts";
+import {
+  actingAccountId,
+  type LinkedAccountsContext,
+  linkedAccountIds,
+} from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
-import { NotificationsLive, NotificationsTag } from "./services/notifications";
+import {
+  NotificationsLive,
+  type NotificationsService,
+  NotificationsTag,
+} from "./services/notifications";
 import { type OrganizationPrincipal, orgKeyOrganizationId } from "./services/org-key";
 import type { ProjectRecord } from "./services/project-records";
-import { ProjectRecordsLive, ProjectRecordsTag } from "./services/project-records";
+import {
+  ProjectRecordsLive,
+  type ProjectRecordsService,
+  ProjectRecordsTag,
+} from "./services/project-records";
 import { createProjectsLookup } from "./services/projects";
 import type { NearBuildersProject } from "./services/projects-client";
 import {
@@ -31,7 +43,12 @@ import {
   needsTeamCheck,
   type RoundActor,
 } from "./services/round-access";
-import { type RoundDetailRecord, RoundsLive, RoundsTag } from "./services/rounds";
+import {
+  type RoundDetailRecord,
+  RoundsLive,
+  type RoundsService,
+  RoundsTag,
+} from "./services/rounds";
 import { createTeamAccess } from "./services/team-access";
 import { createTelegramTipLookup } from "./services/telegram-tip";
 
@@ -62,6 +79,34 @@ const toActivityOutboxRow = (row: typeof activityOutboxTable.$inferSelect) => ({
   createdAt: toIsoDateTime(row.createdAt),
   sentAt: row.sentAt ? toIsoDateTime(row.sentAt) : null,
 });
+
+type ApiRuntimeShape = {
+  rounds: RoundsService;
+  projectRecords: ProjectRecordsService;
+  notifications: NotificationsService;
+  activityEvents: ReturnType<typeof createActivityEmitter>;
+  activityOutbox: ReturnType<typeof createActivityOutboxWorker>;
+  feedbackNostr: ReturnType<typeof createFeedbackNostrEmitter>;
+  projectsLookup: ReturnType<typeof createProjectsLookup>;
+  teamAccess: ReturnType<typeof createTeamAccess>;
+  legionAccess: ReturnType<typeof createLegionAccess>;
+  feedbackAssets: ReturnType<typeof createFeedbackAssets>;
+  telegramTip: ReturnType<typeof createTelegramTipLookup>;
+  githubIssuesLookup: ReturnType<typeof createGithubIssuesLookup>;
+};
+
+class ApiRuntimeTag extends Context.Service<ApiRuntimeTag, ApiRuntimeShape>()("api/ApiRuntime") {}
+
+let runtime: ApiRuntimeShape | undefined;
+
+const getRuntime = (): ApiRuntimeShape => {
+  if (!runtime) {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: "API services not initialized",
+    });
+  }
+  return runtime;
+};
 
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
@@ -96,21 +141,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   contract,
 
-  initialize: (config, plugins, tools) =>
+  initialize: (config, plugins) =>
     Effect.gen(function* () {
       const database = DatabaseLive(config.secrets.API_DATABASE_URL);
-      const db = yield* tools.buildService(DatabaseTag, database);
-      const roundsLayer = RoundsLive.pipe(Layer.provide(database));
-      const projectRecordsLayer = ProjectRecordsLive.pipe(Layer.provide(database));
-      const notificationsLayer = NotificationsLive.pipe(Layer.provide(database));
-
-      const roundsService = yield* tools.buildService(RoundsTag, roundsLayer);
-      const projectRecordsService = yield* tools.buildService(
-        ProjectRecordsTag,
-        projectRecordsLayer,
+      const servicesContext = yield* buildScopedContext(
+        Layer.mergeAll(RoundsLive, ProjectRecordsLive, NotificationsLive, database).pipe(
+          Layer.provide(database),
+        ),
       );
-
-      const notificationsService = yield* tools.buildService(NotificationsTag, notificationsLayer);
+      const db = Context.get(servicesContext, DatabaseTag);
+      const roundsService = Context.get(servicesContext, RoundsTag);
+      const projectRecordsService = Context.get(servicesContext, ProjectRecordsTag);
+      const notificationsService = Context.get(servicesContext, NotificationsTag);
 
       const activityEvents = createActivityEmitter({
         baseUrl: config.secrets.ACTIVITY_API_BASE_URL,
@@ -151,7 +193,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         `[API] Services Initialized (activity events ${activityEvents.enabled ? "enabled" : "disabled"}, feedback nostr comments ${feedbackNostr.enabled ? "enabled" : "disabled"}, projects lookup ${projectsLookup.enabled ? "enabled" : "disabled"}, github issues token ${config.secrets.GITHUB_API_TOKEN ? "configured" : "anonymous"})`,
       );
 
-      return {
+      const services: ApiRuntimeShape = {
         rounds: roundsService,
         projectRecords: projectRecordsService,
         notifications: notificationsService,
@@ -165,15 +207,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
         telegramTip,
         githubIssuesLookup,
       };
+
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          activityOutbox.stop();
+          console.log("[API] Shutdown");
+        }),
+      );
+
+      runtime = services;
+      return Layer.succeed(ApiRuntimeTag, services);
     }),
 
-  shutdown: (services) =>
-    Effect.sync(() => {
-      services.activityOutbox.stop();
-      console.log("[API] Shutdown");
-    }),
-
-  createRouter: (services, builder) => {
+  createRouter: (builder, plugins) => {
     const { requireAuth, requireAuthOrApiKey, requireAdmin, requireOrganization } =
       createAuthMiddleware(builder);
 
@@ -197,12 +243,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
     const withIdentity = async <T extends { slug: string }>(project: T) => ({
       ...project,
-      identity: toIdentity(await services.projectsLookup.resolveBySlug(project.slug)),
+      identity: toIdentity(await getRuntime().projectsLookup.resolveBySlug(project.slug)),
     });
 
     /** One batch lookup for a list, rather than a request per project. */
     const withIdentities = async <T extends { slug: string }>(projects: T[]) => {
-      const registry = await services.projectsLookup.resolveMany(
+      const registry = await getRuntime().projectsLookup.resolveMany(
         projects.map((project) => project.slug),
       );
       return projects.map((project) => ({
@@ -213,12 +259,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
     const withRoundIdentity = async <T extends { projectSlug: string }>(round: T) => ({
       ...round,
-      identity: toIdentity(await services.projectsLookup.resolveBySlug(round.projectSlug)),
+      identity: toIdentity(await getRuntime().projectsLookup.resolveBySlug(round.projectSlug)),
     });
 
     /** Same batch lookup, for rounds, which carry their project's slug. */
     const withRoundIdentities = async <T extends { projectSlug: string }>(rounds: T[]) => {
-      const registry = await services.projectsLookup.resolveMany(
+      const registry = await getRuntime().projectsLookup.resolveMany(
         rounds.map((round) => round.projectSlug),
       );
       return rounds.map((round) => ({
@@ -259,11 +305,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const actor: RoundActor = {
         activeOrganizationId: context.organization?.activeOrganizationId,
         accountId: context.near?.primaryAccountId,
-        accountIds: linkedAccountIds(context),
+        accountIds: linkedAccountIds(context as LinkedAccountsContext),
         orgRole: context.organization?.member?.role,
       };
       if (project?.managingTeamId && context.userId && needsTeamCheck(project, actor)) {
-        actor.inManagingTeam = await services.teamAccess.isMember(
+        actor.inManagingTeam = await getRuntime().teamAccess.isMember(
           context as Record<string, unknown>,
           project.managingTeamId,
           context.userId,
@@ -292,7 +338,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       message: string,
     ) => {
       if (isSiteAdmin(context)) return;
-      const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+      const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
       const allowed = canManageRound(round, project, await resolveActor(project, context));
       if (!allowed) throw new ORPCError("FORBIDDEN", { message });
     };
@@ -308,7 +354,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       action: "join" | "post in",
     ) => {
       if (!round.legionOnly) return;
-      const access = await services.legionAccess.getMyAccess(
+      const access = await getRuntime().legionAccess.getMyAccess(
         context as Record<string, unknown>,
         accountId,
       );
@@ -359,7 +405,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       resourceId: string,
     ) => {
       if (!round) throw roundNotFound(resourceId);
-      const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+      const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
       const canManage = canManageRound(round, project, await resolveActor(project, context));
       const hidden = round.status === "pending" || round.status === "rejected";
       if (hidden && !managesRound({ canManage }, context)) throw roundNotFound(resourceId);
@@ -367,18 +413,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ...round,
         canManage,
         projectVerifiedAt: project?.verifiedAt ?? null,
-        identity: toIdentity(await services.projectsLookup.resolveBySlug(round.projectSlug)),
+        identity: toIdentity(await getRuntime().projectsLookup.resolveBySlug(round.projectSlug)),
       };
     };
 
     const requireRound = async (id: string) => {
-      const round = await services.rounds.resolveRoundById(id);
+      const round = await getRuntime().rounds.resolveRoundById(id);
       if (!round) throw roundNotFound(id);
       return round;
     };
 
     const visibleRound = async (id: string, context: ViewerContext) =>
-      viewRoundDetail(await services.rounds.getRoundDetail(id), context, id);
+      viewRoundDetail(await getRuntime().rounds.getRoundDetail(id), context, id);
 
     const notifyAuthors = async (
       round: { id: string; title: string },
@@ -394,7 +440,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ]);
       }
       try {
-        await services.notifications.notifyAccounts({
+        await getRuntime().notifications.notifyAccounts({
           roundId: round.id,
           kind,
           ...notificationText(kind, round.title, note),
@@ -451,7 +497,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               });
             }
           }
-          const round = await services.rounds.createRound({
+          const round = await getRuntime().rounds.createRound({
             ownerAccountId,
             ownerOrgId: context.organization.activeOrganizationId,
             projectSlug: input.projectSlug,
@@ -470,7 +516,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           });
           // Best effort: the banner is already saved on the round, the asset link just
           // lets a later round delete clean it up.
-          await services.feedbackAssets.attachRoundBanner({
+          await getRuntime().feedbackAssets.attachRoundBanner({
             roundId: round.id,
             ownerAccountId,
             bannerUrl: input.bannerUrl ?? null,
@@ -479,8 +525,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
           // decides the project (#69); round.opened fires then. On an already
           // approved project it opens immediately (#70), so announce it now.
           if (round.status === "open") {
-            const eventId = await services.activityEvents.emitRoundOpened(round);
-            if (eventId) await services.rounds.setRoundActivityEventId(round.id, eventId);
+            const eventId = await getRuntime().activityEvents.emitRoundOpened(round);
+            if (eventId) await getRuntime().rounds.setRoundActivityEventId(round.id, eventId);
           }
           return round;
         }),
@@ -500,7 +546,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "A repo URL is required when the issues format is selected",
             });
           }
-          const updated = await services.rounds.updateRound(round.id, {
+          const updated = await getRuntime().rounds.updateRound(round.id, {
             readme: input.readme,
             bannerUrl: input.bannerUrl,
             formats: input.formats,
@@ -508,12 +554,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
           // A removed banner loses its asset link; a new one gains it. Best effort either
           // way: the round record is already saved.
           if (input.bannerUrl === null && round.bannerUrl) {
-            await services.feedbackAssets.deleteRoundBanner({
+            await getRuntime().feedbackAssets.deleteRoundBanner({
               roundId: round.id,
               ownerAccountId: round.ownerAccountId,
             });
           } else if (input.bannerUrl && input.bannerUrl !== round.bannerUrl) {
-            await services.feedbackAssets.attachRoundBanner({
+            await getRuntime().feedbackAssets.attachRoundBanner({
               roundId: round.id,
               ownerAccountId: round.ownerAccountId,
               bannerUrl: input.bannerUrl,
@@ -526,7 +572,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
           assertNotOrgKey(context);
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -538,7 +584,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             context,
             "Only the round owner can change its privacy, Legion gate or expiration",
           );
-          return await services.rounds.updateRoundSettings(round.id, {
+          return await getRuntime().rounds.updateRoundSettings(round.id, {
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
             endsAt: input.endsAt,
@@ -557,13 +603,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
             message: "Only admins can list pending or rejected rounds",
           });
         }
-        const rounds = await services.rounds.listRounds(input.status);
+        const rounds = await getRuntime().rounds.listRounds(input.status);
         // Without a status filter this is the public browse listing, so pending/rejected
         // rounds — visible only to their owning org or an admin — never appear in it.
         const visible = input.status ? rounds : rounds.filter(isPublic);
         if (keyOrganizationId && !isAdmin) {
           // An org key lists only its own organization's rounds, whatever their status (#111).
-          const projects = await services.projectRecords.listProjectsByOrg(keyOrganizationId);
+          const projects = await getRuntime().projectRecords.listProjectsByOrg(keyOrganizationId);
           const ownedIds = new Set(projects.map((project) => project.id));
           return withRoundIdentities(
             visible.filter((round) => ownedIds.has(round.projectRecordId)),
@@ -575,7 +621,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listProjects: builder.listProjects
         .use(requireAdmin)
         .handler(async ({ input }) =>
-          withIdentities(await services.projectRecords.listProjects(input.status)),
+          withIdentities(await getRuntime().projectRecords.listProjects(input.status)),
         ),
 
       listMyProjects: builder.listMyProjects
@@ -583,7 +629,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireOrganization)
         .handler(async ({ context }) =>
           withIdentities(
-            await services.projectRecords.listProjectsByOrg(
+            await getRuntime().projectRecords.listProjectsByOrg(
               context.organization.activeOrganizationId,
             ),
           ),
@@ -592,21 +638,21 @@ export default createPlugin.withPlugins<PluginsClient>()({
       approveProject: builder.approveProject
         .use(requireAdmin)
         .handler(async ({ input, errors }) => {
-          const existing = await services.projectRecords.resolveProjectById(input.id);
+          const existing = await getRuntime().projectRecords.resolveProjectById(input.id);
           if (!existing) {
             throw errors.NOT_FOUND({
               message: "Project not found",
               data: { resource: "project", resourceId: input.id },
             });
           }
-          const { decidedRoundIds } = await services.projectRecords.approveProject(existing.id);
+          const { decidedRoundIds } = await getRuntime().projectRecords.approveProject(existing.id);
           for (const roundId of decidedRoundIds) {
-            const round = await services.rounds.resolveRoundById(roundId);
+            const round = await getRuntime().rounds.resolveRoundById(roundId);
             if (!round) continue;
-            const eventId = await services.activityEvents.emitRoundOpened(round);
-            if (eventId) await services.rounds.setRoundActivityEventId(round.id, eventId);
+            const eventId = await getRuntime().activityEvents.emitRoundOpened(round);
+            if (eventId) await getRuntime().rounds.setRoundActivityEventId(round.id, eventId);
           }
-          const project = await services.projectRecords.getProjectWithRounds(existing.id);
+          const project = await getRuntime().projectRecords.getProjectWithRounds(existing.id);
           if (!project) {
             throw errors.NOT_FOUND({
               message: "Project not found",
@@ -617,15 +663,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       rejectProject: builder.rejectProject.use(requireAdmin).handler(async ({ input, errors }) => {
-        const existing = await services.projectRecords.resolveProjectById(input.id);
+        const existing = await getRuntime().projectRecords.resolveProjectById(input.id);
         if (!existing) {
           throw errors.NOT_FOUND({
             message: "Project not found",
             data: { resource: "project", resourceId: input.id },
           });
         }
-        await services.projectRecords.rejectProject(existing.id, input.reason);
-        const project = await services.projectRecords.getProjectWithRounds(existing.id);
+        await getRuntime().projectRecords.rejectProject(existing.id, input.reason);
+        const project = await getRuntime().projectRecords.getProjectWithRounds(existing.id);
         if (!project) {
           throw errors.NOT_FOUND({ message: "Project not found", data: { resourceId: input.id } });
         }
@@ -635,7 +681,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       verifyProject: builder.verifyProject
         .use(requireAdmin)
         .handler(async ({ input, context, errors }) => {
-          const existing = await services.projectRecords.resolveProjectById(input.id);
+          const existing = await getRuntime().projectRecords.resolveProjectById(input.id);
           if (!existing) {
             throw errors.NOT_FOUND({
               message: "Project not found",
@@ -645,11 +691,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (existing.status === "rejected") {
             throw new ORPCError("BAD_REQUEST", { message: "Rejected projects cannot be verified" });
           }
-          await services.projectRecords.verifyProject(
+          await getRuntime().projectRecords.verifyProject(
             existing.id,
             context.near?.primaryAccountId ?? null,
           );
-          const project = await services.projectRecords.getProjectWithRounds(existing.id);
+          const project = await getRuntime().projectRecords.getProjectWithRounds(existing.id);
           if (!project) {
             throw errors.NOT_FOUND({
               message: "Project not found",
@@ -662,15 +708,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
       unverifyProject: builder.unverifyProject
         .use(requireAdmin)
         .handler(async ({ input, errors }) => {
-          const existing = await services.projectRecords.resolveProjectById(input.id);
+          const existing = await getRuntime().projectRecords.resolveProjectById(input.id);
           if (!existing) {
             throw errors.NOT_FOUND({
               message: "Project not found",
               data: { resource: "project", resourceId: input.id },
             });
           }
-          await services.projectRecords.unverifyProject(existing.id);
-          const project = await services.projectRecords.getProjectWithRounds(existing.id);
+          await getRuntime().projectRecords.unverifyProject(existing.id);
+          const project = await getRuntime().projectRecords.getProjectWithRounds(existing.id);
           if (!project) {
             throw errors.NOT_FOUND({
               message: "Project not found",
@@ -683,7 +729,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       setProjectManagingTeam: builder.setProjectManagingTeam
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const project = await services.projectRecords.resolveProjectById(input.id);
+          const project = await getRuntime().projectRecords.resolveProjectById(input.id);
           if (!project) {
             throw errors.NOT_FOUND({
               message: "Project not found",
@@ -706,7 +752,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
                 message: "This project has no owning organization to take a team from",
               });
             }
-            const teamIds = await services.teamAccess.listOrgTeamIds(
+            const teamIds = await getRuntime().teamAccess.listOrgTeamIds(
               context as Record<string, unknown>,
               project.ownerOrgId,
             );
@@ -721,8 +767,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
               });
             }
           }
-          await services.projectRecords.setManagingTeam(project.id, input.teamId);
-          const updated = await services.projectRecords.getProjectWithRounds(project.id);
+          await getRuntime().projectRecords.setManagingTeam(project.id, input.teamId);
+          const updated = await getRuntime().projectRecords.getProjectWithRounds(project.id);
           if (!updated) {
             throw errors.NOT_FOUND({
               message: "Project not found",
@@ -736,12 +782,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
           assertNotOrgKey(context);
-          if (linkedAccountIds(context).length === 0) {
+          if (linkedAccountIds(context as LinkedAccountsContext).length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before deleting a round",
             });
           }
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -751,78 +797,78 @@ export default createPlugin.withPlugins<PluginsClient>()({
           await assertCanManageRound(round, context, "Only the round owner can delete it");
           // Feedback is testers' work and carries their credits; deleting a round with
           // submissions would destroy that attribution. Hide it instead (admin action).
-          const feedbackCount = await services.rounds.countFeedback(round.id);
+          const feedbackCount = await getRuntime().rounds.countFeedback(round.id);
           if (feedbackCount > 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Rounds with feedback can't be deleted — an admin can hide it instead",
             });
           }
-          const owners = await services.rounds.listFeedbackOwners(round.id);
-          const result = await services.rounds.deleteRound(round.id);
-          for (const owner of owners) await services.feedbackAssets.deleteForFeedback(owner);
-          await services.feedbackAssets.deleteRoundBanner({
+          const owners = await getRuntime().rounds.listFeedbackOwners(round.id);
+          const result = await getRuntime().rounds.deleteRound(round.id);
+          for (const owner of owners) await getRuntime().feedbackAssets.deleteForFeedback(owner);
+          await getRuntime().feedbackAssets.deleteRoundBanner({
             roundId: round.id,
             ownerAccountId: round.ownerAccountId,
           });
           if (result?.activityEventId) {
-            await services.activityEvents.retract(result.activityEventId, "round deleted");
+            await getRuntime().activityEvents.retract(result.activityEventId, "round deleted");
           }
           return round;
         }),
 
       rejectRound: builder.rejectRound.use(requireAdmin).handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
+        const round = await getRuntime().rounds.resolveRoundById(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
             message: "Round not found",
             data: { resource: "round", resourceId: input.id },
           });
         }
-        const updated = await services.rounds.rejectRound(round.id, input.reason);
+        const updated = await getRuntime().rounds.rejectRound(round.id, input.reason);
         // The round leaves feeds the same way a deleted one does; restoring re-emits.
         if (round.activityEventId) {
-          await services.activityEvents.retract(round.activityEventId, "round hidden");
+          await getRuntime().activityEvents.retract(round.activityEventId, "round hidden");
         }
         return updated;
       }),
 
       restoreRound: builder.restoreRound.use(requireAdmin).handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
+        const round = await getRuntime().rounds.resolveRoundById(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
             message: "Round not found",
             data: { resource: "round", resourceId: input.id },
           });
         }
-        const restored = await services.rounds.restoreRound(round.id);
+        const restored = await getRuntime().rounds.restoreRound(round.id);
         if (restored.status === "open") {
-          const eventId = await services.activityEvents.emitRoundOpened(restored);
-          if (eventId) await services.rounds.setRoundActivityEventId(restored.id, eventId);
+          const eventId = await getRuntime().activityEvents.emitRoundOpened(restored);
+          if (eventId) await getRuntime().rounds.setRoundActivityEventId(restored.id, eventId);
         }
         return restored;
       }),
 
       getRound: builder.getRound.handler(async ({ input, context }) =>
-        viewRoundDetail(await services.rounds.getRoundDetail(input.id), context, input.id),
+        viewRoundDetail(await getRuntime().rounds.getRoundDetail(input.id), context, input.id),
       ),
 
       getRoundBySlug: builder.getRoundBySlug.handler(async ({ input, context }) =>
         viewRoundDetail(
-          await services.rounds.getRoundDetailBySlug(input.slug, input.number),
+          await getRuntime().rounds.getRoundDetailBySlug(input.slug, input.number),
           context,
           `${input.slug}/${input.number}`,
         ),
       ),
 
       joinRound: builder.joinRound.use(requireAuth).handler(async ({ input, context, errors }) => {
-        const myAccounts = linkedAccountIds(context);
+        const myAccounts = linkedAccountIds(context as LinkedAccountsContext);
         if (myAccounts.length === 0) {
           throw new ORPCError("BAD_REQUEST", {
             message: "Link a NEAR account before joining a round",
             data: { hint: "Link a NEAR wallet in settings" },
           });
         }
-        const round = await services.rounds.resolveRoundById(input.id);
+        const round = await getRuntime().rounds.resolveRoundById(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
             message: "Round not found",
@@ -836,7 +882,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         if (myAccounts.includes(round.ownerAccountId)) {
           throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
         }
-        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+        const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
         if (
           project?.ownerOrgId &&
           context.organization?.activeOrganizationId === project.ownerOrgId
@@ -847,11 +893,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }
         // One participation per user, whichever linked wallet is primary now: if one of their
         // accounts already joined, that stays the participation instead of adding a second.
-        const alreadyJoinedAs = await services.rounds.findParticipantAccount(round.id, myAccounts);
+        const alreadyJoinedAs = await getRuntime().rounds.findParticipantAccount(
+          round.id,
+          myAccounts,
+        );
         const accountId = actingAccountId(myAccounts, alreadyJoinedAs) as string;
         await assertLegionAccess(round, accountId, context, "join");
-        await services.rounds.addParticipant(round.id, accountId);
-        const detail = await services.rounds.getRoundDetail(round.id);
+        await getRuntime().rounds.addParticipant(round.id, accountId);
+        const detail = await getRuntime().rounds.getRoundDetail(round.id);
         if (!detail) {
           throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
         }
@@ -861,22 +910,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
       leaveRound: builder.leaveRound
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const myAccounts = linkedAccountIds(context);
+          const myAccounts = linkedAccountIds(context as LinkedAccountsContext);
           if (myAccounts.length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before leaving a round",
             });
           }
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
               data: { resource: "round", resourceId: input.id },
             });
           }
-          const joinedAs = await services.rounds.findParticipantAccount(round.id, myAccounts);
-          if (joinedAs) await services.rounds.removeParticipant(round.id, joinedAs);
-          const detail = await services.rounds.getRoundDetail(round.id);
+          const joinedAs = await getRuntime().rounds.findParticipantAccount(round.id, myAccounts);
+          if (joinedAs) await getRuntime().rounds.removeParticipant(round.id, joinedAs);
+          const detail = await getRuntime().rounds.getRoundDetail(round.id);
           if (!detail) {
             throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
           }
@@ -886,15 +935,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getMyParticipation: builder.getMyParticipation
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const joinedAs = await services.rounds.findParticipantAccount(
+          const joinedAs = await getRuntime().rounds.findParticipantAccount(
             input.id,
-            linkedAccountIds(context),
+            linkedAccountIds(context as LinkedAccountsContext),
           );
           return { joined: joinedAs !== null };
         }),
 
       getMyLegionAccess: builder.getMyLegionAccess.handler(async ({ context }) => {
-        return await services.legionAccess.getMyAccess(
+        return await getRuntime().legionAccess.getMyAccess(
           context,
           context.near?.primaryAccountId ?? null,
         );
@@ -903,27 +952,29 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listMyJoinedRounds: builder.listMyJoinedRounds
         .use(requireAuth)
         .handler(async ({ context }) => {
-          return services.rounds.listMyJoinedRounds(linkedAccountIds(context));
+          return getRuntime().rounds.listMyJoinedRounds(
+            linkedAccountIds(context as LinkedAccountsContext),
+          );
         }),
 
       getOwnerSummary: builder.getOwnerSummary
         .use(requireAuth)
         .use(requireOrganization)
         .handler(async ({ context }) =>
-          services.rounds.getOwnerSummary(context.organization.activeOrganizationId),
+          getRuntime().rounds.getOwnerSummary(context.organization.activeOrganizationId),
         ),
 
       postFeedback: builder.postFeedback
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const myAccounts = linkedAccountIds(context);
+          const myAccounts = linkedAccountIds(context as LinkedAccountsContext);
           if (myAccounts.length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before posting feedback",
               data: { hint: "Link a NEAR wallet in settings" },
             });
           }
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -937,7 +988,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           assertRoundNotExpired(round);
           // Post as the account that joined, which may no longer be the primary one.
-          const accountId = await services.rounds.findParticipantAccount(round.id, myAccounts);
+          const accountId = await getRuntime().rounds.findParticipantAccount(round.id, myAccounts);
           if (!accountId) {
             throw new ORPCError("FORBIDDEN", {
               message: "Join the round before posting feedback",
@@ -946,7 +997,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           await assertLegionAccess(round, accountId, context, "post in");
           const body = input.format === "written" ? (input.body?.trim() ?? null) : null;
           const url = input.format === "recorded" ? (input.url ?? null) : null;
-          const feedback = await services.rounds.addFeedback({
+          const feedback = await getRuntime().rounds.addFeedback({
             roundId: round.id,
             authorAccountId: accountId,
             format: input.format,
@@ -954,22 +1005,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
             url,
           });
           // Link the images in the body to this feedback so they go away with it.
-          await services.feedbackAssets.attachForFeedback({
+          await getRuntime().feedbackAssets.attachForFeedback({
             id: feedback.id,
             authorAccountId: accountId,
             body,
           });
           // The activity event never carries the feedback body, so it's safe for private
           // rounds too (#101).
-          const eventId = await services.activityEvents.emitFeedbackPosted({
+          const eventId = await getRuntime().activityEvents.emitFeedbackPosted({
             ...feedback,
             roundTitle: round.title,
           });
-          if (eventId) await services.rounds.setFeedbackActivityEventId(feedback.id, eventId);
+          if (eventId) await getRuntime().rounds.setFeedbackActivityEventId(feedback.id, eventId);
           // A Nostr comment can't be retracted, so a private round's feedback never goes there.
           const nostrEventId = round.isPrivate
             ? null
-            : await services.feedbackNostr.publish(
+            : await getRuntime().feedbackNostr.publish(
                 {
                   projectSlug: round.projectSlug,
                   roundNumber: round.projectRoundNumber,
@@ -980,19 +1031,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
                 context,
               );
           if (nostrEventId)
-            await services.rounds.setFeedbackNostrEventId(feedback.id, nostrEventId);
+            await getRuntime().rounds.setFeedbackNostrEventId(feedback.id, nostrEventId);
           return { ...feedback, nostrEventId: nostrEventId ?? feedback.nostrEventId };
         }),
 
       listFeedback: builder.listFeedback.handler(async ({ input, context }) => {
         const round = await visibleRound(input.id, context);
-        const page = await services.rounds.listFeedback(round.id, input);
+        const page = await getRuntime().rounds.listFeedback(round.id, input);
         if (!round.isPrivate) return page;
         // Private round (#101): everything for the managing org/team and admins, otherwise
         // only the caller's own submissions. This one handler backs the HTTP route, the
         // data table's export and the MCP `listFeedback` tool. The cursor stays derived from
         // the unfiltered page, so filtering never blocks pagination.
-        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+        const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
         const canReadAll = canReadAllFeedback(
           round,
           project,
@@ -1000,7 +1051,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
           isSiteAdmin(context),
         );
         return {
-          items: filterVisibleFeedback(page.items, canReadAll, linkedAccountIds(context)),
+          items: filterVisibleFeedback(
+            page.items,
+            canReadAll,
+            linkedAccountIds(context as LinkedAccountsContext),
+          ),
           nextCursor: page.nextCursor,
         };
       }),
@@ -1009,13 +1064,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuth)
         .handler(async ({ input, context }) => {
           const round = await visibleRound(input.id, context);
-          const accountIds = linkedAccountIds(context);
+          const accountIds = linkedAccountIds(context as LinkedAccountsContext);
           if (accountIds.length === 0) return [];
-          const { items } = await services.rounds.listFeedback(round.id, {
+          const { items } = await getRuntime().rounds.listFeedback(round.id, {
             authors: accountIds,
             limit: MAX_FEEDBACK_PER_TESTER,
           });
-          const notes = await services.rounds.listFeedbackNotes(items.map((item) => item.id));
+          const notes = await getRuntime().rounds.listFeedbackNotes(items.map((item) => item.id));
           return items.map((feedback) => ({
             ...feedback,
             notes: notes.filter((note) => note.feedbackId === feedback.id),
@@ -1024,12 +1079,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getFeedback: builder.getFeedback.handler(async ({ input, context }) => {
         const round = await visibleRound(input.id, context);
-        const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+        const feedback = await getRuntime().rounds.getFeedback(round.id, input.feedbackId);
         if (!feedback) throw feedbackNotFound(input.feedbackId);
         const canSeeNotes =
           managesRound(round, context) ||
-          linkedAccountIds(context).includes(feedback.authorAccountId);
-        const notes = canSeeNotes ? await services.rounds.listFeedbackNotes([feedback.id]) : [];
+          linkedAccountIds(context as LinkedAccountsContext).includes(feedback.authorAccountId);
+        const notes = canSeeNotes ? await getRuntime().rounds.listFeedbackNotes([feedback.id]) : [];
         return { ...feedback, notes };
       }),
 
@@ -1038,16 +1093,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .handler(async ({ input, context }) => {
           const accountId = nearAccountForNotes(context);
           const round = await visibleRound(input.id, context);
-          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+          const feedback = await getRuntime().rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
           const isManager = managesRound(round, context);
-          const isAuthor = linkedAccountIds(context).includes(feedback.authorAccountId);
+          const isAuthor = linkedAccountIds(context as LinkedAccountsContext).includes(
+            feedback.authorAccountId,
+          );
           if (!isManager && !isAuthor) {
             throw new ORPCError("FORBIDDEN", {
               message: "Only the author or the round owner can add a note",
             });
           }
-          const notes = await services.rounds.listFeedbackNotes([feedback.id]);
+          const notes = await getRuntime().rounds.listFeedbackNotes([feedback.id]);
           if (notes.length >= MAX_NOTES_PER_FEEDBACK) {
             throw new ORPCError("BAD_REQUEST", { message: "This thread is full" });
           }
@@ -1056,7 +1113,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "You can reply once the round owner leaves a note",
             });
           }
-          return await services.rounds.addFeedbackNote({
+          return await getRuntime().rounds.addFeedbackNote({
             feedbackId: feedback.id,
             authorAccountId: isManager ? accountId : feedback.authorAccountId,
             role: isManager ? "owner" : "tester",
@@ -1067,16 +1124,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
       editFeedback: builder.editFeedback
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
               data: { resource: "round", resourceId: input.id },
             });
           }
-          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+          const feedback = await getRuntime().rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
-          if (!linkedAccountIds(context).includes(feedback.authorAccountId)) {
+          if (
+            !linkedAccountIds(context as LinkedAccountsContext).includes(feedback.authorAccountId)
+          ) {
             throw new ORPCError("FORBIDDEN", {
               message: "Only the author can edit their feedback",
             });
@@ -1099,10 +1158,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Recorded feedback needs a session link",
             });
           }
-          const updated = await services.rounds.updateFeedbackContent(feedback.id, { body, url });
+          const updated = await getRuntime().rounds.updateFeedbackContent(feedback.id, {
+            body,
+            url,
+          });
           if (!updated) throw feedbackNotFound(input.feedbackId);
           // Link any images added by the edit; ones already linked are re-sent harmlessly.
-          await services.feedbackAssets.attachForFeedback({
+          await getRuntime().feedbackAssets.attachForFeedback({
             id: updated.id,
             authorAccountId: updated.authorAccountId,
             body: updated.body,
@@ -1114,21 +1176,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
           assertNotOrgKey(context);
-          if (linkedAccountIds(context).length === 0) {
+          if (linkedAccountIds(context as LinkedAccountsContext).length === 0) {
             throw new ORPCError("UNAUTHORIZED", {
               message: "Link a NEAR account before removing feedback",
             });
           }
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
               data: { resource: "round", resourceId: input.id },
             });
           }
-          const feedback = await services.rounds.getFeedback(round.id, input.feedbackId);
+          const feedback = await getRuntime().rounds.getFeedback(round.id, input.feedbackId);
           if (!feedback) throw feedbackNotFound(input.feedbackId);
-          if (!linkedAccountIds(context).includes(feedback.authorAccountId)) {
+          if (
+            !linkedAccountIds(context as LinkedAccountsContext).includes(feedback.authorAccountId)
+          ) {
             await assertCanManageRound(
               round,
               context,
@@ -1139,10 +1203,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "This round is closed, so its feedback can no longer be deleted",
             });
           }
-          const result = await services.rounds.deleteFeedback(input.feedbackId);
-          await services.feedbackAssets.deleteForFeedback(feedback);
+          const result = await getRuntime().rounds.deleteFeedback(input.feedbackId);
+          await getRuntime().feedbackAssets.deleteForFeedback(feedback);
           if (result?.activityEventId) {
-            await services.activityEvents.retract(result.activityEventId, "feedback invalidated");
+            await getRuntime().activityEvents.retract(
+              result.activityEventId,
+              "feedback invalidated",
+            );
           }
           if (feedback.nostrEventId) {
             // The nostr plugin's contract has no delete/retract method (Nostr has
@@ -1168,7 +1235,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const note = input.note
             ? { authorAccountId: nearAccountForNotes(context), body: input.note }
             : undefined;
-          const changed = await services.rounds.setFeedbackStatus(
+          const changed = await getRuntime().rounds.setFeedbackStatus(
             round.id,
             input.feedbackIds,
             input.status,
@@ -1187,7 +1254,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           // requireAuthOrApiKey leaves the context untyped for direct user access, so read
           // the viewer fields through the shared shape other handlers use.
           const viewer = context as ViewerContext;
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -1198,7 +1265,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             await assertCanManageRound(round, context, "Only the round owner can star feedback");
           }
           const starredBy = viewer.near?.primaryAccountId ?? viewer.user?.id ?? "admin";
-          return await services.rounds.setFeedbackStarred(
+          return await getRuntime().rounds.setFeedbackStarred(
             round.id,
             input.feedbackIds,
             input.starred,
@@ -1215,13 +1282,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
             context,
             "Only the round owner can list the round's testers",
           );
-          const authors = await services.rounds.listFeedbackAuthors(round.id);
+          const authors = await getRuntime().rounds.listFeedbackAuthors(round.id);
           const handles = new Map<string, string | null>();
           for (let i = 0; i < authors.length; i += TELEGRAM_LOOKUP_CONCURRENCY) {
             const batch = authors.slice(i, i + TELEGRAM_LOOKUP_CONCURRENCY);
             const resolved = await Promise.all(
               batch.map(async (author) => {
-                const { handle } = await services.telegramTip.resolveHandle(author.accountId);
+                const { handle } = await getRuntime().telegramTip.resolveHandle(author.accountId);
                 return [author.accountId, handle] as const;
               }),
             );
@@ -1236,7 +1303,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listParticipants: builder.listParticipants
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -1244,8 +1311,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const isParticipant =
-            (await services.rounds.findParticipantAccount(round.id, linkedAccountIds(context))) !==
-            null;
+            (await getRuntime().rounds.findParticipantAccount(
+              round.id,
+              linkedAccountIds(context as LinkedAccountsContext),
+            )) !== null;
           if (!isParticipant) {
             await assertCanManageRound(
               round,
@@ -1253,14 +1322,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
               "Only the round owner and its participants can see who joined",
             );
           }
-          return await services.rounds.listParticipants(round.id);
+          return await getRuntime().rounds.listParticipants(round.id);
         }),
 
       broadcastToRound: builder.broadcastToRound
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
           assertNotOrgKey(context);
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -1274,7 +1343,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const text = notificationText(input.kind, round.title, input.message);
-          const recipients = await services.notifications.notifyParticipants({
+          const recipients = await getRuntime().notifications.notifyParticipants({
             roundId: round.id,
             kind: input.kind,
             ...text,
@@ -1285,21 +1354,21 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listNotifications: builder.listNotifications
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const accountIds = linkedAccountIds(context);
+          const accountIds = linkedAccountIds(context as LinkedAccountsContext);
           if (accountIds.length === 0) return { items: [], unreadCount: 0 };
-          return await services.notifications.listForAccount(accountIds, input.limit);
+          return await getRuntime().notifications.listForAccount(accountIds, input.limit);
         }),
 
       markNotificationRead: builder.markNotificationRead
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const accountIds = linkedAccountIds(context);
+          const accountIds = linkedAccountIds(context as LinkedAccountsContext);
           if (accountIds.length === 0) {
             throw new ORPCError("UNAUTHORIZED", {
               message: "Link a NEAR account to manage notifications",
             });
           }
-          const notification = await services.notifications.markRead(accountIds, input.id);
+          const notification = await getRuntime().notifications.markRead(accountIds, input.id);
           if (!notification) {
             throw errors.NOT_FOUND({
               message: "Notification not found",
@@ -1312,13 +1381,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
       markAllNotificationsRead: builder.markAllNotificationsRead
         .use(requireAuth)
         .handler(async ({ context }) => {
-          const accountIds = linkedAccountIds(context);
+          const accountIds = linkedAccountIds(context as LinkedAccountsContext);
           if (accountIds.length === 0) return { updated: 0 };
-          return { updated: await services.notifications.markAllRead(accountIds) };
+          return { updated: await getRuntime().notifications.markAllRead(accountIds) };
         }),
 
       getRoundGithubIssues: builder.getRoundGithubIssues.handler(async ({ input, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
+        const round = await getRuntime().rounds.resolveRoundById(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
             message: "Round not found",
@@ -1330,7 +1399,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             message: "This round isn't collecting GitHub issues",
           });
         }
-        const contributors = await services.githubIssuesLookup.forRound({
+        const contributors = await getRuntime().githubIssuesLookup.forRound({
           repoUrl: round.repoUrl,
           windowStart: round.createdAt,
           windowEnd: round.closedAt,
@@ -1346,7 +1415,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getCreditCandidates: builder.getCreditCandidates
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -1354,20 +1423,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           await assertCanManageRound(round, context, "Only the round owner can see this");
-          return await services.rounds.getCreditCandidates(round.id);
+          return await getRuntime().rounds.getCreditCandidates(round.id);
         }),
 
       closeRound: builder.closeRound
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
           assertNotOrgKey(context);
-          if (linkedAccountIds(context).length === 0) {
+          if (linkedAccountIds(context as LinkedAccountsContext).length === 0) {
             throw new ORPCError("BAD_REQUEST", {
               message: "Link a NEAR account before closing a round",
               data: { hint: "Link a NEAR wallet in settings" },
             });
           }
-          const round = await services.rounds.resolveRoundById(input.id);
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({
               message: "Round not found",
@@ -1378,10 +1447,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (round.status !== "open") {
             throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
           }
-          const detail = await services.rounds.closeRound(round.id, input.credits ?? []);
+          const detail = await getRuntime().rounds.closeRound(round.id, input.credits ?? []);
           try {
             const text = notificationText("round_closed", round.title);
-            await services.notifications.notifyParticipants({
+            await getRuntime().notifications.notifyParticipants({
               roundId: round.id,
               kind: "round_closed",
               ...text,
@@ -1393,28 +1462,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
               }`,
             );
           }
-          await services.activityEvents.emitRoundClosed(detail);
-          const credits = await services.rounds.listRoundCredits(round.id);
+          await getRuntime().activityEvents.emitRoundClosed(detail);
+          const credits = await getRuntime().rounds.listRoundCredits(round.id);
           for (const credit of credits) {
             if (!credit.contributedMeaningfully) continue;
-            await services.activityEvents.emitCreditAwarded(credit);
+            await getRuntime().activityEvents.emitCreditAwarded(credit);
           }
           return withRoundIdentity(detail);
         }),
 
       listRoundCredits: builder.listRoundCredits.handler(async ({ input, context, errors }) => {
-        const round = await services.rounds.resolveRoundById(input.id);
+        const round = await getRuntime().rounds.resolveRoundById(input.id);
         if (!round) {
           throw errors.NOT_FOUND({
             message: "Round not found",
             data: { resource: "round", resourceId: input.id },
           });
         }
-        const credits = await services.rounds.listRoundCredits(round.id);
+        const credits = await getRuntime().rounds.listRoundCredits(round.id);
         if (!round.isPrivate) return credits;
         // Credits name the people who posted, so a private round (#101) only shows them to
         // its readers, plus each builder's own credit.
-        const project = await services.projectRecords.resolveProjectById(round.projectRecordId);
+        const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
         const canReadAll = canReadAllFeedback(
           round,
           project,
@@ -1424,17 +1493,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return filterVisibleFeedback(
           credits.map((credit) => ({ ...credit, authorAccountId: credit.builderAccountId })),
           canReadAll,
-          linkedAccountIds(context),
+          linkedAccountIds(context as LinkedAccountsContext),
         ).map(({ authorAccountId: _author, ...credit }) => credit);
       }),
 
       getBuilderRounds: builder.getBuilderRounds.handler(async ({ input }) =>
-        services.rounds.listBuilderRounds(input.accountId),
+        getRuntime().rounds.listBuilderRounds(input.accountId),
       ),
 
       getRoundEndorsements: builder.getRoundEndorsements.handler(async ({ input }) => {
-        const eventIds = await services.rounds.listRoundActivityEventIds(input.roundIds);
-        const counts = await services.activityEvents.endorsements(Object.values(eventIds));
+        const eventIds = await getRuntime().rounds.listRoundActivityEventIds(input.roundIds);
+        const counts = await getRuntime().activityEvents.endorsements(Object.values(eventIds));
         const result: Record<string, { eventId: string; totalCount: number }> = {};
         if (!counts) return result;
         for (const [roundId, eventId] of Object.entries(eventIds)) {
@@ -1445,7 +1514,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       getBuilderActivity: builder.getBuilderActivity.handler(async ({ input }) => {
-        const events = await services.activityEvents.listActorEvents({
+        const events = await getRuntime().activityEvents.listActorEvents({
           actor: input.accountId,
           limit: input.limit,
         });
@@ -1463,28 +1532,29 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       searchProjects: builder.searchProjects.handler(async ({ input }) => {
-        const results = await services.projectsLookup.search(input.query);
+        const results = await getRuntime().projectsLookup.search(input.query);
         return { available: results !== null, results: results ?? [] };
       }),
 
       getTelegramTip: builder.getTelegramTip
         .use(requireAuth)
-        .handler(async ({ input }) => services.telegramTip.getTip(input.accountId)),
+        .handler(async ({ input }) => getRuntime().telegramTip.getTip(input.accountId)),
 
       getProjectSearchStatus: builder.getProjectSearchStatus.handler(async () => ({
-        enabled: services.projectsLookup.enabled,
+        enabled: getRuntime().projectsLookup.enabled,
       })),
 
       listPublicProjects: builder.listPublicProjects.handler(async () => {
-        const projects = await services.projectRecords.listProjects("approved");
+        const projects = await getRuntime().projectRecords.listProjects("approved");
         return withIdentities(
           projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) })),
         );
       }),
 
       getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, context }) => {
-        const record = await services.projectRecords.resolveProjectBySlug(input.slug);
-        const project = record && (await services.projectRecords.getProjectWithRounds(record.id));
+        const record = await getRuntime().projectRecords.resolveProjectBySlug(input.slug);
+        const project =
+          record && (await getRuntime().projectRecords.getProjectWithRounds(record.id));
         if (!project) throw projectNotFound(input.slug);
         const canManage = canManageProject(project, await resolveActor(project, context));
         const canSeeAll = managesRound({ canManage }, context);
@@ -1514,11 +1584,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const [previous, current] = await Promise.all([
-            services.rounds.listParticipants(from.id),
-            services.rounds.listParticipants(round.id),
+            getRuntime().rounds.listParticipants(from.id),
+            getRuntime().rounds.listParticipants(round.id),
           ]);
           const joined = new Set(current.map((participant) => participant.accountId));
-          const recipients = await services.notifications.notifyAccounts({
+          const recipients = await getRuntime().notifications.notifyAccounts({
             roundId: round.id,
             kind: "round_opened",
             ...notificationText("round_opened", round.title),
@@ -1530,7 +1600,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getBuilderStanding: builder.getBuilderStanding.handler(async ({ input }) => {
         // activity owns the scoring, so a builder's standing is read back off
         // the same board the leaderboard page renders rather than recomputed.
-        const board = await services.activityEvents.leaderboard({
+        const board = await getRuntime().activityEvents.leaderboard({
           period: "all-time",
           limit: BUILDER_STANDING_SCAN_LIMIT,
         });
@@ -1547,7 +1617,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
         // No `type` filter: activity scores the whole source, so credit.awarded
         // and feedback.accepted count alongside (unscored) feedback.posted.
-        const result = await services.activityEvents.leaderboard({
+        const result = await getRuntime().activityEvents.leaderboard({
           period: input.period,
           limit: input.limit,
         });
@@ -1565,7 +1635,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             }
           : {
               period: input.period,
-              configured: services.activityEvents.readable,
+              configured: getRuntime().activityEvents.readable,
               available: false,
               data: [],
             };
@@ -1574,20 +1644,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listFailedActivityEvents: builder.listFailedActivityEvents
         .use(requireAdmin)
         .handler(async () => {
-          const rows = await services.activityOutbox.listFailed();
+          const rows = await getRuntime().activityOutbox.listFailed();
           return rows.map(toActivityOutboxRow);
         }),
 
       retryFailedActivityEvents: builder.retryFailedActivityEvents
         .use(requireAdmin)
         .handler(async ({ input }) => {
-          const retried = await services.activityOutbox.retryFailed(input.ids);
+          const retried = await getRuntime().activityOutbox.retryFailed(input.ids);
           return { retried };
         }),
 
       getActivityOutboxDepth: builder.getActivityOutboxDepth
         .use(requireAdmin)
-        .handler(async () => ({ byStatus: await services.activityOutbox.depth() })),
+        .handler(async () => ({ byStatus: await getRuntime().activityOutbox.depth() })),
 
       // Admin-only: an error-injection route is a probe surface, and it has
       // never been exercised by the regression suite despite the "regression-

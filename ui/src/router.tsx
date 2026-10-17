@@ -5,7 +5,7 @@
  * Prefer upstream changes at https://github.com/nearbuilders/everything-dev
  */
 
-import { dehydrate, hydrate } from "@tanstack/react-query";
+import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 import { createBrowserHistory, createRouter as createTanStackRouter } from "@tanstack/react-router";
 import type { CreateRouterOptions } from "./app";
 import { createAuthClient } from "./app";
@@ -17,6 +17,12 @@ export type {
   RouterContext,
   RouterModule,
 } from "./app";
+
+export function createQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: { queries: { staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 } },
+  });
+}
 
 function defaultErrorComponent({ error }: { error: Error }) {
   return (

@@ -4,15 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "rsbuild dev",
-    "dev:ssr": "BUILD_TARGET=server rsbuild dev",
-    "build": "bun run build:client && bun run build:ssr",
-    "deploy": "DEPLOY=true bun run build",
-    "build:client": "BUILD_TARGET=client rsbuild build",
-    "build:ssr": "BUILD_TARGET=server rsbuild build",
-    "generate-metadata": "bun run ./scripts/generate-metadata.ts",
-    "preview": "rsbuild preview",
-    "test": "vitest run --passWithNoTests",
+    "dev": "every-plugin dev",
+    "dev:built": "every-plugin build && every-plugin preview",
+    "build": "every-plugin build",
+    "build:client": "every-plugin build --environment web",
+    "build:ssr": "every-plugin build --environment node",
+    "preview": "every-plugin preview",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist/types"
   },
@@ -43,7 +41,7 @@
     "@tanstack/react-query-devtools": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
-    "@tanstack/react-table": "catalog:",
+    "@tanstack/react-table": "^8.21.3",
     "@tanstack/zod-form-adapter": "catalog:",
     "@tiptap/core": "3.31.3",
     "@tiptap/extension-image": "3.31.3",
@@ -84,7 +82,20 @@
     "tippy.js": "^6.3.7",
     "tw-animate-css": "^1.4.0",
     "zod": "catalog:",
-    "zustand": "^5.0.9"
+    "zustand": "^5.0.9",
+    "@base-ui/react": "^1.8.0",
+    "@hot-labs/near-connect": "catalog:",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@lingui/core": "catalog:",
+    "@lingui/react": "catalog:",
+    "@phosphor-icons/react": "^2.1.10",
+    "@pingpay/onramp-sdk": "^0.2.0",
+    "@pingpay/onramp-types": "^0.0.3",
+    "cn": "^0.4.0",
+    "leaflet": "1.9.4",
+    "qrcode": "^1.5.4"
   },
   "peerDependencies": {
     "@tanstack/react-query": "catalog:",
@@ -111,6 +122,12 @@
     "tailwindcss": "^4.1.17",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zephyr-rsbuild-plugin": "catalog:"
+    "zephyr-rsbuild-plugin": "catalog:",
+    "@module-federation/runtime": "catalog:",
+    "@module-federation/runtime-tools": "catalog:",
+    "@types/leaflet": "1.9.21",
+    "@types/qrcode": "^1.5.6",
+    "jsdom": "^30.0.1",
+    "shadcn": "^4.21.0"
   }
 }

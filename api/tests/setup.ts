@@ -85,12 +85,14 @@ let port = 0;
 export async function getPluginClient(context?: Record<string, unknown>) {
   if (!server) {
     const { router } = await runtime.usePlugin(TEST_PLUGIN_ID, TEST_CONFIG, {
-      nostr: () => mockNostrClient,
-      auth: () => mockAuthClient,
-      legion: () => mockLegionClient,
-      storage: (context?: Record<string, unknown>) => {
-        storageContexts.push(context);
-        return mockStorageClient;
+      nostr: { client: () => mockNostrClient },
+      auth: { client: () => mockAuthClient },
+      legion: { client: () => mockLegionClient },
+      storage: {
+        client: (context?: Record<string, unknown>) => {
+          storageContexts.push(context);
+          return mockStorageClient;
+        },
       },
     });
     const rpcHandler = new RPCHandler(router);

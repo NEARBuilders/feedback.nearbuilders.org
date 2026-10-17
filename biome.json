@@ -50,13 +50,14 @@
   "files": {
     "includes": [
       "**",
-      "!!**/.agents",
-      "!!**/*.gen.ts",
-      "!!**/.bos/generated",
+      "!!repos",
+      "!!**/ui/src/routeTree.gen.ts",
       "!!**/plugins/**/types/**/*.d.ts",
       "!!**/env.d.ts",
       "!!**/virtual-modules.d.ts",
-      "!!bos.config.json"
+      "!!bos.config.json",
+      "!!docs/plans",
+      "!!.agents"
     ],
     "ignoreUnknown": true
   },

@@ -153,9 +153,9 @@ describe("feedback images", () => {
     await post("img-tester-7.near", round.id, "![x](https://cdn.test/f.png)");
     await post("img-tester-8.near", round.id, "![x](https://cdn.test/g.png)");
 
-    await expect(owner.deleteRound({ id: round.id })).rejects.toThrow(
-      "Rounds with feedback can't be deleted",
-    );
+    await expect(owner.deleteRound({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
     expect(storageDeleteByOwner).not.toHaveBeenCalled();
   });
 

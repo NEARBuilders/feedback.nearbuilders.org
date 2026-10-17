@@ -27,12 +27,12 @@ async function post(account: string, roundId: string, body: string) {
 describe("getOwnerSummary", () => {
   it("rejects unauthenticated requests", async () => {
     const client = await getPluginClient();
-    await expect(client.getOwnerSummary()).rejects.toThrow("Authentication required");
+    await expect(client.getOwnerSummary()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("rejects a signed-in user with no active organization", async () => {
     const client = await getPluginClient(authedContext());
-    await expect(client.getOwnerSummary()).rejects.toThrow("Active organization required");
+    await expect(client.getOwnerSummary()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("returns zeros for an org that owns nothing", async () => {

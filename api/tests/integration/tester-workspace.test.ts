@@ -25,9 +25,9 @@ describe("listMyFeedback (#117)", () => {
 
   it("requires sign-in", async () => {
     const { round } = await createOpenRound("ws-owner2.near");
-    await expect((await getPluginClient()).listMyFeedback({ id: round.id })).rejects.toThrow(
-      "Authentication required",
-    );
+    await expect((await getPluginClient()).listMyFeedback({ id: round.id })).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 });
 
@@ -48,7 +48,7 @@ describe("authors delete their own feedback (#117)", () => {
     const author = await clientFor("ws-tester4.near");
     await expect(
       author.deleteFeedback({ id: round.id, feedbackId: feedback[0]?.id ?? "" }),
-    ).rejects.toThrow("closed");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("doesn't let one tester delete another's feedback", async () => {
@@ -58,6 +58,6 @@ describe("authors delete their own feedback (#117)", () => {
 
     await expect(
       other.deleteFeedback({ id: round.id, feedbackId: feedback[0]?.id ?? "" }),
-    ).rejects.toThrow("owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

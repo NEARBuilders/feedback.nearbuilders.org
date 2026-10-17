@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import {
   and,
   asc,
@@ -11,9 +12,7 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import type { Transaction } from "../db";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import {
   feedbackNotes as feedbackNotesTable,
@@ -26,6 +25,7 @@ import {
   type roundStatus,
   rounds as roundsTable,
 } from "../db/schema";
+import type { Transaction } from "../db/transaction";
 import { cancelPendingActivity, enqueueActivity, findEmittedEventId } from "./activity-outbox";
 import { ensureProject } from "./project-records";
 
@@ -337,7 +337,7 @@ function toIssuesUrl(formats: RoundFormat[], repoUrl: string | null): string | n
   return `${repoUrl.replace(/\/+$/, "")}/issues`;
 }
 
-export class RoundsTag extends Context.Tag("api/Rounds")<RoundsService, RoundsService>() {}
+export class RoundsTag extends Context.Service<RoundsTag, RoundsService>()("api/Rounds") {}
 
 type RoundRow = typeof roundsTable.$inferSelect;
 

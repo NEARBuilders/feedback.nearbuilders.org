@@ -86,7 +86,7 @@ describe("feedback notes (#118)", () => {
     const { client, feedback } = await joinWithFeedback(round.id, "note-a4.near", ["hi"]);
     await expect(
       client.addFeedbackNote({ id: round.id, feedbackId: feedback[0]?.id ?? "", body: "hello?" }),
-    ).rejects.toThrow("reply");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("keeps notes from everyone but the author and the round's managers", async () => {
@@ -100,6 +100,6 @@ describe("feedback notes (#118)", () => {
     const other = await clientFor("note-other5.near");
     await expect(
       other.addFeedbackNote({ id: round.id, feedbackId, body: "me too" }),
-    ).rejects.toThrow("round owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

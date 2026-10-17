@@ -87,7 +87,7 @@ export function createFeedbackNostrEmitter(options: FeedbackNostrOptions): Feedb
           secretKey,
         );
 
-        const result = await options.nostr(context).createComment({
+        const result = await options.nostr.client(context).createComment({
           event,
           target: input.projectSlug,
           targetType: TARGET_TYPE,

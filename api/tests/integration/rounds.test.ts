@@ -42,19 +42,17 @@ async function createOpenRound(owner: string, input: RoundOverrides) {
 describe("createRound", () => {
   it("rejects unauthenticated requests", async () => {
     const client = await getPluginClient();
-    await expect(client.createRound(fresh())).rejects.toThrow("Authentication required");
+    await expect(client.createRound(fresh())).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("rejects a signed-in user with no linked NEAR account", async () => {
     const client = await getPluginClient(orgContext());
-    await expect(client.createRound(fresh())).rejects.toThrow(
-      "Link a NEAR account before requesting a feedback round",
-    );
+    await expect(client.createRound(fresh())).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("rejects a signed-in user with no active organization", async () => {
     const client = await getPluginClient(authedContext());
-    await expect(client.createRound(fresh())).rejects.toThrow("Active organization required");
+    await expect(client.createRound(fresh())).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("creates a round pending by default, awaiting admin approval", async () => {
@@ -173,9 +171,9 @@ describe("project anchor (#69)", () => {
     ).rejects.toThrow();
 
     const anon = await getPluginClient();
-    await expect(anon.approveProject({ id: round.projectRecordId })).rejects.toThrow(
-      "Authentication required",
-    );
+    await expect(anon.approveProject({ id: round.projectRecordId })).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 
   it("approves a project in one action, opening its pending round and listing it publicly", async () => {
@@ -198,9 +196,9 @@ describe("project anchor (#69)", () => {
     const round = await owner.createRound(fresh());
     const admin = await getPluginClient(adminContext());
     await admin.approveProject({ id: round.projectRecordId });
-    await expect(admin.approveProject({ id: round.projectRecordId })).rejects.toThrow(
-      "Only pending projects can be approved",
-    );
+    await expect(admin.approveProject({ id: round.projectRecordId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 
   it("rejects a project with a required reason, rejecting its pending round and hiding it", async () => {
@@ -295,21 +293,21 @@ describe("rounds belong to approved projects (#70)", () => {
 
     await expect(
       stranger.createRound({ ...fresh(), projectSlug: first.projectSlug }),
-    ).rejects.toThrow("belongs to another organization");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("blocks creating more rounds while the project is pending or after it's rejected", async () => {
     const owner = await getPluginClient(nearAuthedContext("own-owner4.near"));
     const first = await owner.createRound(fresh());
-    await expect(owner.createRound({ ...fresh(), projectSlug: first.projectSlug })).rejects.toThrow(
-      "awaiting admin approval",
-    );
+    await expect(
+      owner.createRound({ ...fresh(), projectSlug: first.projectSlug }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
     const admin = await getPluginClient(adminContext());
     await admin.rejectProject({ id: first.projectRecordId, reason: "Not a fit" });
-    await expect(owner.createRound({ ...fresh(), projectSlug: first.projectSlug })).rejects.toThrow(
-      "Not a fit",
-    );
+    await expect(
+      owner.createRound({ ...fresh(), projectSlug: first.projectSlug }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("keeps incrementing per-project round numbers across approved rounds", async () => {
@@ -328,15 +326,15 @@ describe("rounds belong to approved projects (#70)", () => {
     const sameAccountOtherOrg = await getPluginClient(
       nearAuthedContext("own-owner6.near", "user-1", "some-other-org"),
     );
-    await expect(sameAccountOtherOrg.closeRound({ id: round.id })).rejects.toThrow(
-      "Only the round owner can close it",
-    );
-    await expect(sameAccountOtherOrg.updateRound({ id: round.id, readme: "x" })).rejects.toThrow(
-      "Only the round owner",
-    );
-    await expect(sameAccountOtherOrg.deleteRound({ id: round.id })).rejects.toThrow(
-      "Only the round owner can delete it",
-    );
+    await expect(sameAccountOtherOrg.closeRound({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(
+      sameAccountOtherOrg.updateRound({ id: round.id, readme: "x" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(sameAccountOtherOrg.deleteRound({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
 
     const teammate = await getPluginClient(
       nearAuthedContext("own-teammate6.near", "user-2", "org-of-own-owner6.near"),
@@ -396,14 +394,14 @@ describe("round readme (#71)", () => {
     const round = await createOpenRound("readme-owner4.near", { title: "Locked" });
 
     const stranger = await getPluginClient(nearAuthedContext("readme-stranger.near"));
-    await expect(stranger.updateRound({ id: round.id, readme: "hijack" })).rejects.toThrow(
-      "Only the round owner can change round settings",
-    );
+    await expect(stranger.updateRound({ id: round.id, readme: "hijack" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
 
     const anon = await getPluginClient();
-    await expect(anon.updateRound({ id: round.id, readme: "hijack" })).rejects.toThrow(
-      "Authentication required",
-    );
+    await expect(anon.updateRound({ id: round.id, readme: "hijack" })).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
 
     const owner = await getPluginClient(nearAuthedContext("readme-owner4.near"));
     expect((await owner.getRound({ id: round.id })).readme).toBe("");
@@ -501,19 +499,19 @@ describe("joinRound / leaveRound", () => {
   it("rejects unauthenticated joins", async () => {
     const round = await freshRound("a.near");
     const anon = await getPluginClient();
-    await expect(anon.joinRound({ id: round.id })).rejects.toThrow("Authentication required");
+    await expect(anon.joinRound({ id: round.id })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("rejects a signed-in user with no linked NEAR account", async () => {
     const round = await freshRound("b.near");
     const client = await getPluginClient(authedContext());
-    await expect(client.joinRound({ id: round.id })).rejects.toThrow("Link a NEAR account");
+    await expect(client.joinRound({ id: round.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("rejects the owner joining their own round", async () => {
     const round = await freshRound("owner-self.near");
     const client = await getPluginClient(nearAuthedContext("owner-self.near"));
-    await expect(client.joinRound({ id: round.id })).rejects.toThrow("your own round");
+    await expect(client.joinRound({ id: round.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("joins, is idempotent, and reflects the count", async () => {
@@ -561,7 +559,7 @@ describe("postFeedback / listFeedback", () => {
     const stranger = await getPluginClient(nearAuthedContext("stranger.near"));
     await expect(
       stranger.postFeedback({ id: round.id, format: "written", body: "hi" }),
-    ).rejects.toThrow("Join the round");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejects a format the round didn't ask for", async () => {
@@ -570,7 +568,7 @@ describe("postFeedback / listFeedback", () => {
     await builder.joinRound({ id: round.id });
     await expect(
       builder.postFeedback({ id: round.id, format: "recorded", url: "https://x.com/rec" }),
-    ).rejects.toThrow("isn't collecting recorded");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("rejects written feedback with an empty body", async () => {
@@ -626,7 +624,9 @@ describe("closeRound / credits", () => {
   it("rejects a non-owner closing the round", async () => {
     const { round } = await roundWithFeedback("close1.near", "cb1.near");
     const stranger = await getPluginClient(nearAuthedContext("stranger2.near"));
-    await expect(stranger.closeRound({ id: round.id })).rejects.toThrow("owner");
+    await expect(stranger.closeRound({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   it("lists credit candidates for the owner only, with post counts", async () => {
@@ -678,7 +678,9 @@ describe("closeRound / credits", () => {
   it("rejects closing an already-closed round", async () => {
     const { round, ownerClient } = await roundWithFeedback("close5.near", "cb5.near");
     await ownerClient.closeRound({ id: round.id });
-    await expect(ownerClient.closeRound({ id: round.id })).rejects.toThrow("already closed");
+    await expect(ownerClient.closeRound({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 });
 
@@ -735,7 +737,9 @@ describe("deleteRound", () => {
   it("rejects a non-owner deleting the round", async () => {
     const round = await freshRound("del1.near");
     const stranger = await getPluginClient(nearAuthedContext("del-stranger1.near"));
-    await expect(stranger.deleteRound({ id: round.id })).rejects.toThrow("owner");
+    await expect(stranger.deleteRound({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   it("deletes a pending round so it no longer resolves", async () => {
@@ -772,9 +776,9 @@ describe("deleteRound", () => {
     await builder.joinRound({ id: round.id });
     await builder.postFeedback({ id: round.id, format: "written", body: "Found a bug" });
 
-    await expect(owner.deleteRound({ id: round.id })).rejects.toThrow(
-      "Rounds with feedback can't be deleted",
-    );
+    await expect(owner.deleteRound({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 
   it("fails with NOT_FOUND deleting an unknown round", async () => {
@@ -833,11 +837,13 @@ describe("rejectRound and restoreRound", () => {
     const admin = await getPluginClient(adminContext());
 
     await admin.rejectRound({ id: round.id, reason: "Once" });
-    await expect(admin.rejectRound({ id: round.id, reason: "Twice" })).rejects.toThrow(
-      "already hidden",
-    );
+    await expect(admin.rejectRound({ id: round.id, reason: "Twice" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
     await admin.restoreRound({ id: round.id });
-    await expect(admin.restoreRound({ id: round.id })).rejects.toThrow("isn't hidden");
+    await expect(admin.restoreRound({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 
   it("refuses non-admins", async () => {
@@ -867,7 +873,7 @@ describe("deleteFeedback", () => {
     const stranger = await getPluginClient(nearAuthedContext("mod-stranger1.near"));
     await expect(
       stranger.deleteFeedback({ id: round.id, feedbackId: feedback.id }),
-    ).rejects.toThrow("owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("removes feedback so it no longer appears in the thread", async () => {
@@ -986,11 +992,11 @@ describe("feedback status", () => {
         feedbackIds: [first.id],
         status: "resolved",
       }),
-    ).rejects.toThrow("round owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     const stranger = await getPluginClient(nearAuthedContext("fs-stranger.near"));
     await expect(
       stranger.setFeedbackStatus({ id: round.id, feedbackIds: [first.id], status: "resolved" }),
-    ).rejects.toThrow("round owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejects unauthenticated callers", async () => {
@@ -998,7 +1004,7 @@ describe("feedback status", () => {
     const anon = await getPluginClient();
     await expect(
       anon.setFeedbackStatus({ id: round.id, feedbackIds: [first.id], status: "resolved" }),
-    ).rejects.toThrow("Authentication required");
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("lets an admin set status", async () => {
@@ -1104,10 +1110,12 @@ describe("listParticipants", () => {
   it("hides the list from strangers and anonymous callers", async () => {
     const round = await createOpenRound("lp3.near", { title: "Hidden participants" });
     const stranger = await getPluginClient(nearAuthedContext("lp-stranger.near"));
-    await expect(stranger.listParticipants({ id: round.id })).rejects.toThrow("participants");
+    await expect(stranger.listParticipants({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
     const anon = await getPluginClient();
-    await expect(anon.listParticipants({ id: round.id })).rejects.toThrow(
-      "Authentication required",
-    );
+    await expect(anon.listParticipants({ id: round.id })).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 });

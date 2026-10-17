@@ -19,9 +19,9 @@ describe("getRoundGithubIssues", () => {
     });
 
     const anon = await getPluginClient();
-    await expect(anon.getRoundGithubIssues({ id: round.id })).rejects.toThrow(
-      "This round isn't collecting GitHub issues",
-    );
+    await expect(anon.getRoundGithubIssues({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 
   it("is public and needs no authentication for a round that does collect issues", async () => {
