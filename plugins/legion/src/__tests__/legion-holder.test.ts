@@ -226,4 +226,17 @@ describe("LegionHolderLive", () => {
     expect(String(warn.mock.calls[0]?.[0])).toContain("timed out after 5000ms");
     expect(String(warn.mock.calls[0]?.[0])).toContain("denying access");
   });
+
+  it("shares one set of RPC calls between concurrent checks for the same account", async () => {
+    stubRpc(() => rpcResponse("0"));
+
+    const service = await buildService();
+    const results = await Promise.all([
+      service.checkAccess("passerby.near"),
+      service.checkAccess("Passerby.near"),
+      service.checkAccess("passerby.near"),
+    ]);
+    expect(results).toEqual([false, false, false]);
+    expect(calls).toHaveLength(CONTRACT_IDS.length);
+  });
 });
