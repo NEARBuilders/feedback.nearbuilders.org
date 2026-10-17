@@ -1,0 +1,7 @@
+{
+  "account": "example.near",
+  "domain": "example.dev",
+  "mysteryKey": true,
+  "app": {},
+  "plugins": {}
+}
