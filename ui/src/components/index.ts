@@ -63,6 +63,7 @@ export {
 } from "./api-key-manager";
 export { ConfirmDialog } from "./confirm-dialog";
 export { EmptyState } from "./empty-state";
+export { FeedbackWidget } from "./feedback-widget";
 export { AppHeader } from "./layout/app-header";
 export { AppShell } from "./layout/app-shell";
 export { AppSidebar } from "./layout/app-sidebar";
