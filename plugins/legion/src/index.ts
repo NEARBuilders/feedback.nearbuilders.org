@@ -12,7 +12,7 @@ export const DEFAULT_LEGION_CONTRACT_IDS = [
 
 export default createPlugin({
   variables: z.object({
-    nodeUrl: z.string().url().default("https://rpc.mainnet.near.org"),
+    nodeUrl: z.string().url().default("https://free.rpc.fastnear.com"),
     contractIds: z.array(z.string()).default([...DEFAULT_LEGION_CONTRACT_IDS]),
   }),
 

@@ -27,7 +27,7 @@ describe("Legion plugin", () => {
     vi.stubGlobal("fetch", fetchMock);
     loaded = await runtime.usePlugin("legion", {
       variables: {
-        nodeUrl: "https://rpc.mainnet.near.org",
+        nodeUrl: "https://free.rpc.fastnear.com",
         contractIds: ["initiate.nearlegion.near", "ascendant.nearlegion.near"],
       },
       secrets: {},
@@ -50,7 +50,7 @@ describe("Legion plugin", () => {
       hasAccess: false,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://rpc.mainnet.near.org");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://free.rpc.fastnear.com");
   });
 
   it("normalizes and denies without crashing on RPC errors", async () => {
