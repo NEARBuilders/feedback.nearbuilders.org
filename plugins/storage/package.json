@@ -1,7 +1,7 @@
 {
   "name": "@everything-dev/storage-plugin",
   "version": "1.0.0",
-  "description": "Image storage plugin — presigned R2 uploads with auth, limits and per-uploader keys (#131)",
+  "description": "Image storage plugin \u2014 presigned R2 uploads with auth, limits and per-uploader keys (#131)",
   "type": "module",
   "exports": {
     ".": {
@@ -19,8 +19,9 @@
   "dependencies": {
     "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
-    "aws4fetch": "^1.0.20",
-    "drizzle-orm": "catalog:"
+    "aws4fetch": "catalog:",
+    "drizzle-orm": "catalog:",
+    "@orpc/openapi": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",
@@ -41,10 +42,9 @@
     "zephyr-rspack-plugin": "catalog:"
   },
   "scripts": {
-    "build": "bun run build:types && rspack build",
+    "build": "every-plugin build",
     "build:types": "tsc -p tsconfig.contract.json",
-    "deploy": "bun run build:types && DEPLOY=true rspack build",
-    "dev": "bun run build:types && rspack serve",
+    "dev": "every-plugin dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",

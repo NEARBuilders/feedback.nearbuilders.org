@@ -29,9 +29,9 @@ describe("listFeedback filters (#115)", () => {
       formats: ["written"],
     });
 
-    await expect((await getPluginClient()).listFeedback({ id: pending.id })).rejects.toThrow(
-      "Round not found",
-    );
+    await expect((await getPluginClient()).listFeedback({ id: pending.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     await expect(owner.listFeedback({ id: pending.id })).resolves.toMatchObject({ items: [] });
     await expect(
       (await getPluginClient(adminContext())).listFeedback({ id: pending.id }),
@@ -55,6 +55,6 @@ describe("getFeedback (#115)", () => {
 
     await expect(
       a.ownerClient.getFeedback({ id: a.round.id, feedbackId: feedback[0]?.id ?? "" }),
-    ).rejects.toThrow("Feedback not found");
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

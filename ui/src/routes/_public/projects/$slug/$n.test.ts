@@ -17,19 +17,23 @@ function loaderArgs(getRoundBySlug: () => Promise<unknown>, n = "3") {
 }
 
 async function loaderError(args: never) {
-  return Promise.resolve(Route.options.loader?.(args)).catch((error) => error);
+  const loader = Route.options.loader as unknown as ((args: never) => Promise<unknown>) | undefined;
+  return Promise.resolve(loader?.(args)).catch((error) => error);
 }
 
 describe("/projects/$slug/$n loader", () => {
   it("titles the page with the round, not its id", async () => {
-    const loaderData = await Route.options.loader?.(loaderArgs(async () => ROUND));
+    const loader = Route.options.loader as unknown as (args: never) => Promise<unknown>;
+    const loaderData = await loader(loaderArgs(async () => ROUND));
     const head = await Route.options.head?.({ loaderData } as never);
     expect(head?.meta?.[0]).toEqual({ title: "Wallet onboarding | Feedback Rounds" });
   });
 
   it("resolves the round by slug and number", async () => {
     const getRoundBySlug = vi.fn().mockResolvedValue(ROUND);
-    await Route.options.loader?.(loaderArgs(getRoundBySlug));
+    await (Route.options.loader as unknown as (args: never) => Promise<unknown>)(
+      loaderArgs(getRoundBySlug),
+    );
     expect(getRoundBySlug).toHaveBeenCalledWith({ slug: "near-wallet", number: 3 });
   });
 

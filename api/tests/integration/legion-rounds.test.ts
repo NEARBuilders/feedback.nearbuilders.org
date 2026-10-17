@@ -37,9 +37,7 @@ describe("Legion-gated rounds (#103)", () => {
   it("rejects non-holders at join time with a clear message", async () => {
     const { round } = await legionRound();
     const tester = await getPluginClient(nearAuthedContext("legion-nonholder.near"));
-    await expect(tester.joinRound({ id: round.id })).rejects.toThrow(
-      "You need a Legion SBT to join this round",
-    );
+    await expect(tester.joinRound({ id: round.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await tester.getMyParticipation({ id: round.id })).toEqual({ joined: false });
   });
 
@@ -63,14 +61,14 @@ describe("Legion-gated rounds (#103)", () => {
     legionCheckAccess.mockResolvedValue({ hasAccess: false });
     await expect(
       tester.postFeedback({ id: round.id, format: "written", body: "Too late" }),
-    ).rejects.toThrow("You need a Legion SBT to post in this round");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("fails closed when the holder lookup errors", async () => {
     legionCheckAccess.mockRejectedValue(new Error("plugin unavailable"));
     const { round } = await legionRound();
     const tester = await getPluginClient(nearAuthedContext("legion-unlucky.near"));
-    await expect(tester.joinRound({ id: round.id })).rejects.toThrow("Legion SBT");
+    await expect(tester.joinRound({ id: round.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("doesn't consult the plugin for ungated rounds", async () => {

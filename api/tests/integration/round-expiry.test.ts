@@ -41,7 +41,7 @@ describe("round expiration (#128)", () => {
       id: round.id,
       endsAt: new Date(Date.now() - 1000).toISOString(),
     });
-    await expect(tester.joinRound({ id: round.id })).rejects.toThrow("This round has expired");
+    await expect(tester.joinRound({ id: round.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await owner.updateRoundSettings({ id: round.id, endsAt: null });
     await expect(tester.joinRound({ id: round.id })).resolves.toMatchObject({ id: round.id });
   });
@@ -69,6 +69,6 @@ describe("round expiration (#128)", () => {
     });
     await expect(
       tester.postFeedback({ id: round.id, format: "written", body: "Too late" }),
-    ).rejects.toThrow("This round has expired");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

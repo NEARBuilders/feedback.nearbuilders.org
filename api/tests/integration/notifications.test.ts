@@ -103,19 +103,19 @@ describe("broadcastToRound", () => {
     const tester = await getPluginClient(nearAuthedContext("bct5.near"));
     await expect(
       tester.broadcastToRound({ id: round.id, kind: "custom", message: "hi" }),
-    ).rejects.toThrow("round owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     const stranger = await getPluginClient(nearAuthedContext("bc5-stranger.near"));
     await expect(
       stranger.broadcastToRound({ id: round.id, kind: "custom", message: "hi" }),
-    ).rejects.toThrow("round owner");
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejects signed-out callers", async () => {
     const { round } = await roundWithTesters("bc6.near", []);
     const anon = await getPluginClient();
-    await expect(anon.broadcastToRound({ id: round.id, kind: "round_opened" })).rejects.toThrow(
-      "Authentication required",
-    );
+    await expect(
+      anon.broadcastToRound({ id: round.id, kind: "round_opened" }),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("lets an admin broadcast", async () => {
@@ -139,7 +139,7 @@ describe("broadcastToRound", () => {
     await ownerClient.closeRound({ id: round.id });
     await expect(
       ownerClient.broadcastToRound({ id: round.id, kind: "custom", message: "late" }),
-    ).rejects.toThrow("open");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("reports zero recipients for a round nobody has joined", async () => {
@@ -235,14 +235,14 @@ describe("reading notifications", () => {
 
   it("rejects signed-out callers", async () => {
     const anon = await getPluginClient();
-    await expect(anon.listNotifications({})).rejects.toThrow("Authentication required");
-    await expect(anon.markAllNotificationsRead()).rejects.toThrow("Authentication required");
+    await expect(anon.listNotifications({})).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(anon.markAllNotificationsRead()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("requires a linked NEAR account to mark a single notification", async () => {
     const client = await getPluginClient(authedContext());
     await expect(
       client.markNotificationRead({ id: "00000000-0000-0000-0000-000000000000" }),
-    ).rejects.toThrow("NEAR");
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });

@@ -27,18 +27,19 @@ describe("createFeedbackAssets", () => {
 
   it("attaches a body's images as the author and skips bodies without any", async () => {
     const attachByUrls = vi.fn().mockResolvedValue({ attached: 1 });
-    const storage = vi.fn().mockReturnValue({ attachByUrls });
+    const clientContext = vi.fn().mockReturnValue({ attachByUrls });
+    const storage = { client: clientContext };
     const assets = createFeedbackAssets(storage, { warn });
 
     await assets.attachForFeedback({ id: "f1", authorAccountId: "a.near", body: "x" });
-    expect(storage).not.toHaveBeenCalled();
+    expect(clientContext).not.toHaveBeenCalled();
 
     await assets.attachForFeedback({
       id: "f1",
       authorAccountId: "a.near",
       body: "![s](https://cdn.test/s.png)",
     });
-    expect(storage).toHaveBeenCalledWith(
+    expect(clientContext).toHaveBeenCalledWith(
       expect.objectContaining({ near: expect.objectContaining({ primaryAccountId: "a.near" }) }),
     );
     expect(attachByUrls).toHaveBeenCalledWith({ ownerId: "f1", urls: ["https://cdn.test/s.png"] });
@@ -46,21 +47,23 @@ describe("createFeedbackAssets", () => {
 
   it("deletes as the author, and does nothing for anonymous feedback", async () => {
     const deleteByOwner = vi.fn().mockResolvedValue({ deleted: 1 });
-    const storage = vi.fn().mockReturnValue({ deleteByOwner });
+    const storage = { client: vi.fn().mockReturnValue({ deleteByOwner }) };
     const assets = createFeedbackAssets(storage, { warn });
 
     await assets.deleteForFeedback({ id: "f2", authorAccountId: null });
-    expect(storage).not.toHaveBeenCalled();
+    expect(deleteByOwner).not.toHaveBeenCalled();
 
     await assets.deleteForFeedback({ id: "f2", authorAccountId: "b.near" });
     expect(deleteByOwner).toHaveBeenCalledWith({ ownerId: "f2" });
   });
 
   it("logs instead of throwing when the storage plugin fails, and works without one", async () => {
-    const storage = vi.fn().mockReturnValue({
-      attachByUrls: vi.fn().mockRejectedValue(new Error("down")),
-      deleteByOwner: vi.fn().mockRejectedValue(new Error("down")),
-    });
+    const storage = {
+      client: () => ({
+        attachByUrls: vi.fn().mockRejectedValue(new Error("down")),
+        deleteByOwner: vi.fn().mockRejectedValue(new Error("down")),
+      }),
+    } as never;
     const assets = createFeedbackAssets(storage, { warn });
 
     await expect(

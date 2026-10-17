@@ -48,7 +48,7 @@ describe("editFeedback", () => {
 
     await expect(
       client.editFeedback({ id: round.id, feedbackId: feedback.id, body: "   " }),
-    ).rejects.toThrow(/non-empty body/);
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("only lets the author edit", async () => {
@@ -58,10 +58,10 @@ describe("editFeedback", () => {
 
     await expect(
       other.editFeedback({ id: round.id, feedbackId: feedback.id, body: "hijack" }),
-    ).rejects.toThrow(/Only the author/);
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       owner.editFeedback({ id: round.id, feedbackId: feedback.id, body: "hijack" }),
-    ).rejects.toThrow(/Only the author/);
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("refuses edits once the round is closed", async () => {
@@ -71,6 +71,6 @@ describe("editFeedback", () => {
 
     await expect(
       client.editFeedback({ id: round.id, feedbackId: feedback.id, body: "too late" }),
-    ).rejects.toThrow(/closed/);
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

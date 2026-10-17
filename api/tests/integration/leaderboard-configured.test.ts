@@ -30,7 +30,7 @@ async function clientFor(activityBaseUrl: string) {
         PROJECTS_API_BASE_URL: "",
       },
     },
-    { nostr: () => ({ createComment: async () => ({ eventId: "x", statuses: [] }) }) },
+    { nostr: { client: () => ({ createComment: async () => ({ eventId: "x", statuses: [] }) }) } },
   );
   return createRouterClient(router, { context: {} });
 }

@@ -6,9 +6,9 @@ import { contract } from "@/contract";
  * any number or boolean a GET route takes has to coerce or the route answers
  * 400 to a plain `?limit=10`.
  */
-function parseInput(route: { "~orpc": { inputSchema?: unknown } }, input: unknown) {
-  const schema = route["~orpc"].inputSchema as { parse(value: unknown): unknown };
-  return schema.parse(input);
+function parseInput(route: { "~orpc": { inputSchemas?: readonly unknown[] } }, input: unknown) {
+  const schema = route["~orpc"].inputSchemas?.[0] as { parse(value: unknown): unknown } | undefined;
+  return schema ? schema.parse(input) : input;
 }
 
 describe("GET route inputs accept string-typed path and query values", () => {

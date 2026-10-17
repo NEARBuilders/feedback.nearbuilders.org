@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import {
   type notificationKind,
@@ -49,10 +49,9 @@ export interface NotificationsService {
   notifyAccounts(input: NotifyAccountsInput): Promise<number>;
 }
 
-export class NotificationsTag extends Context.Tag("api/Notifications")<
-  NotificationsService,
-  NotificationsService
->() {}
+export class NotificationsTag extends Context.Service<NotificationsTag, NotificationsService>()(
+  "api/Notifications",
+) {}
 
 const INSERT_CHUNK_SIZE = 500;
 

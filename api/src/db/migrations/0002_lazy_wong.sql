@@ -1,4 +1,4 @@
-CREATE TYPE "public"."round_status" AS ENUM('open', 'closed');--> statement-breakpoint
+CREATE TYPE "public"."round_status" AS ENUM('pending', 'open', 'closed', 'rejected');--> statement-breakpoint
 CREATE TABLE "rounds" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"owner_account_id" text NOT NULL,

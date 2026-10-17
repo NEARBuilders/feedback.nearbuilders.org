@@ -1,6 +1,10 @@
-import { Context, Effect, Layer } from "every-plugin/effect";
+import { Context, Effect, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LegionHolderLive, LegionHolderTag } from "../services/legion-holder";
+import {
+  LegionHolderLive,
+  type LegionHolderService,
+  LegionHolderTag,
+} from "../services/legion-holder";
 
 const NODE_URL = "https://rpc.mainnet.near.org";
 const CONTRACT_IDS = ["initiate.nearlegion.near", "ascendant.nearlegion.near"];
@@ -52,7 +56,7 @@ function stubRpc(handler: (call: RecordedCall) => Response): void {
   );
 }
 
-async function buildService(): Promise<Context.Tag.Service<LegionHolderTag>> {
+async function buildService(): Promise<LegionHolderService> {
   const context = await Effect.runPromise(
     Effect.scoped(Layer.build(LegionHolderLive({ nodeUrl: NODE_URL, contractIds: CONTRACT_IDS }))),
   );

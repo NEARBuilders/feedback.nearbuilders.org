@@ -4,7 +4,7 @@ import { createTeamAccess } from "@/services/team-access";
 const context = { userId: "user-1" };
 
 function authWith(handlers: { listTeams?: unknown; listTeamMembers?: unknown }) {
-  return (() => handlers) as unknown as Parameters<typeof createTeamAccess>[0];
+  return { client: () => handlers } as unknown as Parameters<typeof createTeamAccess>[0];
 }
 
 describe("createTeamAccess", () => {
