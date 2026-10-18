@@ -5,13 +5,13 @@ import { z } from "zod";
 import { contract, type ProjectIdentity } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import type { activityOutbox as activityOutboxTable } from "./db/schema";
-import { createAuthMiddleware } from "./lib/auth";
+import { type AuthContext, createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createActivityEmitter } from "./services/activity-events";
 import { createActivityOutboxWorker } from "./services/activity-outbox";
 import { createFeedbackAssets } from "./services/feedback-assets";
-import { createFeedbackNostrEmitter } from "./services/feedback-nostr";
+import { createFeedbackNostrEmitter, type NostrClientLike } from "./services/feedback-nostr";
 import { createGithubIssuesLookup } from "./services/github-issues";
 import { createLegionAccess } from "./services/legion-access";
 import {
@@ -161,7 +161,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
       });
 
       const feedbackNostr = createFeedbackNostrEmitter({
-        nostr: plugins.nostr,
+        // Nostr is detached from the composition (see services/feedback-nostr.ts);
+        // test runtimes may still inject a nostr client — read past the
+        // generated PluginsClient type at the seam.
+        nostr: (plugins as PluginsClient & { nostr?: NostrClientLike })["nostr"],
         secretKeyHex: config.secrets.NOSTR_SECRET_KEY_HEX,
       });
 
@@ -221,7 +224,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   createRouter: (builder, _plugins) => {
     const { requireAuth, requireAuthOrApiKey, requireAdmin, requireOrganization } =
-      createAuthMiddleware(builder);
+      createAuthMiddleware<AuthContext>(builder);
 
     /**
      * Project identity lives in the nearbuilders.org registry, not here. These
@@ -944,7 +947,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getMyLegionAccess: builder.getMyLegionAccess.handler(async ({ context }) => {
         return await getRuntime().legionAccess.getMyAccess(
-          context,
+          context as unknown as Record<string, unknown>,
           context.near?.primaryAccountId ?? null,
         );
       }),

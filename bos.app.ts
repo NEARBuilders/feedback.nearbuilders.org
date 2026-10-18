@@ -5,7 +5,7 @@ import { App } from "everything-dev/descriptor";
 export default App({
   name: "feedback.nearbuilders.org",
   // The base runtime this app extends — inherit the platform, override only what you change.
-  extends: "bos://dev.everything.near/dev.everything.dev",
+  extends: "bos://dev.everything.near/everything.dev",
   // The NEAR account this app publishes under.
   account: "nearbuilding.near",
   // The gateway: FastKV lookup key and public ingress for this runtime.
@@ -49,13 +49,6 @@ export default App({
       variables: {
         nodeUrl: "https://rpc.mainnet.near.org",
         contractIds: ["initiate.nearlegion.near", "ascendant.nearlegion.near"],
-      },
-    },
-    nostr: {
-      name: "nostr",
-      extends: "bos://nearbuilding.near/nostr.nearbuilders.org",
-      variables: {
-        clientName: "nearbuilders.org",
       },
     },
     storage: {

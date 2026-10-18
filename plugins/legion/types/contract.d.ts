@@ -1,9 +1,10 @@
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { z } from "zod";
 export declare const contract: {
-    checkAccess: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    checkAccess: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         nearAccountId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         hasAccess: z.ZodBoolean;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
+    }, z.core.$strip>, object>;
 };
 export type ContractType = typeof contract;
