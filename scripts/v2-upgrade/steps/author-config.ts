@@ -61,7 +61,7 @@ const translatePlugins = (config: BosConfig): Record<string, unknown> => {
   return plugins;
 };
 
-const descriptorBody = (config: BosConfig, inventory: readonly PluginInventory[]) => {
+const descriptorBody = (config: BosConfig, _inventory: readonly PluginInventory[]) => {
   const localApi = config.app?.api?.development === "local:api";
   const localUi = config.app?.ui?.development === "local:ui";
   return {

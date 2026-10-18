@@ -18,8 +18,10 @@
   },
   "dependencies": {
     "@orpc/contract": "catalog:",
+    "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
-    "@orpc/openapi": "catalog:"
+    "effect": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",

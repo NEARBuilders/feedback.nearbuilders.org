@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { ImportRewrite, Manifest, PluginInventory } from "./domain";
+import type { ImportRewrite, Manifest, PluginInventory, RouterSeam } from "./domain";
 import { fileExists, listFiles, readText } from "./fs";
 
 export const readConfigKeys = (projectDir: string): Effect.Effect<string[], Error> =>
@@ -81,6 +81,7 @@ export const buildManifest = (
   warnCount: number,
   importRewrites: readonly ImportRewrite[],
   configKeys: readonly string[],
+  routerSeam: RouterSeam,
 ): Effect.Effect<Manifest, Error> =>
   Effect.gen(function* () {
     const deleteFiles = yield* existingOf(projectDir, OBSOLETE_FILES);
@@ -94,6 +95,7 @@ export const buildManifest = (
       deleteFiles,
       importRewrites: importRewrites.filter((rewrite) => rewrite.files.length > 0),
       configKeys,
+      routerSeam,
       authoredConfigTarget: "bos.app.ts",
       plugins,
       db: {

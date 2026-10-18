@@ -2,12 +2,6 @@ import { Effect } from "effect";
 import { readText, removePath, writeText } from "../fs";
 import type { StepResult } from "./author-config";
 
-const RC_PINS: Readonly<Record<string, string>> = {
-  "everything-dev": "^2.0.0-rc.10",
-  "every-plugin": "3.0.0-rc.6",
-  "better-near-auth": "^2.0.0-rc.1",
-};
-
 const V2_CATALOG: Readonly<Record<string, string>> = {
   "everything-dev": "^2.0.0-rc.10",
   "every-plugin": "3.0.0-rc.6",

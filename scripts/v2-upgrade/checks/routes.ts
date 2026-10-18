@@ -64,7 +64,7 @@ const checkRouteFile = (relativePath: string, source: string): Finding[] => {
   }
 
   const segment = firstSegment(routePath);
-  if (!segment || !segment.startsWith("_")) {
+  if (!segment?.startsWith("_")) {
     return [
       new Finding({
         check: "routes",

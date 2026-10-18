@@ -2,21 +2,26 @@ import { Effect } from "effect";
 import { checkConfig } from "./checks/config";
 import { scanImports } from "./checks/imports";
 import { checkRoutes } from "./checks/routes";
+import { checkUiSeam, readRouterSeam } from "./checks/ui-seam";
 import { type AuditReport, Finding } from "./domain";
 import { buildManifest, readConfigKeys } from "./manifest";
 
 export const audit = (projectDir: string): Effect.Effect<AuditReport, Error> =>
   Effect.gen(function* () {
-    const [routeFindings, configFindings, importRewrites, configKeys] = yield* Effect.all([
-      checkRoutes(projectDir),
-      checkConfig(projectDir),
-      scanImports(projectDir),
-      readConfigKeys(projectDir),
-    ]);
+    const [routeFindings, configFindings, importRewrites, configKeys, uiSeamFindings, routerSeam] =
+      yield* Effect.all([
+        checkRoutes(projectDir),
+        checkConfig(projectDir),
+        scanImports(projectDir),
+        readConfigKeys(projectDir),
+        checkUiSeam(projectDir),
+        readRouterSeam(projectDir),
+      ]);
 
     const findings: Finding[] = [
       ...routeFindings,
       ...configFindings,
+      ...uiSeamFindings,
       ...importRewrites.flatMap((rewrite) =>
         rewrite.files.length === 0
           ? []
@@ -42,6 +47,7 @@ export const audit = (projectDir: string): Effect.Effect<AuditReport, Error> =>
       warns.length,
       importRewrites,
       configKeys,
+      routerSeam,
     );
 
     return { tier, findings, manifest } satisfies AuditReport;

@@ -219,7 +219,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       return Layer.succeed(ApiRuntimeTag, services);
     }),
 
-  createRouter: (builder, plugins) => {
+  createRouter: (builder, _plugins) => {
     const { requireAuth, requireAuthOrApiKey, requireAdmin, requireOrganization } =
       createAuthMiddleware(builder);
 

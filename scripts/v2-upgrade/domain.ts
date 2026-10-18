@@ -1,6 +1,8 @@
 import { Data } from "effect";
 
-export type CheckId = "routes" | "config" | "imports";
+export type CheckId = "routes" | "config" | "imports" | "ui-seam";
+
+export type RouterSeam = "monolithic" | "authored-seam" | "unknown" | "absent";
 
 export type Severity = "blocker" | "warn";
 
@@ -37,6 +39,7 @@ export interface Manifest {
   readonly deleteFiles: readonly string[];
   readonly importRewrites: readonly ImportRewrite[];
   readonly configKeys: readonly string[];
+  readonly routerSeam: RouterSeam;
   readonly authoredConfigTarget: "bos.app.ts";
   readonly plugins: readonly PluginInventory[];
   readonly db: {

@@ -11,8 +11,8 @@
     "publish": "bos publish",
     "bos": "bos",
     "types:gen": "bos types gen",
-    "audit:v2": "bun scripts/v2-upgrade/run.ts",
-    "test:v2-upgrade": "bunx vitest run --root scripts/v2-upgrade",
+    "audit:v2": "pnpm exec tsx scripts/v2-upgrade/run.ts",
+    "test:v2-upgrade": "pnpm exec vitest run --root scripts/v2-upgrade",
     "typecheck": "pnpm run types:gen && if [ -d ui ]; then pnpm --dir ui run typecheck; fi && if [ -d api ]; then pnpm --dir api run typecheck; fi && if [ -d plugins ]; then for dir in plugins/*; do if [ -f \"$dir/package.json\" ]; then pnpm --dir \"$dir\" --if-present run typecheck && pnpm --dir \"$dir\" --if-present run typecheck:ui; fi; done; fi",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -30,21 +30,23 @@
     "test": "pnpm --dir api --if-present run test && pnpm --dir ui --if-present run test && for d in plugins/*; do [ -f \"$d/package.json\" ] && pnpm --dir \"$d\" --if-present run test; done",
     "test:api": "pnpm --dir api --if-present run test",
     "test:integration": "pnpm --dir api --if-present run test tests/integration/",
-    "regression:start:dev": "BOS_NO_PERSIST_PORTS=1 bun packages/everything-dev/src/cli.ts dev --no-interactive --port 4100 --api-port 4101 --auth-port 4102 --ui-port 4103 --plugin-port-start 4110",
-    "regression:start:prod": "BOS_NO_PERSIST_PORTS=1 PORT=4100 bun ./node_modules/everything-dev/dist/cli.mjs start --no-interactive",
+    "regression:start:dev": "BOS_NO_PERSIST_PORTS=1 pnpm exec tsx packages/everything-dev/src/cli.ts dev --no-interactive --port 4100 --api-port 4101 --auth-port 4102 --ui-port 4103 --plugin-port-start 4110",
+    "regression:start:prod": "BOS_NO_PERSIST_PORTS=1 PORT=4100 pnpm exec everything-dev start --no-interactive",
     "test:regression:http:dev": "REGRESSION_MODE=dev sh -lc 'cd tests/regression/http && go test ./... -count=1 -v -timeout 10m'",
     "test:regression:http:prod": "REGRESSION_MODE=prod sh -lc 'cd tests/regression/http && go test ./... -count=1 -v -timeout 10m'",
-    "test:regression:browser:install": "bunx playwright install --with-deps chromium",
-    "test:regression:browser:dev": "REGRESSION_MODE=dev bunx playwright test -c tests/regression/browser/playwright.config.mjs --project=dev",
-    "test:regression:browser:prod": "REGRESSION_MODE=prod bunx playwright test -c tests/regression/browser/playwright.config.mjs --project=prod",
-    "test:regression:dev": "bun run test:regression:http:dev && bun run test:regression:browser:dev",
-    "test:regression:prod": "bun run test:regression:http:prod && bun run test:regression:browser:prod",
-    "test:regression": "bun run test:regression:dev",
+    "test:regression:browser:install": "pnpm exec playwright install --with-deps chromium",
+    "test:regression:browser:dev": "REGRESSION_MODE=dev pnpm exec playwright test -c tests/regression/browser/playwright.config.mjs --project=dev",
+    "test:regression:browser:prod": "REGRESSION_MODE=prod pnpm exec playwright test -c tests/regression/browser/playwright.config.mjs --project=prod",
+    "test:regression:dev": "pnpm run test:regression:http:dev && pnpm run test:regression:browser:dev",
+    "test:regression:prod": "pnpm run test:regression:http:prod && pnpm run test:regression:browser:prod",
+    "test:regression": "pnpm run test:regression:dev",
     "dev:postgres": "docker compose up -d --wait && pnpm run dev",
     "dev:postgres:down": "docker compose down",
     "dev:postgres:reset": "docker compose down -v && docker compose up -d --wait",
     "db:doctor": "bos db:doctor",
-    "db:repair": "bos db:repair"
+    "db:repair": "bos db:repair",
+    "check:deps": "node scripts/check-deps.mjs",
+    "prepare": "husky"
   },
   "packageManager": "pnpm@12.10.1+sha512.ba40a37eb1a370d60fea8c4cf1d364c13bcccef518e98ad2bcee954f539d38da37458e58261a3fa55e06523450ea0ffff9f497b135be41f2c15c1642bacace6c",
   "type": "module",
@@ -55,7 +57,6 @@
     "@biomejs/biome": "2.4.15",
     "@changesets/cli": "^2.29.8",
     "@playwright/test": "^1.58.1",
-    "@types/bun": "latest",
     "dotenv": "^17.3.1",
     "@types/pg": "catalog:",
     "tsx": "^4.21.0",
@@ -64,7 +65,9 @@
     "@effect/tsgo": "^0.45.0",
     "@shadcn/lint": "^0.2.0",
     "oxlint": "1.82.0",
-    "oxlint-tsgolint": "7.0.2001"
+    "oxlint-tsgolint": "7.0.2001",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",
@@ -89,5 +92,8 @@
   },
   "peerDependencies": {
     "typescript": "^7.0.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
   }
 }

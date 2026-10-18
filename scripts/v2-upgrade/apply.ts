@@ -5,6 +5,7 @@ import { GateBlocked } from "./domain";
 import { applyManifest } from "./steps/apply-manifest";
 import { authorConfig, type StepResult } from "./steps/author-config";
 import { migratePnpm } from "./steps/migrate-pnpm";
+import { migrateUiSeam } from "./steps/migrate-ui-seam";
 
 const printStep = (name: string, result: StepResult): void => {
   console.log(`\n[${name}]`);
@@ -35,6 +36,9 @@ export const apply = (projectDir: string, dryRun: boolean): Effect.Effect<void, 
 
     const pnpmResult = yield* migratePnpm(projectDir, dryRun);
     printStep("migrate-pnpm", pnpmResult);
+
+    const seamResult = yield* migrateUiSeam(projectDir, dryRun);
+    printStep("migrate-ui-seam", seamResult);
 
     const manifestResult = yield* applyManifest(projectDir, rewrites, dryRun);
     printStep("apply-manifest", manifestResult);
