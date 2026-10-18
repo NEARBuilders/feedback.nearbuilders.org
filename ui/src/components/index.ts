@@ -70,6 +70,7 @@ export { Chip } from "./layout/chip";
 export {
   filterSidebarByRole,
   getActiveItem,
+  getPublicNavItems,
   getUserRole,
   groupSidebarItems,
   NAV_ITEMS,

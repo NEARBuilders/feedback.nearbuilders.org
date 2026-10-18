@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { shouldUseAppShell } from "../../lib/app-shell";
-import { filterSidebarByRole, getActiveItem, groupSidebarItems, NAV_ITEMS } from "./nav-items";
+import {
+  filterSidebarByRole,
+  getActiveItem,
+  getPublicNavItems,
+  groupSidebarItems,
+  NAV_ITEMS,
+} from "./nav-items";
 
 describe("dashboard navigation", () => {
   it("shows rounds, projects, leaderboard and how-it-works links to everyone", () => {
@@ -60,5 +66,25 @@ describe("dashboard navigation", () => {
     for (const item of NAV_ITEMS) {
       expect(shouldUseAppShell(true, item.to), item.to).toBe(true);
     }
+  });
+});
+
+describe("public navigation", () => {
+  it("lists the public pages signed-out visitors can reach", () => {
+    expect(getPublicNavItems().map((item) => item.to)).toEqual([
+      "/rounds",
+      "/projects",
+      "/how-to-integrate",
+      "/leaderboard",
+    ]);
+  });
+
+  it("highlights the matching public page", () => {
+    const items = getPublicNavItems();
+    expect(getActiveItem(items, "/rounds")?.to).toBe("/rounds");
+    expect(getActiveItem(items, "/projects/near-wallet/3")?.to).toBe("/projects");
+    expect(getActiveItem(items, "/leaderboard")?.to).toBe("/leaderboard");
+    expect(getActiveItem(items, "/how-to-integrate")?.to).toBe("/how-to-integrate");
+    expect(getActiveItem(items, "/")).toBeUndefined();
   });
 });
