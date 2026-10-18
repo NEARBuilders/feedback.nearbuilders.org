@@ -45,7 +45,8 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "catalog:",
     "zephyr-rspack-plugin": "catalog:",
-    "@module-federation/runtime-tools": "catalog:"
+    "@module-federation/runtime-tools": "catalog:",
+    "@orpc/client": "catalog:"
   },
   "scripts": {
     "build": "every-plugin build",

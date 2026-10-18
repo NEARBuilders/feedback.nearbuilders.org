@@ -483,6 +483,9 @@ importers:
       '@module-federation/runtime-tools':
         specifier: 'catalog:'
         version: 2.9.2
+      '@orpc/client':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
       '@proj-airi/unplugin-drizzle-orm-migrations':
         specifier: ^0.1.4
         version: 0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
