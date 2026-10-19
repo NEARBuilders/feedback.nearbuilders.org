@@ -47,7 +47,7 @@ export default App({
       path: "plugins/legion",
       name: "legion",
       variables: {
-        nodeUrl: "https://rpc.mainnet.near.org",
+        nodeUrl: "https://free.rpc.fastnear.com",
         contractIds: ["initiate.nearlegion.near", "ascendant.nearlegion.near"],
       },
     },
