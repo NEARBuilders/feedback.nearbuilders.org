@@ -1,7 +1,7 @@
 {
   "name": "@everything-dev/legion-plugin",
   "version": "1.0.0",
-  "description": "Legion holder check plugin — gates access on Legion NFT ownership (#128)",
+  "description": "Legion holder check plugin \u2014 gates access on Legion NFT ownership (#128)",
   "type": "module",
   "exports": {
     ".": {
@@ -18,7 +18,10 @@
   },
   "dependencies": {
     "@orpc/contract": "catalog:",
-    "@orpc/server": "catalog:"
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "effect": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",
@@ -34,10 +37,9 @@
     "zephyr-rspack-plugin": "catalog:"
   },
   "scripts": {
-    "build": "bun run build:types && rspack build",
+    "build": "every-plugin build",
     "build:types": "tsc -p tsconfig.contract.json",
-    "deploy": "bun run build:types && DEPLOY=true rspack build",
-    "dev": "bun run build:types && rspack serve",
+    "dev": "every-plugin dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",

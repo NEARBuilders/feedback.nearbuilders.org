@@ -17,9 +17,10 @@
  */
 
 import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
-import type { Database, Transaction } from "../db";
+import type { Database } from "../db";
 import type { ActivityEventType, ActivitySubjectKind } from "../db/schema";
 import { activityOutbox, roundFeedback, rounds } from "../db/schema";
+import type { Transaction } from "../db/transaction";
 import type { JsonValue } from "./activity-client";
 import type { ActivityEmitter } from "./activity-events";
 

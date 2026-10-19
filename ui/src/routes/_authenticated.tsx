@@ -1,56 +1,12 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import type { SessionData } from "@/app";
-import { sessionQueryOptions } from "@/app";
-
-interface AuthContext {
-  isAuthenticated: boolean;
-  user: SessionData["user"] | null;
-  session: SessionData["session"] | null;
-  activeOrganizationId: string | null;
-  isAnonymous: boolean;
-  isAdmin: boolean;
-  isBanned: boolean;
-}
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { requireSession } from "everything-dev/ui/auth";
 
 export const Route = createFileRoute("/_authenticated")({
-  beforeLoad: async ({ context, location }) => {
-    const { queryClient, authClient } = context;
-
-    const session = await queryClient.fetchQuery(sessionQueryOptions(authClient, context.session));
-
-    if (!session?.user) {
-      throw redirect({
-        to: "/login",
-        search: {
-          redirect: location.href,
-        },
-      });
-    }
-
-    if (session.user.banned) {
-      throw redirect({
-        to: "/login",
-        hash: "banned",
-      });
-    }
-
-    const auth: AuthContext = {
-      isAuthenticated: true,
-      user: session.user,
-      session: session.session,
-      activeOrganizationId: session.session?.activeOrganizationId || null,
-      isAnonymous: session.user.isAnonymous || false,
-      isAdmin: session.user.role === "admin",
-      isBanned: session.user.banned || false,
-    };
-    return {
-      auth,
-      session,
-    };
-  },
+  beforeLoad: requireSession,
   component: AuthenticatedLayout,
 });
 
+// The shell is rendered once by the root route.
 function AuthenticatedLayout() {
   return <Outlet />;
 }

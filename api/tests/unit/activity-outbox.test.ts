@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
 import { PluginIdTag } from "every-plugin";
-import { Effect, Layer } from "every-plugin/effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Database } from "@/db";
 import { DatabaseLive, DatabaseTag } from "@/db/layer";
@@ -62,14 +62,15 @@ function withHarness<A>(fn: (harness: Harness) => Promise<A>): Promise<A> {
   return Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const db = yield* DatabaseTag;
-        const rounds = yield* RoundsTag;
-        const projects = yield* ProjectRecordsTag;
+        const ctx = yield* Effect.context<DatabaseTag | RoundsTag | ProjectRecordsTag>();
+        const db = Context.get(ctx, DatabaseTag);
+        const rounds = Context.get(ctx, RoundsTag);
+        const projects = Context.get(ctx, ProjectRecordsTag);
         return yield* Effect.promise(() => fn({ db, rounds, projects }));
       }).pipe(
         Effect.provide(
           layer as unknown as Layer.Layer<
-            RoundsService | ProjectRecordsService | Database,
+            DatabaseTag | RoundsTag | ProjectRecordsTag,
             never,
             never
           >,

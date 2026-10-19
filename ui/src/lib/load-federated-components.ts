@@ -12,7 +12,7 @@ function ensureFederationInstance() {
   let instance = getInstance();
   if (!instance) {
     instance = createInstance({ name: "feedback-host", remotes: [] });
-    setGlobalFederationInstance(instance);
+    setGlobalFederationInstance(instance as never);
   }
   return instance;
 }

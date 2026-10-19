@@ -83,130 +83,85 @@ tanstackIntent:
 
 # Agent Instructions
 
-This document provides operational guidance for AI agents working in this everything.dev project.
+This is an everything.dev **v2** child project on the pnpm RC train: UI (React 19 +
+TanStack Router via Module Federation), API (Hono + oRPC with Effect services), and
+plugins under `plugins/`. The parent runtime provides the shared framework; this repo
+owns its overrides.
+
+**Never use bun.** CI fails the build if `bun.lock` appears (ADR 0026 — bun
+re-migrates the workspace). This repo is pnpm-managed; run all package managers and
+executables as `pnpm …` / `pnpm exec …`.
 
 ## Quick Reference
 
 **Start Development:**
 ```bash
 cp .env.example .env   # First time only
-bun install
-bun run dev
+pnpm install
+pnpm dev               # requires local Postgres: docker compose up -d
 ```
 
-**Check Status:**
+**Status:**
 ```bash
 bos ps        # List running processes
 bos status    # Project health check
 bos info      # Show configuration
 ```
 
-## Architecture
+## Checks
 
-This is an everything.dev child project. Depending on your overrides, it may include:
-- **UI** — React 19 + TanStack Router frontend, loaded via Module Federation
-- **API** — Hono.js + oRPC backend with Effect services
+Run before committing (pre-commit hooks cover biome; CI runs the full set):
+```bash
+pnpm lint        # biome check .
+pnpm typecheck   # regenerates types then checks ui/api/plugins
+pnpm test        # api + ui + plugins test suites
+pnpm check:deps  # knip: fails on imports not declared in that package's package.json
+```
 
-The parent runtime provides the shared framework; your project provides custom overrides.
-
-## Development Workflow
-
-### Starting Development
-1. `cp .env.example .env` (first time)
-2. `bun install`
-3. `bun run dev`
-
-### Debugging Issues
-
-**API not responding:**
-- Check `bos ps` to see if the API process is running
-- Check `.bos/logs/api.log` for errors
-
-**UI not loading:**
-- Verify the dev server is running: `bos ps`
-- Check browser console for Module Federation errors
-- Clear browser cache and retry
-
-**Type errors:**
-- Run `bun run typecheck`
+Local `node_modules` can mask undeclared dependencies (stale hoisted installs make
+imports resolve that fail on CI's fresh install) — `check:deps` is the check for
+that class; it is what CI looks at when typecheck passes locally but fails remotely.
 
 ## Code Changes
 
-### Making Changes
-- **UI Changes**: Edit `ui/src/` files → hot reload automatically
-- **API Changes**: Edit `api/src/` files → hot reload automatically
-- **New Components**: Create in `ui/src/components/ui/`, export from `ui/src/components/index.ts`
-- **New Routes**: Create file in `ui/src/routes/`, TanStack Router auto-generates tree
-
-### Style Requirements
-- Use semantic Tailwind classes: `bg-background`, `text-foreground`, `text-muted-foreground`
-- No hardcoded colors like `bg-blue-600`
-- No code comments in implementation
-- Component file naming: lowercase kebab-case (`data-table.tsx`, `user-profile.tsx`)
-- Follow existing patterns in neighboring files
-
-### Adding API Endpoints
-1. Define in `api/src/contract.ts` — the oRPC route definitions and Zod schemas
-2. Implement in `api/src/index.ts` — the `createRouter` function
-3. Use in UI via `apiClient` from `useApiClient()` in `@/app`
-
-## Testing & Quality
-
-**Before committing:**
-```bash
-bun run test    # Run all tests
-bun typecheck   # Type check all packages
-bun lint        # Run linting
-```
-
-## Common Patterns
-
-### Authentication Check
-
-Routes requiring auth use `_authenticated.tsx` layout:
-```typescript
-export const Route = createFileRoute('/_layout/_authenticated')({
-  beforeLoad: async ({ location }) => {
-    const { data: session } = await authClient.getSession();
-    if (!session?.user) {
-      throw redirect({ to: '/login', search: { redirect: location.pathname } });
-    }
-  },
-});
-```
-
-### API Client Usage
-```typescript
-import { useApiClient } from "@/app";
-
-function MyComponent() {
-  const apiClient = useApiClient();
-  const { data } = await apiClient.ping();
-}
-```
+- **UI**: edit `ui/src/` → hot reload; new components in
+  `ui/src/components/ui/` (export from `ui/src/components/index.ts`); new routes in
+  `ui/src/routes/`, TanStack Router auto-generates the tree
+- **API endpoints**: define in `api/src/contract.ts`, implement in `api/src/index.ts`
+  (`createRouter`), consume via `useApiClient()` from `@/app`
+- Style, naming, and dev-workflow conventions are taught by the `everything-dev`
+  intent skills above (`code-style`, `dev-workflow`, `ui-integration`) — run the
+  matching intent command before non-trivial edits
+- Review-time rules (sync-owned vs app-owned files, oRPC v2 test conventions):
+  see [CODING_STANDARDS.md](CODING_STANDARDS.md)
 
 ## Troubleshooting
 
 **Process won't start:**
 ```bash
 bos kill        # Kill all tracked processes
-bun install     # Ensure dependencies
-bun run dev     # Restart
+pnpm install    # Ensure dependencies
+pnpm dev        # Restart
 ```
 
-**Module Federation errors:**
-- Check `bos.config.json` URLs are accessible
-- Verify shared dependency versions match in package.json
-- Clear browser cache
+**Docker commands hang instead of erroring:** the daemon is down (hangs, not
+fails). Start Docker Desktop, then retry — probe with a short timeout, don't extend
+the timeout hoping it completes.
 
-**Database issues:**
+**Database:**
 ```bash
-bun run db:push   # Push schema changes
-bun run db:studio # Open Drizzle Studio
+pnpm db:push    # Push schema changes (drizzle-kit, api dir)
+pnpm db:studio  # Open Drizzle Studio
 ```
 
 ## Environment
 
 **Required files:**
 - `.env` — Secrets (see `.env.example`)
-- `bos.config.json` — Runtime configuration (committed)
+- `bos.app.ts` — authored runtime descriptor (extends the parent runtime, lists
+  plugins + secrets); `bos.dev.ts` holds dev-only overrides
+- `pnpm-workspace.yaml` — the version catalog; packages reference it as `catalog:`
+
+Framework-owned files are re-written by `bos sync` and will discard hand edits;
+`postinstall` regenerates `.bos/generated/*` on every install — put app-owned types
+and helpers in app-owned files. See CODING_STANDARDS.md.

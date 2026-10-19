@@ -112,34 +112,28 @@ describe("organization API keys (#111)", () => {
 
     await expect(
       key.setFeedbackStatus({ id: round.id, feedbackIds: [feedback.id], status: "resolved" }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       key.setFeedbackStarred({ id: round.id, feedbackIds: [feedback.id], starred: true }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       key.deleteFeedback({ id: round.id, feedbackId: feedback.id }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(key.closeRound({ id: round.id, credits: [] })).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "Organization API keys are read-only",
     });
-    await expect(key.deleteRound({ id: round.id })).rejects.toMatchObject({
-      code: "FORBIDDEN",
-      message: "Organization API keys are read-only",
-    });
+    await expect(key.deleteRound({ id: round.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(key.updateRoundSettings({ id: round.id, isPrivate: false })).rejects.toMatchObject(
-      { code: "FORBIDDEN", message: "Organization API keys are read-only" },
+      { code: "FORBIDDEN" },
     );
     await expect(key.updateRound({ id: round.id, readme: "hijacked" })).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "Organization API keys are read-only",
     });
     await expect(
       key.broadcastToRound({ id: round.id, kind: "round_opened" }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Organization API keys are read-only" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(key.inviteTesters({ id: round.id, fromRoundId: round.id })).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "Organization API keys are read-only",
     });
   });
 

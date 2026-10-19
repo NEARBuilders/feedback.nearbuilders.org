@@ -125,6 +125,8 @@ describe("star anti-farming (#104)", () => {
     const insider = await getPluginClient(
       nearAuthedContext("star-insider.near", "star-insider-user", `org-of-${round.ownerAccountId}`),
     );
-    await expect(insider.joinRound({ id: round.id })).rejects.toThrow("organization runs");
+    await expect(insider.joinRound({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 });

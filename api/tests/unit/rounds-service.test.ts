@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Context, Effect, Layer } from "effect";
 import { PluginIdTag } from "every-plugin";
-import { Effect, Layer } from "every-plugin/effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { DatabaseLive } from "@/db/layer";
 import {
@@ -32,16 +32,20 @@ function freshLayer() {
 
 const MISSING_ID = "00000000-0000-0000-0000-000000000000";
 
-type Services = RoundsService | ProjectRecordsService;
+type Services = RoundsTag | ProjectRecordsTag;
 
 async function runService<A>(
   layer: Layer.Layer<Services, unknown, never>,
   fn: (svc: RoundsService, projects: ProjectRecordsService) => Promise<A>,
 ): Promise<A> {
   const effect = Effect.gen(function* () {
-    const svc = yield* RoundsTag;
-    const projects = yield* ProjectRecordsTag;
-    return yield* Effect.tryPromise({ try: () => fn(svc, projects), catch: (error) => error });
+    const ctx = yield* Effect.context<RoundsTag | ProjectRecordsTag>();
+    const svc = Context.get(ctx, RoundsTag);
+    const projects = Context.get(ctx, ProjectRecordsTag);
+    return yield* Effect.tryPromise({
+      try: () => fn(svc, projects),
+      catch: (error: unknown) => error,
+    });
   });
   return Effect.runPromise(Effect.provide(effect, layer));
 }

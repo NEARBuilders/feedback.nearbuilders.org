@@ -24,8 +24,8 @@ export function createTeamAccess(
     isMember: async (context, teamId, userId) => {
       if (!auth) return false;
       try {
-        const members = await auth(context).listTeamMembers({ teamId });
-        return members.some((member) => member.userId === userId);
+        const members = await auth.client(context).listTeamMembers({ teamId });
+        return members.some((member: { userId: string }) => member.userId === userId);
       } catch (error) {
         logger.warn(
           `[teams] membership lookup for team ${teamId} failed: ${
@@ -39,8 +39,8 @@ export function createTeamAccess(
     listOrgTeamIds: async (context, organizationId) => {
       if (!auth) return null;
       try {
-        const teams = await auth(context).listTeams({ organizationId });
-        return teams.map((team) => team.id);
+        const teams = await auth.client(context).listTeams({ organizationId });
+        return teams.map((team: { id: string }) => team.id);
       } catch (error) {
         logger.warn(
           `[teams] listing teams for organization ${organizationId} failed: ${

@@ -17,9 +17,9 @@ describe("updateRound settings (#116)", () => {
 
   it("refuses the issues format on a round without a repo", async () => {
     const { round, ownerClient } = await createOpenRound("tabs-owner2.near");
-    await expect(ownerClient.updateRound({ id: round.id, formats: ["issues"] })).rejects.toThrow(
-      "repo URL",
-    );
+    await expect(
+      ownerClient.updateRound({ id: round.id, formats: ["issues"] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
 

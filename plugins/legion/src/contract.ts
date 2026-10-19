@@ -1,5 +1,6 @@
-import { oc } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { oc } from "@orpc/contract";
+import { z } from "zod";
 
 export const contract = oc.router({
   checkAccess: oc

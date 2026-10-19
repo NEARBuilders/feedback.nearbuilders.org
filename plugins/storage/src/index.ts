@@ -1,11 +1,11 @@
-import { createPlugin } from "every-plugin";
-import { Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
+import { buildScoped, createPlugin } from "every-plugin";
+import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
-import { StorageLive, StorageTag } from "./services/storage";
+import { StorageLive, type StorageService, StorageTag } from "./services/storage";
 
 export const DEFAULT_ALLOWED_CONTENT_TYPES = [
   "image/png",
@@ -15,6 +15,21 @@ export const DEFAULT_ALLOWED_CONTENT_TYPES = [
 ] as const;
 
 export const DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+type StorageRuntimeShape = { storage: StorageService };
+
+class StorageRuntimeTag extends Context.Service<StorageRuntimeTag, StorageRuntimeShape>()(
+  "StorageRuntime",
+) {}
+
+let runtime: StorageRuntimeShape | undefined;
+
+const getRuntime = (): StorageRuntimeShape => {
+  if (!runtime) {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Storage services not initialized" });
+  }
+  return runtime;
+};
 
 export default createPlugin({
   variables: z.object({
@@ -36,7 +51,7 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
+  initialize: (config) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.STORAGE_DATABASE_URL);
       const Storage = StorageLive({
@@ -50,18 +65,17 @@ export default createPlugin({
         maxUploadBytes: config.variables.maxUploadBytes,
       }).pipe(Layer.provide(Database));
 
-      const storage = yield* tools.buildService(StorageTag, Storage);
+      const storage = yield* buildScoped(StorageTag, Storage);
 
       console.log(
         `[Storage] Initialized (bucket: ${config.secrets.STORAGE_BUCKET || "not configured"}, max upload: ${config.variables.maxUploadBytes} bytes)`,
       );
 
-      return { storage };
+      runtime = { storage };
+      return Layer.succeed(StorageRuntimeTag, { storage });
     }),
 
-  shutdown: () => Effect.log("[Storage] Shutdown"),
-
-  createRouter: (services, builder) => {
+  createRouter: (builder) => {
     const requireNearAccount = builder.middleware(async ({ context, next }) => {
       if (!context.near?.primaryAccountId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -77,13 +91,13 @@ export default createPlugin({
 
     return {
       ping: builder.ping.handler(async () => {
-        return await services.storage.ping();
+        return await getRuntime().storage.ping();
       }),
 
       requestUpload: builder.requestUpload
         .use(requireNearAccount)
         .handler(async ({ input, context }) => {
-          return await services.storage.requestUpload({
+          return await getRuntime().storage.requestUpload({
             uploaderAccountId: context.uploaderAccountId,
             filename: input.filename,
             contentType: input.contentType,
@@ -94,7 +108,7 @@ export default createPlugin({
       confirmUpload: builder.confirmUpload
         .use(requireNearAccount)
         .handler(async ({ input, context }) => {
-          return await services.storage.confirmUpload({
+          return await getRuntime().storage.confirmUpload({
             uploaderAccountId: context.uploaderAccountId,
             key: input.key,
           });
@@ -103,7 +117,7 @@ export default createPlugin({
       attachAsset: builder.attachAsset
         .use(requireNearAccount)
         .handler(async ({ input, context }) => {
-          return await services.storage.attachAsset({
+          return await getRuntime().storage.attachAsset({
             uploaderAccountId: context.uploaderAccountId,
             key: input.key,
             ownerId: input.ownerId,
@@ -113,7 +127,7 @@ export default createPlugin({
       attachByUrls: builder.attachByUrls
         .use(requireNearAccount)
         .handler(async ({ input, context }) => {
-          return await services.storage.attachByUrls({
+          return await getRuntime().storage.attachByUrls({
             uploaderAccountId: context.uploaderAccountId,
             ownerId: input.ownerId,
             urls: input.urls,
@@ -123,14 +137,14 @@ export default createPlugin({
       deleteByOwner: builder.deleteByOwner
         .use(requireNearAccount)
         .handler(async ({ input, context }) => {
-          return await services.storage.deleteByOwner({
+          return await getRuntime().storage.deleteByOwner({
             uploaderAccountId: context.uploaderAccountId,
             ownerId: input.ownerId,
           });
         }),
 
       deleteFile: builder.deleteFile.use(requireNearAccount).handler(async ({ input, context }) => {
-        return await services.storage.deleteFile({
+        return await getRuntime().storage.deleteFile({
           uploaderAccountId: context.uploaderAccountId,
           key: input.key,
         });

@@ -94,7 +94,9 @@ describe("linked NEAR accounts (#121)", () => {
     const ownerWithExtra = await getPluginClient(
       withLinkedAccounts("linked-owner-user", extra, [extra, round.ownerAccountId]),
     );
-    await expect(ownerWithExtra.joinRound({ id: round.id })).rejects.toThrow("your own round");
+    await expect(ownerWithExtra.joinRound({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 
   it("shows notifications addressed to any linked account", async () => {

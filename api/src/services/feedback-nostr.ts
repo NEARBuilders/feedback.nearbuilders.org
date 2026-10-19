@@ -19,7 +19,27 @@
 
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import { hexToBytes } from "nostr-tools/utils";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+
+/**
+ * Structural seam for the nostr plugin's oRPC client. The nostr attachment
+ * was removed from bos.app.ts (its ui bundle forced a stale-train react copy
+ * into the composition — white page), so `PluginsClient["nostr"]` no longer
+ * exists in the generated types. The client shape is pinned here instead:
+ * re-attaching the nostr plugin keeps this emitter working with zero
+ * changes (the remote client satisfies this interface).
+ */
+export interface NostrCommentClient {
+  createComment(args: {
+    event: unknown;
+    target: string;
+    targetType: string;
+    adapterType: string;
+  }): Promise<{ eventId: string }>;
+}
+
+export interface NostrClientLike {
+  client(context: Record<string, unknown>): NostrCommentClient;
+}
 
 const TARGET_TYPE = "project-feedback";
 const COMMENT_KIND = 1111;
@@ -44,7 +64,8 @@ export interface FeedbackNostrEmitter {
 }
 
 export interface FeedbackNostrOptions {
-  nostr: PluginsClient["nostr"];
+  /** The composed nostr plugin's client. Optional: detached = emitter stays a no-op. */
+  nostr?: NostrClientLike;
   /** Hex-encoded secp256k1 secret key for this app's service Nostr identity. */
   secretKeyHex?: string | null;
   clientName?: string;
@@ -63,7 +84,7 @@ export function createFeedbackNostrEmitter(options: FeedbackNostrOptions): Feedb
     enabled,
 
     async publish(input, context) {
-      if (!enabled || !secretKey || !pubkey) return null;
+      if (!enabled || !secretKey || !pubkey || !options.nostr) return null;
 
       try {
         const tags: string[][] = [
@@ -87,7 +108,7 @@ export function createFeedbackNostrEmitter(options: FeedbackNostrOptions): Feedb
           secretKey,
         );
 
-        const result = await options.nostr(context).createComment({
+        const result = await options.nostr.client(context).createComment({
           event,
           target: input.projectSlug,
           targetType: TARGET_TYPE,

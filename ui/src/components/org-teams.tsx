@@ -45,7 +45,7 @@ export function OrgTeams({ orgId, orgMembers, canManage, isActiveOrg }: OrgTeams
   const createMutation = useMutation({
     mutationFn: () =>
       apiClient.auth.createTeam({ name: normalizeTeamName(name), organizationId: orgId }),
-    onSuccess: (team) => {
+    onSuccess: (team: { name: string }) => {
       setName("");
       void queryClient.invalidateQueries({ queryKey: teamKeys.org(orgId) });
       toast.success(`Created ${team.name}`);
@@ -126,7 +126,7 @@ export function OrgTeams({ orgId, orgMembers, canManage, isActiveOrg }: OrgTeams
           </Card>
         ) : (
           <ul className="space-y-3">
-            {teams.map((team) => (
+            {teams.map((team: { id: string; name: string }) => (
               <li key={team.id}>
                 <TeamCard
                   team={team}
@@ -185,7 +185,7 @@ function TeamCard({
     queryFn: () => apiClient.auth.listTeamMembers({ teamId: team.id }),
     retry: false,
   });
-  const teamUserIds = (membersQuery.data ?? []).map((member) => member.userId);
+  const teamUserIds = (membersQuery.data ?? []).map((member: { userId: string }) => member.userId);
   const candidates = teamMemberCandidates(orgMembers, teamUserIds);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: teamMembersKey(team.id) });
@@ -232,7 +232,7 @@ function TeamCard({
         <p className="text-xs text-muted-foreground">No members yet.</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
-          {teamUserIds.map((userId) => (
+          {teamUserIds.map((userId: string) => (
             <li
               key={userId}
               className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs"

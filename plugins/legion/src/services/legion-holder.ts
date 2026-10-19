@@ -1,13 +1,12 @@
-import { Context, Effect, Layer } from "every-plugin/effect";
+import { Context, Effect, Layer } from "effect";
 
 export interface LegionHolderService {
   checkAccess(nearAccountId: string): Promise<boolean>;
 }
 
-export class LegionHolderTag extends Context.Tag("LegionHolder")<
-  LegionHolderTag,
-  LegionHolderService
->() {}
+export class LegionHolderTag extends Context.Service<LegionHolderTag, LegionHolderService>()(
+  "LegionHolder",
+) {}
 
 const CACHE_TTL_MS = 60_000;
 const RPC_TIMEOUT_MS = 5_000;

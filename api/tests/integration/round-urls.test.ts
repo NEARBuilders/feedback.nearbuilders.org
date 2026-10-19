@@ -29,9 +29,9 @@ describe("getRoundBySlug (#114)", () => {
   it("returns NOT_FOUND for a round number that doesn't exist", async () => {
     const { round } = await createOpenRound("url-owner3.near");
     const anon = await getPluginClient();
-    await expect(anon.getRoundBySlug({ slug: round.projectSlug, number: 99 })).rejects.toThrow(
-      "Round not found",
-    );
+    await expect(
+      anon.getRoundBySlug({ slug: round.projectSlug, number: 99 }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("hides a pending round from everyone but its managers", async () => {
@@ -44,7 +44,9 @@ describe("getRoundBySlug (#114)", () => {
     });
     const ref = { slug: pending.projectSlug, number: pending.projectRoundNumber };
 
-    await expect((await getPluginClient()).getRoundBySlug(ref)).rejects.toThrow("Round not found");
+    await expect((await getPluginClient()).getRoundBySlug(ref)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     await expect(owner.getRoundBySlug(ref)).resolves.toMatchObject({ status: "pending" });
   });
 });

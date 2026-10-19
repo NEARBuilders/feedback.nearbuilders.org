@@ -28,7 +28,9 @@
     "nostr-tools": "^2.10.0",
     "pg": "catalog:",
     "@electric-sql/pglite": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "aws4fetch": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",
@@ -42,13 +44,15 @@
     "everything-dev": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "catalog:",
-    "zephyr-rspack-plugin": "catalog:"
+    "zephyr-rspack-plugin": "catalog:",
+    "@module-federation/runtime-tools": "catalog:",
+    "@orpc/client": "catalog:"
   },
   "scripts": {
-    "build": "bun run build:types && rspack build",
+    "build": "every-plugin build",
     "build:types": "tsc -p tsconfig.contract.json",
     "deploy": "bun run build:types && DEPLOY=true rspack build",
-    "dev": "bun run build:types && rspack serve",
+    "dev": "every-plugin dev",
     "test": "vitest run --root . --pool=forks",
     "test:watch": "vitest --root .",
     "coverage": "vitest run --root . --coverage",

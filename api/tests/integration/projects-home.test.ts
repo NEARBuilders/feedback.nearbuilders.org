@@ -21,7 +21,7 @@ describe("listPublicProjects (#119)", () => {
       formats: ["written"],
     });
 
-    const projects = await (await getPluginClient()).listPublicProjects({});
+    const projects = await (await getPluginClient()).listPublicProjects();
     const project = projects.find((p) => p.slug === slug);
     expect(project?.rounds.map((r) => [r.projectRoundNumber, r.status])).toEqual([
       [1, "closed"],
@@ -53,12 +53,12 @@ describe("getProjectBySlug (#119)", () => {
       formats: ["written"],
     });
     const anon = await getPluginClient();
-    await expect(anon.getProjectBySlug({ slug: pending.projectSlug })).rejects.toThrow(
-      "Project not found",
-    );
-    await expect(anon.getProjectBySlug({ slug: "no-such-project" })).rejects.toThrow(
-      "Project not found",
-    );
+    await expect(anon.getProjectBySlug({ slug: pending.projectSlug })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(anon.getProjectBySlug({ slug: "no-such-project" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     await expect(owner.getProjectBySlug({ slug: pending.projectSlug })).resolves.toMatchObject({
       status: "pending",
     });
@@ -93,10 +93,10 @@ describe("inviteTesters (#119)", () => {
     const { round, ownerClient } = await createOpenRound("home-owner5.near");
     await expect(
       ownerClient.inviteTesters({ id: round.id, fromRoundId: other.id }),
-    ).rejects.toThrow("same project");
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const stranger = await clientFor("home-stranger5.near");
-    await expect(stranger.inviteTesters({ id: round.id, fromRoundId: round.id })).rejects.toThrow(
-      "round owner",
-    );
+    await expect(
+      stranger.inviteTesters({ id: round.id, fromRoundId: round.id }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
