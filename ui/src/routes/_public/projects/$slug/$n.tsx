@@ -71,7 +71,7 @@ function RoundLayout() {
   const canSubmit = viewer.canPost || viewer.joined;
 
   return (
-    <PageContainer className={cn(compact && "py-4 sm:py-4")}>
+    <PageContainer variant="wide" className={cn(compact && "py-4 sm:py-4")}>
       <div className="space-y-6">
         {!compact && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
