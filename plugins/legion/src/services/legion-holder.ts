@@ -10,6 +10,7 @@ export class LegionHolderTag extends Context.Tag("LegionHolder")<
 >() {}
 
 const CACHE_TTL_MS = 60_000;
+const RPC_TIMEOUT_MS = 5_000;
 
 interface CacheEntry {
   isHolder: boolean;
@@ -28,8 +29,31 @@ async function viewNear(
   methodName: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+
+  try {
+    return await queryNear(nodeUrl, contractId, methodName, args, controller.signal);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`NEAR RPC request timed out after ${RPC_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function queryNear(
+  nodeUrl: string,
+  contractId: string,
+  methodName: string,
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<unknown> {
   const response = await fetch(nodeUrl, {
     method: "POST",
+    signal,
     headers: {
       "content-type": "application/json",
     },
@@ -74,6 +98,58 @@ export const LegionHolderLive = (options: { nodeUrl: string; contractIds: readon
     LegionHolderTag,
     Effect.gen(function* () {
       const cache = new Map<string, CacheEntry>();
+      const lookup = async (accountId: string): Promise<boolean> => {
+        const failures: RpcCallFailure[] = [];
+
+        const ownsToken = async (contractId: string): Promise<boolean> => {
+          try {
+            const supply = await viewNear(options.nodeUrl, contractId, "nft_supply_for_owner", {
+              account_id: accountId,
+            });
+            return BigInt(String(supply ?? 0)) > 0n;
+          } catch (error) {
+            failures.push({
+              contractId,
+              methodName: "nft_supply_for_owner",
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          try {
+            const tokens = await viewNear(options.nodeUrl, contractId, "nft_tokens_for_owner", {
+              account_id: accountId,
+              from_index: "0",
+              limit: 1,
+            });
+            return Array.isArray(tokens) && tokens.length > 0;
+          } catch (fallbackError) {
+            failures.push({
+              contractId,
+              methodName: "nft_tokens_for_owner",
+              message:
+                fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+            });
+            return false;
+          }
+        };
+
+        const results = await Promise.all(options.contractIds.map(ownsToken));
+        const isHolder = results.some(Boolean);
+
+        if (failures.length > 0) {
+          console.warn(
+            `[Legion] RPC checks failed for ${accountId}; ${
+              isHolder ? "access granted by another contract" : "denying access"
+            }. ${failures.map((f) => `${f.contractId}.${f.methodName}: ${f.message}`).join("; ")}`,
+          );
+        }
+
+        if (failures.length === 0) {
+          cache.set(accountId, { isHolder, expiresAt: Date.now() + CACHE_TTL_MS });
+        }
+
+        return isHolder;
+      };
 
       const service: LegionHolderService = {
         checkAccess: async (nearAccountId) => {
@@ -85,64 +161,7 @@ export const LegionHolderLive = (options: { nodeUrl: string; contractIds: readon
             return cached.isHolder;
           }
 
-          const failures: RpcCallFailure[] = [];
-          let isHolder = false;
-
-          for (const contractId of options.contractIds) {
-            try {
-              const supply = await viewNear(options.nodeUrl, contractId, "nft_supply_for_owner", {
-                account_id: accountId,
-              });
-
-              if (BigInt(String(supply ?? 0)) > 0n) {
-                isHolder = true;
-                break;
-              }
-            } catch (error) {
-              failures.push({
-                contractId,
-                methodName: "nft_supply_for_owner",
-                message: error instanceof Error ? error.message : String(error),
-              });
-
-              try {
-                const tokens = await viewNear(options.nodeUrl, contractId, "nft_tokens_for_owner", {
-                  account_id: accountId,
-                  from_index: "0",
-                  limit: 1,
-                });
-
-                if (Array.isArray(tokens) && tokens.length > 0) {
-                  isHolder = true;
-                  break;
-                }
-              } catch (fallbackError) {
-                failures.push({
-                  contractId,
-                  methodName: "nft_tokens_for_owner",
-                  message:
-                    fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-                });
-              }
-            }
-          }
-
-          if (failures.length > 0) {
-            console.warn(
-              `[Legion] RPC checks failed for ${accountId}; denying access. ${failures
-                .map((f) => `${f.contractId}.${f.methodName}: ${f.message}`)
-                .join("; ")}`,
-            );
-          }
-
-          if (failures.length === 0) {
-            cache.set(accountId, {
-              isHolder,
-              expiresAt: Date.now() + CACHE_TTL_MS,
-            });
-          }
-
-          return isHolder;
+          return lookup(accountId);
         },
       };
 

@@ -8,7 +8,7 @@ export default {
   port: Number(process.env.PORT) || 3011,
   config: {
     variables: {
-      nodeUrl: process.env.LEGION_NODE_URL || "https://rpc.mainnet.near.org",
+      nodeUrl: process.env.LEGION_NODE_URL || "https://free.rpc.fastnear.com",
       contractIds: ["initiate.nearlegion.near", "ascendant.nearlegion.near"],
     },
     secrets: {},
