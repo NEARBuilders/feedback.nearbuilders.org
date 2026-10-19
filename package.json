@@ -86,8 +86,6 @@
     "every-plugin": "catalog:",
     "everything-dev": "catalog:",
     "pg": "catalog:",
-    "zephyr-rsbuild-plugin": "^1.6.0",
-    "zephyr-rspack-plugin": "^1.6.0",
     "zod": "catalog:",
     "@effect/oxc": "link:repos/effect/packages/tools/oxc"
   },

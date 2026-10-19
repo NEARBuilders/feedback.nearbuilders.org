@@ -1,7 +1,7 @@
 {
   "name": "@everything-dev/storage-plugin",
   "version": "1.0.0",
-  "description": "Image storage plugin \u2014 presigned R2 uploads with auth, limits and per-uploader keys (#131)",
+  "description": "Image storage plugin — presigned R2 uploads with auth, limits and per-uploader keys (#131)",
   "type": "module",
   "exports": {
     ".": {
@@ -40,8 +40,7 @@
     "every-plugin": "catalog:",
     "pg": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "catalog:",
-    "zephyr-rspack-plugin": "catalog:"
+    "vitest": "catalog:"
   },
   "scripts": {
     "build": "every-plugin build",
