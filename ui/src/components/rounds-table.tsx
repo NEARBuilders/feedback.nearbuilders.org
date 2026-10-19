@@ -30,10 +30,11 @@ import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
 import { roundCta } from "@/lib/round-cta";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { roundHref, roundParams } from "@/lib/round-links";
-import { ROUNDS_PAGE_SIZE } from "@/lib/rounds-page";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
+
+export const ROUNDS_PAGE_SIZE = 10;
 
 /** Columns that collapse on narrow screens; the title column is always visible. */
 const COLUMN_VISIBILITY: Record<string, string> = {
