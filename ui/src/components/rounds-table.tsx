@@ -34,6 +34,8 @@ import { useNearAccountStatus } from "@/lib/use-near-account";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
 
+export const ROUNDS_PAGE_SIZE = 10;
+
 /** Columns that collapse on narrow screens; the title column is always visible. */
 const COLUMN_VISIBILITY: Record<string, string> = {
   project: "",
@@ -44,8 +46,6 @@ const COLUMN_VISIBILITY: Record<string, string> = {
   endorsements: "hidden md:table-cell",
   actions: "",
 };
-
-const PAGE_SIZE = 10;
 
 interface RoundsTableProps {
   rounds: RoundDetail[];
@@ -187,10 +187,10 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
   const table = useReactTable({
     data: rounds,
     columns,
-    state: { sorting, pagination: { pageIndex: page - 1, pageSize: PAGE_SIZE } },
+    state: { sorting, pagination: { pageIndex: page - 1, pageSize: ROUNDS_PAGE_SIZE } },
     onSortingChange: setSorting,
     onPaginationChange: (updater) => {
-      const current = { pageIndex: page - 1, pageSize: PAGE_SIZE };
+      const current = { pageIndex: page - 1, pageSize: ROUNDS_PAGE_SIZE };
       const next = typeof updater === "function" ? updater(current) : updater;
       onPageChange(next.pageIndex + 1);
     },

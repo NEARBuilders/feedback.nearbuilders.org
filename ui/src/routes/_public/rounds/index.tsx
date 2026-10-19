@@ -1,6 +1,7 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
+  redirect,
   type SearchSchemaInput,
   stripSearchParams,
   useNavigate,
@@ -11,7 +12,7 @@ import { useApiClient } from "@/app";
 import { EmptyState, Input, SegmentedToggle } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
-import { RoundsTable } from "@/components/rounds-table";
+import { ROUNDS_PAGE_SIZE, RoundsTable } from "@/components/rounds-table";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { roundEndorsementsQueryOptions, roundsQueryOptions } from "@/lib/queries/rounds";
@@ -38,9 +39,49 @@ export function validateRoundsSearch(
 
 const DEFAULT_SEARCH: RoundsSearch = { status: "open", q: "", page: 1 };
 
+function roundsMatchingQuery<
+  T extends {
+    title: string;
+    description: string;
+    projectSlug: string;
+    identity: { title?: string | null; domain?: string | null } | null;
+  },
+>(rounds: T[], query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return rounds;
+  return rounds.filter((round) =>
+    [
+      round.title,
+      round.description,
+      round.projectSlug,
+      round.identity?.title ?? "",
+      round.identity?.domain ?? "",
+    ].some((field) => field.toLowerCase().includes(q)),
+  );
+}
+
+function clampRoundsPage(itemCount: number, page: number) {
+  const pageCount = Math.max(1, Math.ceil(itemCount / ROUNDS_PAGE_SIZE));
+  return Math.min(page, pageCount);
+}
+
 export const Route = createFileRoute("/_public/rounds/")({
   validateSearch: validateRoundsSearch,
   search: { middlewares: [stripSearchParams(DEFAULT_SEARCH)] },
+  beforeLoad: async ({ context, search }) => {
+    const rounds = await context.queryClient.ensureQueryData(
+      roundsQueryOptions(context.apiClient, search.status),
+    );
+    const matched = roundsMatchingQuery(rounds, search.q);
+    if (matched.length === 0) return;
+    const safePage = clampRoundsPage(matched.length, search.page);
+    if (safePage === search.page) return;
+    throw redirect({
+      to: "/rounds",
+      search: { ...search, page: safePage },
+      replace: true,
+    });
+  },
   loaderDeps: ({ search }) => ({ status: search.status }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(roundsQueryOptions(context.apiClient, deps.status)),
@@ -62,19 +103,7 @@ function RoundsPage() {
   const roundIds = useMemo(() => rounds.map((round) => round.id).slice(0, 100), [rounds]);
   const { data: endorsements } = useQuery(roundEndorsementsQueryOptions(apiClient, roundIds));
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return rounds;
-    return rounds.filter((round) =>
-      [
-        round.title,
-        round.description,
-        round.projectSlug,
-        round.identity?.title ?? "",
-        round.identity?.domain ?? "",
-      ].some((field) => field.toLowerCase().includes(q)),
-    );
-  }, [rounds, query]);
+  const filtered = useMemo(() => roundsMatchingQuery(rounds, query), [rounds, query]);
 
   return (
     <PageContainer variant="default">
