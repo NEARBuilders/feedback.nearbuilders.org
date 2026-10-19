@@ -19,6 +19,7 @@ export default App({
   repository: "https://github.com/NEARBuilders/feedback.nearbuilders.org",
   // CI settings: runtime image name, Railway service.
   ci: {
+    image: "ghcr.io/nearbuilders/everything-dev:sha-ed223ca",
     railway: {
       service: "feedback-app",
     },

@@ -4273,6 +4273,24 @@ export declare const contract: {
             permissions: import("zod").ZodNullable<import("zod").ZodRecord<import("zod").ZodString, import("zod").ZodArray<import("zod").ZodString>>>;
         }, import("zod/v4/core").$strip>>;
         permissions: import("zod").ZodNullable<import("zod").ZodRecord<import("zod").ZodString, import("zod").ZodArray<import("zod").ZodString>>>;
+        session: import("zod").ZodNullable<import("zod").ZodObject<{
+            id: import("zod").ZodString;
+            token: import("zod").ZodString;
+            userId: import("zod").ZodString;
+            expiresAt: import("zod").ZodDate;
+            activeOrganizationId: import("zod").ZodNullable<import("zod").ZodString>;
+            activeTeamId: import("zod").ZodNullable<import("zod").ZodString>;
+            user: import("zod").ZodObject<{
+                id: import("zod").ZodString;
+                name: import("zod").ZodString;
+                email: import("zod").ZodString;
+                emailVerified: import("zod").ZodBoolean;
+                image: import("zod").ZodNullable<import("zod").ZodString>;
+                role: import("zod").ZodNullable<import("zod").ZodString>;
+                isAnonymous: import("zod").ZodNullable<import("zod").ZodBoolean>;
+                locale: import("zod").ZodNullable<import("zod").ZodString>;
+            }, import("zod/v4/core").$strip>;
+        }, import("zod/v4/core").$strip>>;
         near: import("zod").ZodObject<{
             primaryAccountId: import("zod").ZodNullable<import("zod").ZodString>;
             linkedAccounts: import("zod").ZodArray<import("zod").ZodObject<{
