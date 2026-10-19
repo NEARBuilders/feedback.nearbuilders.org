@@ -4,6 +4,7 @@ import { useApiClient } from "@/app";
 import { Badge, Card, SectionHeader } from "@/components";
 import { myProjectsQueryOptions } from "@/lib/queries/projects";
 import { roundParams } from "@/lib/round-links";
+import { formatRoundListTitle } from "@/lib/round-title";
 
 const PROJECT_STATUS_LABEL = {
   pending: "Awaiting approval",
@@ -45,7 +46,7 @@ export function MyProjects() {
                         params={roundParams({ ...round, projectSlug: project.slug })}
                         className="text-foreground underline"
                       >
-                        #{round.projectRoundNumber} {round.title}
+                        {formatRoundListTitle(round.title, round.projectRoundNumber)}
                       </Link>{" "}
                       <span className="text-xs text-muted-foreground">({round.status})</span>
                     </li>
