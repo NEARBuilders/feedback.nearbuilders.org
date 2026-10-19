@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { checkConfig } from "./checks/config";
 import { scanImports } from "./checks/imports";
+import { checkRouteGuards } from "./checks/route-guards";
 import { checkRoutes } from "./checks/routes";
 import { checkUiSeam, readRouterSeam } from "./checks/ui-seam";
 import { type AuditReport, Finding } from "./domain";
@@ -8,18 +9,27 @@ import { buildManifest, readConfigKeys } from "./manifest";
 
 export const audit = (projectDir: string): Effect.Effect<AuditReport, Error> =>
   Effect.gen(function* () {
-    const [routeFindings, configFindings, importRewrites, configKeys, uiSeamFindings, routerSeam] =
-      yield* Effect.all([
-        checkRoutes(projectDir),
-        checkConfig(projectDir),
-        scanImports(projectDir),
-        readConfigKeys(projectDir),
-        checkUiSeam(projectDir),
-        readRouterSeam(projectDir),
-      ]);
+    const [
+      routeFindings,
+      guardFindings,
+      configFindings,
+      importRewrites,
+      configKeys,
+      uiSeamFindings,
+      routerSeam,
+    ] = yield* Effect.all([
+      checkRoutes(projectDir),
+      checkRouteGuards(projectDir),
+      checkConfig(projectDir),
+      scanImports(projectDir),
+      readConfigKeys(projectDir),
+      checkUiSeam(projectDir),
+      readRouterSeam(projectDir),
+    ]);
 
     const findings: Finding[] = [
       ...routeFindings,
+      ...guardFindings,
       ...configFindings,
       ...uiSeamFindings,
       ...importRewrites.flatMap((rewrite) =>

@@ -12,6 +12,7 @@
     "bos": "bos",
     "types:gen": "bos types gen",
     "audit:v2": "pnpm exec tsx scripts/v2-upgrade/run.ts",
+    "port-route-guards": "pnpm exec tsx scripts/v2-upgrade/run-port-guards.ts",
     "test:v2-upgrade": "pnpm exec vitest run --root scripts/v2-upgrade",
     "typecheck": "pnpm run types:gen && if [ -d ui ]; then pnpm --dir ui run typecheck; fi && if [ -d api ]; then pnpm --dir api run typecheck; fi && if [ -d plugins ]; then for dir in plugins/*; do if [ -f \"$dir/package.json\" ]; then pnpm --dir \"$dir\" --if-present run typecheck && pnpm --dir \"$dir\" --if-present run typecheck:ui; fi; done; fi",
     "lint": "biome check .",

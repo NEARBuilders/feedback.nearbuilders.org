@@ -16,6 +16,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { resolveSessionFromCache } from "everything-dev/ui/auth";
 import { getRemoteScripts, getThemeInitScript } from "everything-dev/ui/head";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { ThemeProvider } from "next-themes";
@@ -32,7 +33,7 @@ import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async ({ context }) => {
-    const session = context.session;
+    const session = resolveSessionFromCache(context.queryClient, context.session);
 
     return {
       runtimeConfig: context.runtimeConfig,
@@ -42,9 +43,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   },
   loader: async ({ context }) => {
     const { queryClient } = context;
-    const session = context.session;
+    const session = resolveSessionFromCache(queryClient, context.session);
 
-    if (session && queryClient) {
+    if (session !== undefined && queryClient) {
       queryClient.setQueryData(sessionQueryKey, session);
     }
 
