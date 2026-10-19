@@ -11,6 +11,7 @@ export class LegionHolderTag extends Context.Tag("LegionHolder")<
 
 const CACHE_TTL_MS = 60_000;
 const RPC_TIMEOUT_MS = 5_000;
+const MAX_CACHE_ENTRIES = 10_000;
 
 interface CacheEntry {
   isHolder: boolean;
@@ -98,6 +99,23 @@ export const LegionHolderLive = (options: { nodeUrl: string; contractIds: readon
     LegionHolderTag,
     Effect.gen(function* () {
       const cache = new Map<string, CacheEntry>();
+      const inFlight = new Map<string, Promise<boolean>>();
+
+      const remember = (accountId: string, isHolder: boolean) => {
+        if (cache.size >= MAX_CACHE_ENTRIES) {
+          const now = Date.now();
+          for (const [key, entry] of cache) {
+            if (entry.expiresAt <= now) cache.delete(key);
+          }
+          // Map iterates in insertion order, so this drops the oldest entry.
+          if (cache.size >= MAX_CACHE_ENTRIES) {
+            const oldest = cache.keys().next().value;
+            if (oldest !== undefined) cache.delete(oldest);
+          }
+        }
+        cache.set(accountId, { isHolder, expiresAt: Date.now() + CACHE_TTL_MS });
+      };
+
       const lookup = async (accountId: string): Promise<boolean> => {
         const failures: RpcCallFailure[] = [];
 
@@ -145,7 +163,7 @@ export const LegionHolderLive = (options: { nodeUrl: string; contractIds: readon
         }
 
         if (failures.length === 0) {
-          cache.set(accountId, { isHolder, expiresAt: Date.now() + CACHE_TTL_MS });
+          remember(accountId, isHolder);
         }
 
         return isHolder;
@@ -161,7 +179,13 @@ export const LegionHolderLive = (options: { nodeUrl: string; contractIds: readon
             return cached.isHolder;
           }
 
-          return lookup(accountId);
+          // Concurrent checks for one account share a single set of RPC calls.
+          const pending = inFlight.get(accountId);
+          if (pending) return pending;
+
+          const check = lookup(accountId).finally(() => inFlight.delete(accountId));
+          inFlight.set(accountId, check);
+          return check;
         },
       };
 
