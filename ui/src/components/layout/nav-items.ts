@@ -90,6 +90,10 @@ export function getUserRole(isAuthenticated: boolean, isAdmin: boolean): Sidebar
   return "anon";
 }
 
+export function getPublicNavItems(): SidebarItem[] {
+  return filterSidebarByRole(NAV_ITEMS, "anon");
+}
+
 export function filterSidebarByRole(items: SidebarItem[], userRole: SidebarRole): SidebarItem[] {
   return items.filter((item) => {
     if (item.roleRequired === "anon") return true;
