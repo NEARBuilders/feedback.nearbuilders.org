@@ -1,6 +1,13 @@
 import { Data } from "effect";
 
-export type CheckId = "routes" | "route-guards" | "config" | "imports" | "ui-seam";
+export type CheckId =
+  | "routes"
+  | "route-guards"
+  | "config"
+  | "imports"
+  | "ui-seam"
+  | "db-topology"
+  | "i18n-seam";
 
 export type RouterSeam = "monolithic" | "authored-seam" | "unknown" | "absent";
 

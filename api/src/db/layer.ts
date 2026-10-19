@@ -12,7 +12,9 @@ export const DatabaseLive = (url: string) =>
     Effect.gen(function* () {
       const pluginId = yield* PluginIdTag;
       const slug = pluginMigrationSlug(pluginId);
-      const schemaName = `plugin_${slug}`;
+      // The api keeps the v1 public-schema topology (what `bos db doctor` checks
+      // and the drizzle-kit config targets); plugins scope into plugin_<slug>.
+      const schemaName = slug === "api" ? undefined : `plugin_${slug}`;
 
       const driver = yield* Effect.acquireRelease(
         Effect.tryPromise({
@@ -42,7 +44,7 @@ export const DatabaseLive = (url: string) =>
           );
         } else {
           yield* Effect.logInfo(
-            `[Database] Applied ${applied}/${migrations.length} migration(s) (source: ${source}, journal: ${storage.schema}.${storage.table}, schema: ${schemaName})`,
+            `[Database] Applied ${applied}/${migrations.length} migration(s) (source: ${source}, journal: ${storage.schema}.${storage.table}, schema: ${schemaName ?? "public"})`,
           );
         }
 
