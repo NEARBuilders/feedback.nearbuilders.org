@@ -12,7 +12,12 @@ export const contract = oc.router({
     })
     .input(
       z.object({
-        nearAccountId: z.string().min(1),
+        nearAccountId: z
+          .string()
+          .trim()
+          .min(2)
+          .max(64)
+          .regex(/^[a-z0-9._-]+$/i, "Invalid NEAR account id"),
       }),
     )
     .output(

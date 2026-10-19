@@ -541,3 +541,106 @@ describe("deleting feedback", () => {
     });
   });
 });
+
+describe("backfilling accepted feedback", () => {
+  /** Resolved before the outbox shipped: accepted, but no outbox row or event id. */
+  async function acceptedBeforeOutbox(harness: Harness, slug: string) {
+    const { db, rounds } = harness;
+    const seeded = await openRoundWithFeedback(harness, slug);
+    await rounds.setFeedbackStatus(seeded.round.id, [seeded.feedback.id], "resolved");
+    await db.delete(activityOutbox);
+    return seeded;
+  }
+
+  it("queues feedback.accepted for resolved items that never reached activity", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await acceptedBeforeOutbox(harness, "backfill-missing");
+
+      const result = await rounds.backfillAcceptedFeedback();
+
+      expect(result).toEqual({ queued: 1, skipped: 0 });
+      const rows = await db.select().from(activityOutbox);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        operation: "emit",
+        eventType: "feedback.accepted",
+        actor: "tester.near",
+        subjectKind: "feedback_accepted",
+        subjectId: feedback.id,
+        status: "pending",
+        payload: { feedbackId: feedback.id, roundId: round.id, format: "written" },
+      });
+      expect(JSON.stringify(rows[0]?.payload)).not.toContain("Found a bug");
+    });
+  });
+
+  it("is a no-op when run twice", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      await acceptedBeforeOutbox(harness, "backfill-twice");
+
+      await rounds.backfillAcceptedFeedback();
+      const second = await rounds.backfillAcceptedFeedback();
+
+      expect(second).toEqual({ queued: 0, skipped: 1 });
+      expect(await db.select().from(activityOutbox)).toHaveLength(1);
+    });
+  });
+
+  it("leaves items that already have an outbox row, queued or parked, alone", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "backfill-has-row");
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      await db.update(activityOutbox).set({ status: "failed" });
+
+      const result = await rounds.backfillAcceptedFeedback();
+
+      expect(result).toEqual({ queued: 0, skipped: 1 });
+      const rows = await db.select().from(activityOutbox);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.status).toBe("failed");
+    });
+  });
+
+  it("skips items whose acceptance was already delivered", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "backfill-delivered");
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      await createActivityOutboxWorker({ db, emitter: fakeEmitter() }).drain();
+
+      const result = await rounds.backfillAcceptedFeedback();
+
+      expect(result).toEqual({ queued: 0, skipped: 0 });
+      expect(await db.select().from(activityOutbox)).toHaveLength(1);
+    });
+  });
+
+  it("ignores feedback that is not resolved", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      await openRoundWithFeedback(harness, "backfill-unresolved");
+
+      expect(await rounds.backfillAcceptedFeedback()).toEqual({ queued: 0, skipped: 0 });
+      expect(await db.select().from(activityOutbox)).toHaveLength(0);
+    });
+  });
+
+  it("lets a later delete retract the backfilled event once delivered", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { feedback } = await acceptedBeforeOutbox(harness, "backfill-then-delete");
+
+      await rounds.backfillAcceptedFeedback();
+      await createActivityOutboxWorker({ db, emitter: fakeEmitter() }).drain();
+      await rounds.deleteFeedback(feedback.id);
+
+      const retraction = (await db.select().from(activityOutbox)).find(
+        (row) => row.operation === "retract",
+      );
+      expect(retraction).toMatchObject({ targetEventId: "event-1", reason: "feedback deleted" });
+    });
+  });
+});

@@ -1011,6 +1011,23 @@ export const contract = oc.router({
     .output(z.object({ retried: z.number().int().nonnegative() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
+  backfillAcceptedFeedback: oc
+    .route({
+      method: "POST",
+      path: "/activity-outbox/backfill-accepted",
+      summary: "Queue feedback.accepted for resolved feedback that never emitted it",
+      description:
+        "Resolved feedback accepted before the outbox shipped has no activity event, so its author has no credit. Queues the missing events for the worker to deliver; items that already have an event or an outbox row are skipped, so it is safe to run repeatedly. Check the failed list first: parked rows are delivered with the retry route, not this one. Site-admin only.",
+      tags: ["Activity"],
+    })
+    .output(
+      z.object({
+        queued: z.number().int().nonnegative(),
+        skipped: z.number().int().nonnegative(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
   getActivityOutboxDepth: oc
     .route({
       method: "GET",

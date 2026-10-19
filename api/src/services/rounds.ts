@@ -8,6 +8,7 @@ import {
   getTableColumns,
   inArray,
   isNotNull,
+  isNull,
   ne,
   type SQL,
   sql,
@@ -15,6 +16,7 @@ import {
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import {
+  activityOutbox as activityOutboxTable,
   feedbackNotes as feedbackNotesTable,
   projectRoundCounters as projectRoundCountersTable,
   projects as projectsTable,
@@ -256,6 +258,13 @@ export interface DeletedFeedbackResult {
   activityEventId: string | null;
 }
 
+export interface BackfillAcceptedFeedbackResult {
+  /** Resolved items that had no acceptance event and now have one queued. */
+  queued: number;
+  /** Resolved items left alone: already delivered, queued, parked or cancelled. */
+  skipped: number;
+}
+
 export interface RoundsService {
   /** Maps round id -> emitted activity event id, for rounds that have one. */
   listRoundActivityEventIds(roundIds: string[]): Promise<Record<string, string>>;
@@ -330,6 +339,11 @@ export interface RoundsService {
   ): Promise<Array<{ id: string; authorAccountId: string | null }>>;
   deleteRound(roundId: string): Promise<DeletedRoundResult | null>;
   deleteFeedback(feedbackId: string): Promise<DeletedFeedbackResult | null>;
+  /**
+   * Queue `feedback.accepted` for resolved items that never reached activity,
+   * i.e. resolved before the outbox shipped (#169). Safe to re-run.
+   */
+  backfillAcceptedFeedback(): Promise<BackfillAcceptedFeedbackResult>;
 }
 
 function toIssuesUrl(formats: RoundFormat[], repoUrl: string | null): string | null {
@@ -1376,6 +1390,58 @@ export const RoundsLive = Layer.effect(
             .where(eq(roundsTable.id, roundId))
             .returning({ activityEventId: roundsTable.activityEventId });
           return row ? { activityEventId: row.activityEventId } : null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      backfillAcceptedFeedback: async () => {
+        try {
+          return await db.transaction(async (tx) => {
+            // Anything with an event id was delivered, so only rows without one
+            // can be missing from the gateway.
+            const resolved = await tx
+              .select()
+              .from(roundFeedbackTable)
+              .where(
+                and(
+                  eq(roundFeedbackTable.status, "resolved"),
+                  isNull(roundFeedbackTable.acceptedActivityEventId),
+                ),
+              );
+            if (resolved.length === 0) return { queued: 0, skipped: 0 };
+
+            // Keyed exactly as `queueAcceptanceEvents` does, so a later
+            // un-accept or delete finds this event and can cancel or retract it.
+            const keyed = resolved.map((row) => ({ row, key: acceptanceKey(row) }));
+            const existing = await tx
+              .select({ key: activityOutboxTable.idempotencyKey })
+              .from(activityOutboxTable)
+              .where(
+                inArray(
+                  activityOutboxTable.idempotencyKey,
+                  keyed.map((entry) => entry.key),
+                ),
+              );
+            const known = new Set(existing.map((entry) => entry.key));
+
+            let queued = 0;
+            for (const { row, key } of keyed) {
+              if (known.has(key)) continue;
+              await enqueueActivity(tx, {
+                operation: "emit",
+                eventType: "feedback.accepted",
+                actor: row.authorAccountId,
+                idempotencyKey: key,
+                // Never the body: private rounds must not leak through activity (#101).
+                payload: { feedbackId: row.id, roundId: row.roundId, format: row.format },
+                subjectKind: "feedback_accepted",
+                subjectId: row.id,
+              });
+              queued += 1;
+            }
+            return { queued, skipped: resolved.length - queued };
+          });
         } catch (error) {
           throw toOrpcError(error);
         }
