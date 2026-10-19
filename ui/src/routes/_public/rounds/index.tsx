@@ -6,7 +6,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useApiClient } from "@/app";
 import { EmptyState, Input, SegmentedToggle } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
@@ -15,6 +15,7 @@ import { RoundsTable } from "@/components/rounds-table";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { roundEndorsementsQueryOptions, roundsQueryOptions } from "@/lib/queries/rounds";
+import { clampRoundsPage } from "@/lib/rounds-page";
 import { oneOf, positiveInt } from "@/lib/search";
 
 const STATUS_FILTERS = ["open", "closed"] as const;
@@ -76,6 +77,13 @@ function RoundsPage() {
     );
   }, [rounds, query]);
 
+  const safePage = clampRoundsPage(filtered.length, page);
+
+  useEffect(() => {
+    if (filtered.length === 0 || safePage === page) return;
+    void navigate({ search: (prev) => ({ ...prev, page: safePage }), replace: true });
+  }, [filtered.length, navigate, page, safePage]);
+
   return (
     <PageContainer variant="default">
       <div className="space-y-8">
@@ -118,7 +126,7 @@ function RoundsPage() {
           <RoundsTable
             rounds={filtered}
             endorsements={endorsements}
-            page={page}
+            page={safePage}
             onPageChange={(next) => setSearch({ page: next })}
           />
         )}

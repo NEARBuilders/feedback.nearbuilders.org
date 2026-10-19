@@ -30,6 +30,7 @@ import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
 import { roundCta } from "@/lib/round-cta";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { roundHref, roundParams } from "@/lib/round-links";
+import { ROUNDS_PAGE_SIZE } from "@/lib/rounds-page";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
@@ -44,8 +45,6 @@ const COLUMN_VISIBILITY: Record<string, string> = {
   endorsements: "hidden md:table-cell",
   actions: "",
 };
-
-const PAGE_SIZE = 10;
 
 interface RoundsTableProps {
   rounds: RoundDetail[];
@@ -187,10 +186,10 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
   const table = useReactTable({
     data: rounds,
     columns,
-    state: { sorting, pagination: { pageIndex: page - 1, pageSize: PAGE_SIZE } },
+    state: { sorting, pagination: { pageIndex: page - 1, pageSize: ROUNDS_PAGE_SIZE } },
     onSortingChange: setSorting,
     onPaginationChange: (updater) => {
-      const current = { pageIndex: page - 1, pageSize: PAGE_SIZE };
+      const current = { pageIndex: page - 1, pageSize: ROUNDS_PAGE_SIZE };
       const next = typeof updater === "function" ? updater(current) : updater;
       onPageChange(next.pageIndex + 1);
     },
