@@ -20,6 +20,7 @@ import { TelegramHandle } from "@/components/tip-tester";
 import { invalidateProjectQueries, projectsQueryOptions } from "@/lib/queries/projects";
 import { invalidateRoundQueries } from "@/lib/queries/rounds";
 import { roundParams } from "@/lib/round-links";
+import { formatRoundListTitle } from "@/lib/round-title";
 
 type AdminProject = Awaited<ReturnType<ApiClient["listProjects"]>>[number];
 
@@ -201,7 +202,7 @@ function ProjectReviewCard({
                 params={roundParams({ ...round, projectSlug: project.slug })}
                 className="text-foreground underline"
               >
-                #{round.projectRoundNumber} {round.title}
+                {formatRoundListTitle(round.title, round.projectRoundNumber)}
               </Link>
             </li>
           ))}

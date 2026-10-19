@@ -16,6 +16,7 @@ import { Badge, Button, LegionMark } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { ProjectLabel } from "@/components/project-identity";
 import { RoundJoinCta } from "@/components/round-join-cta";
+import { RoundListTitle } from "@/components/round-list-title";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import {
   Table,
@@ -110,8 +111,10 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
             {row.original.legionOnly && (
               <LegionMark className="mr-1 inline-block align-[-2px]" title="Legion members only" />
             )}
-            <span className="text-muted-foreground">#{row.original.projectRoundNumber}</span>{" "}
-            {row.original.title}
+            <RoundListTitle
+              title={row.original.title}
+              projectRoundNumber={row.original.projectRoundNumber}
+            />
           </Link>
         ),
       },

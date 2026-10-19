@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Fragment } from "react";
+import { RoundListTitle } from "@/components/round-list-title";
 import { RoundStatusBadge } from "@/components/round-status-badge";
 import {
   Table,
@@ -60,8 +61,10 @@ export function ProjectRoundsTable({ projects, console, grouped }: ProjectRounds
                       params={roundParams({ ...round, projectSlug: project.slug })}
                       className="font-medium text-foreground hover:underline"
                     >
-                      <span className="text-muted-foreground">#{round.projectRoundNumber}</span>{" "}
-                      {round.title}
+                      <RoundListTitle
+                        title={round.title}
+                        projectRoundNumber={round.projectRoundNumber}
+                      />
                     </Link>
                   </TableCell>
                   <TableCell className="text-right">
