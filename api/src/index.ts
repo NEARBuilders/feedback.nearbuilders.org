@@ -1585,6 +1585,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return { retried };
         }),
 
+      backfillAcceptedFeedback: builder.backfillAcceptedFeedback
+        .use(requireAdmin)
+        .handler(async () => services.rounds.backfillAcceptedFeedback()),
+
       getActivityOutboxDepth: builder.getActivityOutboxDepth
         .use(requireAdmin)
         .handler(async () => ({ byStatus: await services.activityOutbox.depth() })),

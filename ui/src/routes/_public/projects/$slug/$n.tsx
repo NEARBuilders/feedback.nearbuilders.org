@@ -71,16 +71,17 @@ function RoundLayout() {
   const canSubmit = viewer.canPost || viewer.joined;
 
   return (
-    <PageContainer className={cn(compact && "py-4 sm:py-4")}>
+    <PageContainer variant="wide" className={cn(compact && "py-4 sm:py-4")}>
       <div className="space-y-6">
         {!compact && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Link
-              to="/rounds"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+              to="/projects/$slug"
+              params={{ slug: params.slug }}
+              className="inline-flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              rounds
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{projectName}</span>
             </Link>
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <ProductLink identity={round.identity} />

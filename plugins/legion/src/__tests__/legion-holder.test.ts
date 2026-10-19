@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from "every-plugin/effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LegionHolderLive, LegionHolderTag } from "../services/legion-holder";
 
-const NODE_URL = "https://rpc.mainnet.near.org";
+const NODE_URL = "https://free.rpc.fastnear.com";
 const CONTRACT_IDS = ["initiate.nearlegion.near", "ascendant.nearlegion.near"];
 
 interface RecordedCall {
@@ -78,7 +78,7 @@ describe("LegionHolderLive", () => {
 
     const service = await buildService();
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
     expect(calls[0]).toMatchObject({
       contractId: "initiate.nearlegion.near",
       methodName: "nft_supply_for_owner",
@@ -103,8 +103,8 @@ describe("LegionHolderLive", () => {
 
     const service = await buildService();
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
-    expect(calls[0]?.methodName).toBe("nft_supply_for_owner");
-    expect(calls[1]?.methodName).toBe("nft_tokens_for_owner");
+    expect(calls.some((c) => c.methodName === "nft_supply_for_owner")).toBe(true);
+    expect(calls.some((c) => c.methodName === "nft_tokens_for_owner")).toBe(true);
   });
 
   it("denies access and logs when every RPC call fails, without caching the failure", async () => {
@@ -140,11 +140,11 @@ describe("LegionHolderLive", () => {
     const service = await buildService();
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(CONTRACT_IDS.length);
 
     vi.advanceTimersByTime(61_000);
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(CONTRACT_IDS.length * 2);
   });
 
   it("caches negative results separately from positive ones", async () => {
@@ -154,7 +154,7 @@ describe("LegionHolderLive", () => {
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
     await expect(service.checkAccess("passerby.near")).resolves.toBe(false);
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(CONTRACT_IDS.length * 2);
   });
 
   it("normalizes account ids before checking and caching", async () => {
@@ -163,7 +163,80 @@ describe("LegionHolderLive", () => {
     const service = await buildService();
     await expect(service.checkAccess("  Holder.Near  ")).resolves.toBe(true);
     await expect(service.checkAccess("holder.near")).resolves.toBe(true);
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.accountId).toBe("holder.near");
+    expect(calls).toHaveLength(CONTRACT_IDS.length);
+    expect(calls.every((c) => c.accountId === "holder.near")).toBe(true);
+  });
+
+  it("queries every contract in parallel", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        inFlight -= 1;
+        return rpcResponse("0");
+      }),
+    );
+
+    const service = await buildService();
+    const pending = service.checkAccess("passerby.near");
+    await vi.advanceTimersByTimeAsync(100);
+    await expect(pending).resolves.toBe(false);
+    expect(peak).toBe(CONTRACT_IDS.length);
+  });
+
+  it("grants access when one contract confirms even if the other fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    stubRpc((call) =>
+      call.contractId === "initiate.nearlegion.near"
+        ? rpcResponse("1")
+        : rpcError("node unavailable"),
+    );
+
+    const service = await buildService();
+    await expect(service.checkAccess("holder.near")).resolves.toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).not.toContain("denying access");
+
+    // A check with any RPC failure is not cached.
+    const before = calls.length;
+    await expect(service.checkAccess("holder.near")).resolves.toBe(true);
+    expect(calls.length).toBeGreaterThan(before);
+  });
+
+  it("aborts a hung RPC call after 5s and treats it as a failure", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string | URL | Request, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+          }),
+      ),
+    );
+
+    const service = await buildService();
+    const pending = service.checkAccess("slow.near");
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(pending).resolves.toBe(false);
+    expect(String(warn.mock.calls[0]?.[0])).toContain("timed out after 5000ms");
+    expect(String(warn.mock.calls[0]?.[0])).toContain("denying access");
+  });
+
+  it("shares one set of RPC calls between concurrent checks for the same account", async () => {
+    stubRpc(() => rpcResponse("0"));
+
+    const service = await buildService();
+    const results = await Promise.all([
+      service.checkAccess("passerby.near"),
+      service.checkAccess("Passerby.near"),
+      service.checkAccess("passerby.near"),
+    ]);
+    expect(results).toEqual([false, false, false]);
+    expect(calls).toHaveLength(CONTRACT_IDS.length);
   });
 });

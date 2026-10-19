@@ -21,12 +21,13 @@ import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { ThemeProvider } from "next-themes";
 import type { RouterContext } from "@/app";
 import { getBaseStyles } from "@/app";
-import { Toaster } from "@/components";
+import { FeedbackWidget, Toaster } from "@/components";
 import { AppFrame } from "@/components/layout/app-frame";
 import { AppShell } from "@/components/layout/app-shell";
 import { useAppShellState } from "@/components/layout/use-app-shell";
 import { useMediaQuery } from "@/hooks";
 import { sessionQueryKey } from "@/lib/auth";
+import { FEEDBACK_WIDGET_PROJECT_SLUG } from "@/lib/feedback-widget";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -201,6 +202,7 @@ function SessionShell() {
       ) : (
         <Outlet />
       )}
+      <FeedbackWidget projectSlug={FEEDBACK_WIDGET_PROJECT_SLUG} />
     </AppFrame>
   );
 }

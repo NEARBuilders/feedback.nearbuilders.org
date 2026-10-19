@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { myFeedbackHref, roundHref, roundParams } from "./round-links";
+import { myFeedbackHref, participantPostLink, roundHref, roundParams } from "./round-links";
 
 const ROUND = { projectSlug: "near-wallet", projectRoundNumber: 3 };
 
@@ -22,5 +22,63 @@ describe("round links", () => {
     expect(myFeedbackHref(ROUND, "a/b near")).toBe(
       "/projects/near-wallet/3/feedback?author=a%2Fb%20near",
     );
+  });
+});
+
+describe("participantPostLink", () => {
+  const params = { slug: "near-wallet", n: "3" };
+
+  it("is null when the participant has no posts", () => {
+    expect(participantPostLink("alice.near", 0, { surface: "public", params })).toBeNull();
+  });
+
+  it("is null when no destination was given", () => {
+    expect(participantPostLink("alice.near", 1)).toBeNull();
+  });
+
+  it("opens the public author-filtered feedback page", () => {
+    const link = participantPostLink("alice.near", 1, { surface: "public", params });
+    expect(link).toEqual({
+      to: "/projects/$slug/$n/feedback",
+      params,
+      search: { author: "alice.near" },
+    });
+    expect(myFeedbackHref(ROUND, "alice.near")).toBe(
+      "/projects/near-wallet/3/feedback?author=alice.near",
+    );
+  });
+
+  it("opens the console testers tab for that account", () => {
+    expect(participantPostLink("alice.near", 2, { surface: "console", params })).toEqual({
+      to: "/manage/$slug/$n/testers",
+      params,
+      search: { status: "all", account: "alice.near" },
+    });
+  });
+
+  it("hides other testers' posts from a private-round viewer who cannot read them", () => {
+    expect(
+      participantPostLink("bob.near", 1, {
+        surface: "public",
+        params,
+        viewerAccountId: "alice.near",
+        canReadAll: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps a tester's own row on a private round", () => {
+    expect(
+      participantPostLink("alice.near", 1, {
+        surface: "public",
+        params,
+        viewerAccountId: "alice.near",
+        canReadAll: false,
+      }),
+    ).toEqual({
+      to: "/projects/$slug/$n/feedback",
+      params,
+      search: { author: "alice.near" },
+    });
   });
 });
