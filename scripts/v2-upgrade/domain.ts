@@ -7,7 +7,8 @@ export type CheckId =
   | "imports"
   | "ui-seam"
   | "db-topology"
-  | "i18n-seam";
+  | "i18n-seam"
+  | "compose-seam";
 
 export type RouterSeam = "monolithic" | "authored-seam" | "unknown" | "absent";
 

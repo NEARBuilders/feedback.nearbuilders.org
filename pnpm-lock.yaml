@@ -294,10 +294,10 @@ catalogs:
       specifier: 4.0.0-rc.117
       version: 4.0.0-rc.117
     every-plugin:
-      specifier: ^3.0.0-rc.8
-      version: 3.0.0-rc.8
+      specifier: ^3.0.0-rc.9
+      version: 3.0.0-rc.9
     everything-dev:
-      specifier: ^2.0.0-rc.12
+      specifier: 2.0.0-rc.12
       version: 2.0.0-rc.12
     near-kit:
       specifier: ^0.20.2
@@ -366,7 +366,7 @@ importers:
         version: 4.0.0-rc.117
       every-plugin:
         specifier: 'catalog:'
-        version: 3.0.0-rc.8(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
+        version: 3.0.0-rc.9(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
       everything-dev:
         specifier: 'catalog:'
         version: 2.0.0-rc.12(ea5a9c88515514a33d2de7e9d5afdc3f)
@@ -401,6 +401,9 @@ importers:
       dotenv:
         specifier: ^17.3.1
         version: 17.4.2
+      glob:
+        specifier: 13.0.6
+        version: 13.0.6
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -451,7 +454,7 @@ importers:
         version: 4.0.0-rc.117
       every-plugin:
         specifier: 'catalog:'
-        version: 3.0.0-rc.8(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
+        version: 3.0.0-rc.9(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
       nostr-tools:
         specifier: ^2.10.0
         version: 2.25.2(typescript@7.0.2)
@@ -546,7 +549,7 @@ importers:
         version: 17.4.2
       every-plugin:
         specifier: 'catalog:'
-        version: 3.0.0-rc.8(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
+        version: 3.0.0-rc.9(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
       everything-dev:
         specifier: 'catalog:'
         version: 2.0.0-rc.12(ea5a9c88515514a33d2de7e9d5afdc3f)
@@ -616,7 +619,7 @@ importers:
         version: 0.31.11
       every-plugin:
         specifier: 'catalog:'
-        version: 3.0.0-rc.8(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
+        version: 3.0.0-rc.9(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
       everything-dev:
         specifier: 'catalog:'
         version: 2.0.0-rc.12(ea5a9c88515514a33d2de7e9d5afdc3f)
@@ -932,7 +935,7 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       every-plugin:
         specifier: 'catalog:'
-        version: 3.0.0-rc.8(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
+        version: 3.0.0-rc.9(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
       everything-dev:
         specifier: 'catalog:'
         version: 2.0.0-rc.12(ea5a9c88515514a33d2de7e9d5afdc3f)
@@ -5552,8 +5555,8 @@ packages:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
 
-  every-plugin@3.0.0-rc.8:
-    resolution: {integrity: sha512-hjHDDloT3BseEOQRA/Pz9hf0XctPJ2XewG4z2VX25Us4Ro1P/GLssfyVisLhSTxCbZD/L+Unh7iI2w1USqshcA==}
+  every-plugin@3.0.0-rc.9:
+    resolution: {integrity: sha512-FBgLgBT9Ugn+6G5WKS/fIrCHSo+LKay/bzutOTBPtv713NR6Q9S6GdDGwX7DwdCnGRgap1+5kq+7p5c0T2Wu1Q==}
     hasBin: true
     peerDependencies:
       '@orpc/contract': 2.0.0-beta.35
@@ -12301,7 +12304,7 @@ snapshots:
     dependencies:
       eventsource-parser: 3.1.1
 
-  every-plugin@3.0.0-rc.8(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5):
+  every-plugin@3.0.0-rc.9(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5):
     dependencies:
       '@module-federation/enhanced': 2.9.2(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@7.0.2)
       '@module-federation/node': 2.7.52(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@7.0.2)
@@ -12365,7 +12368,7 @@ snapshots:
       defu: 6.1.7
       dotenv: 17.4.2
       effect: 4.0.0-rc.117
-      every-plugin: 3.0.0-rc.8(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
+      every-plugin: 3.0.0-rc.9(@orpc/contract@2.0.0-beta.35)(@orpc/server@2.0.0-beta.35)(@orpc/tanstack-query@2.0.0-beta.35(@tanstack/query-core@5.104.4))(@orpc/zod@2.0.0-beta.35(zod@4.6.5))(@proj-airi/unplugin-drizzle-orm-migrations@0.1.6(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(@tanstack/react-router@1.170.32(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-generator@1.167.33)(@types/react@19.3.0)(effect@4.0.0-rc.117)(esbuild@0.28.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(zod@4.6.5)
       execa: 9.6.1
       glob: 13.0.6
       near-kit: 0.20.2(@hot-labs/near-connect@https://codeload.github.com/elliotBraem/near-connect/tar.gz/382e6a60f9cae8a6c82cc5c0abd2eaae2b73a940)
