@@ -1,8 +1,14 @@
-/** Routes that always render the marketing shell, even for signed-in users. */
-const MARKETING_ONLY_PATHS = new Set(["/", "/login"]);
+const APP_SHELL_PREFIXES = ["/dashboard", "/testing", "/manage", "/settings", "/orgs", "/admin"];
 
 export function isCompact(search: { compact?: unknown }): boolean {
   return search.compact === 1 || search.compact === "1" || search.compact === true;
+}
+
+function isAppShellPath(pathname: string): boolean {
+  const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return APP_SHELL_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`),
+  );
 }
 
 export function shouldUseAppShell(
@@ -11,6 +17,5 @@ export function shouldUseAppShell(
   search: { compact?: unknown } = {},
 ): boolean {
   if (!isSignedIn || isCompact(search)) return false;
-  const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-  return !MARKETING_ONLY_PATHS.has(normalized);
+  return isAppShellPath(pathname);
 }
