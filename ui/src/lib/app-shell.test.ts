@@ -32,6 +32,19 @@ describe("shouldUseAppShell", () => {
 
   it.each([
     "/rounds",
+    "/projects",
+    "/leaderboard",
+    "/how-to-integrate",
+  ])("keeps the app shell on %s after visiting the workspace", (path) => {
+    expect(shouldUseAppShell(true, path, {}, { stayInAppShell: true })).toBe(true);
+  });
+
+  it("drops stay-in-shell on the home page", () => {
+    expect(shouldUseAppShell(true, "/", {}, { stayInAppShell: true })).toBe(false);
+  });
+
+  it.each([
+    "/rounds",
     "/projects/near-wallet/3",
     "/leaderboard",
     "/how-to-integrate",
@@ -44,6 +57,13 @@ describe("shouldUseAppShell", () => {
   it("drops the shell for the compact pop-out workspace", () => {
     expect(shouldUseAppShell(true, "/dashboard", { compact: 1 })).toBe(false);
     expect(shouldUseAppShell(true, "/dashboard", { compact: "1" })).toBe(false);
-    expect(shouldUseAppShell(true, "/projects/near-wallet/3/submit", { compact: 0 })).toBe(false);
+    expect(
+      shouldUseAppShell(
+        true,
+        "/projects/near-wallet/3/submit",
+        { compact: 0 },
+        { stayInAppShell: true },
+      ),
+    ).toBe(true);
   });
 });
