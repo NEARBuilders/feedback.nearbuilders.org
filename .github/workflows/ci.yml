@@ -23,7 +23,7 @@ permissions:
 jobs:
   ci:
     name: CI
-    uses: NEARBuilders/everything-dev/.github/workflows/consumer-ci.yml@v2.0.0-rc.15
+    uses: NEARBuilders/everything-dev/.github/workflows/consumer-ci.yml@v2.0.0-rc.16
     with:
       working_directory: .
     secrets: inherit
@@ -31,10 +31,6 @@ jobs:
   # Drift alarm (ADR 0034): the child's recorded `platform` pin (or the
   # inherited default) compared against the latest published release
   # manifest. Exits 1 — i.e. fails this job — when updates are available.
-  # continue-on-error until everything-dev#518 ships: for yaml-catalog
-  # children the check reads the catalog from package.json#workspaces.catalog
-  # (always empty), so every entry "drifts" and the job is a false positive.
-  # Remove once the fix lands in a release train (bump the reusable refs).
   platform-drift:
     name: Platform Drift
     runs-on: ubuntu-latest
@@ -46,8 +42,6 @@ jobs:
           node-version: 24
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec bos upgrade --check
-        # false positive until everything-dev#518 ships — see job comment
-        continue-on-error: true
 
   # Merge gate for branch protection. Require this check name ("Lint and Type
   # Check") in Settings → Branches — it is child-owned and slash-free, unlike

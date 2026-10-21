@@ -17,6 +17,9 @@ export default App({
     "Request a feedback round, get matched with builders, and turn testing into portable credit.",
   // GitHub repository tarball source used by `bos init`/`bos sync` templates.
   repository: "https://github.com/NEARBuilders/feedback.nearbuilders.org",
+  // Platform release pin (ADR 0034): fail loudly when the resolved parent
+  // platform doesn't match, instead of silently floating.
+  platform: "2.0.0-rc.16",
   // CI settings: runtime image name, Railway service.
   ci: {
     railway: {
