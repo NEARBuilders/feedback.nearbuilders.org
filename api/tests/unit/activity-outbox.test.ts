@@ -3,9 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { PluginIdTag } from "every-plugin";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Database } from "@/db";
+import type { Database } from "@/db/layer";
 import { DatabaseLive, DatabaseTag } from "@/db/layer";
 import { activityOutbox, roundFeedback } from "@/db/schema";
 import type { ActivityEmitter } from "@/services/activity-events";
@@ -41,9 +40,10 @@ afterEach(() => {
 function freshLayer() {
   const dir = mkdtempSync(join(tmpdir(), "api-outbox-"));
   activeDir = dir;
-  const dbLayer = DatabaseLive(`pglite:${dir}`).pipe(
-    Layer.provide(Layer.succeed(PluginIdTag, "api")),
-  );
+  const dbLayer = DatabaseLive({
+    pluginId: "api",
+    secrets: { API_DATABASE_URL: `pglite:${dir}` },
+  });
   return Layer.mergeAll(
     RoundsLive.pipe(Layer.provide(dbLayer)),
     ProjectRecordsLive.pipe(Layer.provide(dbLayer)),

@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import type { SortingState } from "@tanstack/react-table";
 import {
-  type ColumnDef,
+  columnVisibilityFeature,
+  createColumnHelper,
+  createPaginatedRowModel,
+  createSortedRowModel,
   flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  type SortingState,
-  useReactTable,
+  rowPaginationFeature,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -33,6 +36,16 @@ import { roundHref, roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
+
+const features = tableFeatures({
+  rowSortingFeature,
+  rowPaginationFeature,
+  columnVisibilityFeature,
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+});
+
+const columnHelper = createColumnHelper<typeof features, RoundDetail>();
 
 export const ROUNDS_PAGE_SIZE = 10;
 
@@ -82,111 +95,113 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
       joined: joinedIds.has(round.id),
     });
 
-  const columns = useMemo<ColumnDef<RoundDetail>[]>(
-    () => [
-      {
-        id: "project",
-        header: "Project",
-        accessorFn: (round) => (round.identity?.title ?? round.projectSlug).toLowerCase(),
-        cell: ({ row }) => (
-          <Link to="/projects/$slug" params={{ slug: row.original.projectSlug }}>
-            <ProjectLabel
-              identity={row.original.identity}
-              name={row.original.identity?.title ?? row.original.projectSlug}
-              className="hover:underline"
-            />
-          </Link>
+  const columns = useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor(
+          (round) => (round.identity?.title ?? round.projectSlug).toLowerCase(),
+          {
+            id: "project",
+            header: "Project",
+            cell: ({ row }) => (
+              <Link to="/projects/$slug" params={{ slug: row.original.projectSlug }}>
+                <ProjectLabel
+                  identity={row.original.identity}
+                  name={row.original.identity?.title ?? row.original.projectSlug}
+                  className="hover:underline"
+                />
+              </Link>
+            ),
+          },
         ),
-      },
-      {
-        id: "title",
-        header: "Round",
-        accessorFn: (round) => round.title.toLowerCase(),
-        cell: ({ row }) => (
-          <Link
-            to="/projects/$slug/$n"
-            params={roundParams(row.original)}
-            className="font-medium text-foreground hover:underline"
-          >
-            {row.original.legionOnly && (
-              <LegionMark className="mr-1 inline-block align-[-2px]" title="Legion members only" />
-            )}
-            <RoundListTitle
-              title={row.original.title}
-              projectRoundNumber={row.original.projectRoundNumber}
-            />
-          </Link>
-        ),
-      },
-      {
-        id: "status",
-        header: "Status",
-        accessorKey: "status",
-        cell: ({ row }) => <RoundStatusBadge status={row.original.status} />,
-      },
-      {
-        id: "formats",
-        header: "Formats",
-        accessorFn: (round) => round.formats.length,
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1.5">
-            {row.original.formats.map((format) => (
-              <Badge key={format} variant="outline" className="text-xs">
-                {FORMAT_LABELS[format] ?? format}
-              </Badge>
-            ))}
-          </div>
-        ),
-      },
-      {
-        id: "participantCount",
-        header: "Participants",
-        accessorKey: "participantCount",
-        cell: ({ row }) => (
-          <span className="tabular-nums text-muted-foreground">
-            {row.original.participantCount}
-          </span>
-        ),
-      },
-      {
-        id: "endorsements",
-        header: "Endorsements",
-        accessorFn: (round) => endorsements?.[round.id]?.totalCount ?? 0,
-        cell: ({ row }) =>
-          endorsements?.[row.original.id]?.totalCount ? (
-            <EndorsementCount count={endorsements[row.original.id].totalCount} />
-          ) : (
-            <span className="text-muted-foreground">—</span>
+        columnHelper.accessor((round) => round.title.toLowerCase(), {
+          id: "title",
+          header: "Round",
+          cell: ({ row }) => (
+            <Link
+              to="/projects/$slug/$n"
+              params={roundParams(row.original)}
+              className="font-medium text-foreground hover:underline"
+            >
+              {row.original.legionOnly && (
+                <LegionMark
+                  className="mr-1 inline-block align-[-2px]"
+                  title="Legion members only"
+                />
+              )}
+              <RoundListTitle
+                title={row.original.title}
+                projectRoundNumber={row.original.projectRoundNumber}
+              />
+            </Link>
           ),
-      },
-      {
-        id: "actions",
-        header: "",
-        enableSorting: false,
-        cell: ({ row }) => {
-          const cta = rowCta(row.original);
-          if (cta.kind === "none") return null;
-          // A Legion-gated round needs the full SBT check, which only the round
-          // page renders — send the tester there to join.
-          if (cta.kind === "join" && row.original.legionOnly) {
-            return (
-              <Button asChild variant="outline" size="sm">
-                <Link to="/projects/$slug/$n" params={roundParams(row.original)}>
-                  view to join
-                </Link>
-              </Button>
-            );
-          }
-          return <RoundJoinCta round={row.original} cta={cta} size="sm" />;
-        },
-      },
-    ],
+        }),
+        columnHelper.accessor("status", {
+          id: "status",
+          header: "Status",
+          cell: ({ row }) => <RoundStatusBadge status={row.original.status} />,
+        }),
+        columnHelper.accessor((round) => round.formats.length, {
+          id: "formats",
+          header: "Formats",
+          cell: ({ row }) => (
+            <div className="flex flex-wrap gap-1.5">
+              {row.original.formats.map((format) => (
+                <Badge key={format} variant="outline" className="text-xs">
+                  {FORMAT_LABELS[format] ?? format}
+                </Badge>
+              ))}
+            </div>
+          ),
+        }),
+        columnHelper.accessor("participantCount", {
+          id: "participantCount",
+          header: "Participants",
+          cell: ({ row }) => (
+            <span className="tabular-nums text-muted-foreground">
+              {row.original.participantCount}
+            </span>
+          ),
+        }),
+        columnHelper.accessor((round) => endorsements?.[round.id]?.totalCount ?? 0, {
+          id: "endorsements",
+          header: "Endorsements",
+          cell: ({ row }) =>
+            endorsements?.[row.original.id]?.totalCount ? (
+              <EndorsementCount count={endorsements[row.original.id].totalCount} />
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            ),
+        }),
+        columnHelper.display({
+          id: "actions",
+          header: "",
+          enableSorting: false,
+          cell: ({ row }) => {
+            const cta = rowCta(row.original);
+            if (cta.kind === "none") return null;
+            // A Legion-gated round needs the full SBT check, which only the round
+            // page renders — send the tester there to join.
+            if (cta.kind === "join" && row.original.legionOnly) {
+              return (
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/projects/$slug/$n" params={roundParams(row.original)}>
+                    view to join
+                  </Link>
+                </Button>
+              );
+            }
+            return <RoundJoinCta round={row.original} cta={cta} size="sm" />;
+          },
+        }),
+      ]),
     [endorsements, accountId, sessionPending, session.data?.user, joinedIds],
   );
 
-  const table = useReactTable({
-    data: rounds,
+  const table = useTable({
+    features,
     columns,
+    data: rounds,
     state: { sorting, pagination: { pageIndex: page - 1, pageSize: ROUNDS_PAGE_SIZE } },
     onSortingChange: setSorting,
     onPaginationChange: (updater) => {
@@ -195,12 +210,9 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
       onPageChange(next.pageIndex + 1);
     },
     autoResetPageIndex: false,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   });
 
-  const { pageIndex } = table.getState().pagination;
+  const { pageIndex } = table.state.pagination;
   const pageCount = table.getPageCount();
 
   return (

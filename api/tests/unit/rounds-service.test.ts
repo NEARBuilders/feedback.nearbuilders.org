@@ -25,8 +25,9 @@ function freshLayer() {
   const dir = mkdtempSync(join(tmpdir(), "api-rounds-"));
   activeDir = dir;
   return Layer.mergeAll(RoundsLive, ProjectRecordsLive).pipe(
-    Layer.provide(DatabaseLive(`pglite:${dir}`)),
-    Layer.provide(Layer.succeed(PluginIdTag, "api")),
+    Layer.provide(
+      DatabaseLive({ pluginId: "api", secrets: { API_DATABASE_URL: `pglite:${dir}` } }),
+    ),
   );
 }
 
