@@ -143,7 +143,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   initialize: (config, plugins) =>
     Effect.gen(function* () {
-      const database = DatabaseLive(config.secrets.API_DATABASE_URL);
+      const database = DatabaseLive(config);
       const servicesContext = yield* buildScopedContext(
         Layer.mergeAll(RoundsLive, ProjectRecordsLive, NotificationsLive, database).pipe(
           Layer.provide(database),

@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/server";
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import type { Database } from "../db";
+import type { Database } from "../db/layer";
 import { DatabaseTag } from "../db/layer";
 import {
   type projectStatus,
