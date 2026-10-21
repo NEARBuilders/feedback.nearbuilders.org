@@ -41,7 +41,7 @@
     "@tanstack/react-query-devtools": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table": "catalog:",
     "@tanstack/zod-form-adapter": "catalog:",
     "@tiptap/core": "3.31.3",
     "@tiptap/extension-image": "3.31.3",
@@ -96,7 +96,8 @@
     "cn": "^0.4.0",
     "leaflet": "1.9.4",
     "qrcode": "^1.5.4",
-    "@radix-ui/react-toggle-group": "^1.2.1"
+    "@radix-ui/react-toggle-group": "^1.2.1",
+    "@number-flow/react": "^0.6.2"
   },
   "peerDependencies": {
     "@tanstack/react-query": "catalog:",

@@ -28,20 +28,10 @@
     "test": "pnpm --dir api --if-present run test && pnpm --dir ui --if-present run test && for d in plugins/*; do [ -f \"$d/package.json\" ] && pnpm --dir \"$d\" --if-present run test; done",
     "test:api": "pnpm --dir api --if-present run test",
     "test:integration": "pnpm --dir api --if-present run test tests/integration/",
-    "regression:start:dev": "BOS_NO_PERSIST_PORTS=1 pnpm exec tsx packages/everything-dev/src/cli.ts dev --no-interactive --port 4100 --api-port 4101 --auth-port 4102 --ui-port 4103 --plugin-port-start 4110",
-    "regression:start:prod": "BOS_NO_PERSIST_PORTS=1 PORT=4100 pnpm exec everything-dev start --no-interactive",
-    "test:regression:http:dev": "REGRESSION_MODE=dev sh -lc 'cd tests/regression/http && go test ./... -count=1 -v -timeout 10m'",
-    "test:regression:http:prod": "REGRESSION_MODE=prod sh -lc 'cd tests/regression/http && go test ./... -count=1 -v -timeout 10m'",
-    "test:regression:browser:install": "pnpm exec playwright install --with-deps chromium",
-    "test:regression:browser:dev": "REGRESSION_MODE=dev pnpm exec playwright test -c tests/regression/browser/playwright.config.mjs --project=dev",
-    "test:regression:browser:prod": "REGRESSION_MODE=prod pnpm exec playwright test -c tests/regression/browser/playwright.config.mjs --project=prod",
-    "test:regression:dev": "pnpm run test:regression:http:dev && pnpm run test:regression:browser:dev",
-    "test:regression:prod": "pnpm run test:regression:http:prod && pnpm run test:regression:browser:prod",
-    "test:regression": "pnpm run test:regression:dev",
+    "db:doctor": "bos db:doctor",
     "dev:postgres": "docker compose up -d --wait && pnpm run dev",
     "dev:postgres:down": "docker compose down",
     "dev:postgres:reset": "docker compose down -v && docker compose up -d --wait",
-    "db:doctor": "bos db:doctor",
     "db:repair": "bos db:repair",
     "check:deps": "node scripts/check-deps.mjs",
     "prepare": "husky"
@@ -72,7 +62,6 @@
     "@better-auth/api-key": "catalog:",
     "@better-auth/core": "catalog:",
     "@better-auth/passkey": "catalog:",
-    "@effect/oxc": "link:repos/effect/packages/tools/oxc",
     "@electric-sql/pglite": "catalog:",
     "@libsql/client": "catalog:",
     "@opentelemetry/api": "catalog:",
@@ -88,7 +77,7 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "typescript": "^7.0.2"
+    "typescript": "catalog:"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css}": "biome check --write --no-errors-on-unmatched"
