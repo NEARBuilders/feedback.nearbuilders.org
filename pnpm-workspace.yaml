@@ -66,7 +66,7 @@ catalog:
   drizzle-orm: ^0.45.1
   effect: 4.0.0-rc.117
   every-plugin: ^3.0.0-rc.10
-  everything-dev: ^2.0.0-rc.15
+  everything-dev: ^2.0.0-rc.16
   near-kit: ^0.20.2
   pg: ^8.12.0
   react: 19.2.4
@@ -79,4 +79,4 @@ catalog:
 minimumReleaseAgeExclude:
   - better-near-auth@2.0.0-rc.2 || 2.0.0-rc.3
   - every-plugin@3.0.0-rc.9 || 3.0.0-rc.10
-  - everything-dev@2.0.0-rc.14 || 2.0.0-rc.15
+  - everything-dev@2.0.0-rc.14 || 2.0.0-rc.15 || 2.0.0-rc.16
