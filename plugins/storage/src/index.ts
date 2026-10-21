@@ -53,7 +53,7 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.gen(function* () {
-      const Database = DatabaseLive(config.secrets.STORAGE_DATABASE_URL);
+      const Database = DatabaseLive(config);
       const Storage = StorageLive({
         endpoint: config.secrets.STORAGE_ENDPOINT,
         bucket: config.secrets.STORAGE_BUCKET,

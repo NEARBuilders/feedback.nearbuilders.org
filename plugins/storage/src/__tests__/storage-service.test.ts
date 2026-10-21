@@ -48,9 +48,14 @@ function withService<T>(
 ): Promise<T> {
   return Effect.runPromise(
     Effect.gen(function* () {
-      const layer = StorageLive(config)
-        .pipe(Layer.provide(DatabaseLive(`pglite:${dataDir}`)))
-        .pipe(Layer.provide(Layer.succeed(PluginIdTag, "@everything-dev/storage-plugin")));
+      const layer = StorageLive(config).pipe(
+        Layer.provide(
+          DatabaseLive({
+            pluginId: "@everything-dev/storage-plugin",
+            secrets: { STORAGE_DATABASE_URL: `pglite:${dataDir}` },
+          }),
+        ),
+      );
       const context = yield* Layer.build(layer);
       const service = Context.get(context, StorageTag);
       return yield* Effect.promise(() => fn(service));
