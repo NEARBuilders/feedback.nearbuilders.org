@@ -37,7 +37,6 @@ jobs:
   # Remove once the fix lands in a release train (bump the reusable refs).
   platform-drift:
     name: Platform Drift
-    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (Node 24)
@@ -47,6 +46,8 @@ jobs:
           node-version: 24
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec bos upgrade --check
+        # false positive until everything-dev#518 ships — see job comment
+        continue-on-error: true
 
   # Merge gate for branch protection. Require this check name ("Lint and Type
   # Check") in Settings → Branches — it is child-owned and slash-free, unlike
