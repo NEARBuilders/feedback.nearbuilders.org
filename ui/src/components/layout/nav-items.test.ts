@@ -62,9 +62,9 @@ describe("dashboard navigation", () => {
     expect(getActiveItem(NAV_ITEMS, "/settings/profile")).toBeUndefined();
   });
 
-  it("only links to pages that render inside the shell", () => {
+  it("keeps public links on the marketing shell and workspace links in the app shell", () => {
     for (const item of NAV_ITEMS) {
-      expect(shouldUseAppShell(true, item.to), item.to).toBe(true);
+      expect(shouldUseAppShell(true, item.to), item.to).toBe(item.roleRequired !== "anon");
     }
   });
 });

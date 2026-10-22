@@ -12,7 +12,7 @@ type SearchParams = {
 };
 
 function afterLogin(redirect?: string) {
-  return redirect?.startsWith("/") ? redirect : "/rounds";
+  return redirect?.startsWith("/") ? redirect : "/";
 }
 
 export const Route = createFileRoute("/_public/login")({
