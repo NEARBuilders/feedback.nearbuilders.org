@@ -247,6 +247,23 @@ describe("private rounds (#101)", () => {
       for (const id of cursorIds) expect(own).toContain(id);
     });
 
+    it("ignores an author filter that names someone else", async () => {
+      const { round, mine } = await seeded();
+      const author = await getPluginClient(nearAuthedContext("priv-page-a.near"));
+      const other = await author.listFeedback({ id: round.id, author: "priv-page-b.near" });
+      expect(other).toEqual({ items: [], nextCursor: null });
+      const own = await author.listFeedback({ id: round.id, author: "priv-page-a.near" });
+      expect(own.items.map((f) => f.id).sort()).toEqual(mine.map((f) => f.id).sort());
+      const stranger = await getPluginClient(nearAuthedContext("priv-page-stranger-2.near"));
+      expect(
+        await stranger.listFeedback({
+          id: round.id,
+          author: "priv-page-a.near",
+          status: "unresolved",
+        }),
+      ).toEqual({ items: [], nextCursor: null });
+    });
+
     it("pages managers and admins through every submission", async () => {
       const { round, owner, mine, theirs } = await seeded();
       const every = [...mine, ...theirs].map((f) => f.id).sort();

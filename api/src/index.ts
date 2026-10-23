@@ -1502,23 +1502,37 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getBuilderRounds: builder.getBuilderRounds.handler(async ({ input, context }) => {
         const rounds = await getRuntime().rounds.listBuilderRounds(input.accountId);
         // A private round's credit names who posted (#101), so it only shows to the builder,
-        // the round's managers and admins.
-        const seesAll =
-          isSiteAdmin(context) ||
-          linkedAccountIds(context as LinkedAccountsContext).includes(input.accountId);
-        const visible = [];
-        for (const { isPrivate, ...round } of rounds) {
-          if (isPrivate && !seesAll) {
-            const record = await getRuntime().rounds.resolveRoundById(round.roundId);
-            const project =
-              record &&
-              (await getRuntime().projectRecords.resolveProjectById(record.projectRecordId));
-            if (!record || !canManageRound(record, project, await resolveActor(project, context)))
-              continue;
+        // the round's managers and admins. Someone with no linked account, organization or
+        // org key can't manage any round, so they skip the per-project lookups.
+        const accountIds = linkedAccountIds(context as LinkedAccountsContext);
+        const seesAll = isSiteAdmin(context) || accountIds.includes(input.accountId);
+        const canManageAny =
+          accountIds.length > 0 ||
+          !!context.organization?.activeOrganizationId ||
+          !!orgKeyOrganizationId(context);
+        const access = new Map<
+          string,
+          Promise<{ project: ProjectRecord | null; actor: RoundActor }>
+        >();
+        const accessFor = (projectRecordId: string) => {
+          let entry = access.get(projectRecordId);
+          if (!entry) {
+            entry = getRuntime()
+              .projectRecords.resolveProjectById(projectRecordId)
+              .then(async (project) => ({ project, actor: await resolveActor(project, context) }));
+            access.set(projectRecordId, entry);
           }
-          visible.push(round);
-        }
-        return visible;
+          return entry;
+        };
+        const visible = await Promise.all(
+          rounds.map(async ({ isPrivate, ownerAccountId, projectRecordId, ...round }) => {
+            if (!isPrivate || seesAll) return round;
+            if (!canManageAny) return null;
+            const { project, actor } = await accessFor(projectRecordId);
+            return canManageRound({ ownerAccountId }, project, actor) ? round : null;
+          }),
+        );
+        return visible.filter((round) => round !== null);
       }),
 
       getRoundEndorsements: builder.getRoundEndorsements.handler(async ({ input }) => {

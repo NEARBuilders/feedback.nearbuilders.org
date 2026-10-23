@@ -376,6 +376,57 @@ describe("accepting feedback", () => {
 
       const [row] = await db.select().from(activityOutbox);
       expect(row?.payload).toEqual({ roundId: round.id, format: "written" });
+      expect(row?.idempotencyKey).toMatch(/^feedback\.accepted:/);
+      expect(row?.idempotencyKey).not.toContain(feedback.id);
+    });
+  });
+
+  it("cancels a private round's queued emit when acceptance is reversed", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "accept-private-undo", true);
+
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "dismissed");
+
+      const rows = await db.select().from(activityOutbox);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.status).toBe("cancelled");
+    });
+  });
+
+  it("still cancels the queued emit after the round turns private", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "accept-turned-private");
+
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      await rounds.updateRoundSettings(round.id, { isPrivate: true });
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "dismissed");
+
+      const rows = await db.select().from(activityOutbox);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.status).toBe("cancelled");
+    });
+  });
+
+  it("retracts a private round's delivered event when acceptance is reversed", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(
+        harness,
+        "accept-private-retract",
+        true,
+      );
+
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      await db.update(activityOutbox).set({ status: "sent", eventId: "event-private" });
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "dismissed");
+
+      const retract = (await db.select().from(activityOutbox)).find(
+        (row) => row.operation === "retract",
+      );
+      expect(retract).toMatchObject({ targetEventId: "event-private", status: "pending" });
     });
   });
 
@@ -591,12 +642,26 @@ describe("backfilling accepted feedback", () => {
   it("leaves a private round's feedback id out of the backfilled payload", async () => {
     await withHarness(async (harness) => {
       const { db, rounds } = harness;
-      const { round } = await acceptedBeforeOutbox(harness, "backfill-private", true);
+      const { round, feedback } = await acceptedBeforeOutbox(harness, "backfill-private", true);
 
       await rounds.backfillAcceptedFeedback();
 
       const [row] = await db.select().from(activityOutbox);
       expect(row?.payload).toEqual({ roundId: round.id, format: "written" });
+      expect(row?.idempotencyKey).not.toContain(feedback.id);
+      expect(await rounds.backfillAcceptedFeedback()).toEqual({ queued: 0, skipped: 1 });
+    });
+  });
+
+  it("treats an emit queued before the round turned private as known", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "backfill-turned-private");
+      await rounds.setFeedbackStatus(round.id, [feedback.id], "resolved");
+      await rounds.updateRoundSettings(round.id, { isPrivate: true });
+
+      expect(await rounds.backfillAcceptedFeedback()).toEqual({ queued: 0, skipped: 1 });
+      expect(await db.select().from(activityOutbox)).toHaveLength(1);
     });
   });
 

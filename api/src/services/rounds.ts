@@ -28,7 +28,13 @@ import {
   rounds as roundsTable,
 } from "../db/schema";
 import type { Transaction } from "../db/transaction";
-import { cancelPendingActivity, enqueueActivity, findEmittedEventId } from "./activity-outbox";
+import {
+  type ActivityEmitIntent,
+  cancelPendingActivity,
+  enqueueActivity,
+  findEmittedEventId,
+} from "./activity-outbox";
+import { keyForms, redactPrivateEvent } from "./activity-privacy";
 import { ensureProject } from "./project-records";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
@@ -221,6 +227,9 @@ export interface BuilderRoundRecord {
   creditedAt: string;
   /** Private rounds (#101) are filtered by the caller before this leaves the API. */
   isPrivate: boolean;
+  /** For that filter's management check; never returned to clients. */
+  ownerAccountId: string;
+  projectRecordId: string;
 }
 
 export interface MyJoinedRoundRecord {
@@ -416,15 +425,22 @@ function acceptanceKey(row: RoundFeedbackRow): string {
   return `feedback.accepted:${row.id}:${at}`;
 }
 
-/** Never the body, and on a private round not the feedback id either (#101). */
-function acceptancePayload(
-  row: Pick<RoundFeedbackRow, "id" | "format">,
+/** Never the body; a private round's event also goes out redacted (#101). */
+async function acceptanceIntent(
+  row: RoundFeedbackRow,
   roundId: string,
   isPrivate: boolean,
-) {
-  return isPrivate
-    ? { roundId, format: row.format }
-    : { feedbackId: row.id, roundId, format: row.format };
+): Promise<ActivityEmitIntent> {
+  const intent: ActivityEmitIntent = {
+    operation: "emit",
+    eventType: "feedback.accepted",
+    actor: row.authorAccountId,
+    idempotencyKey: acceptanceKey(row),
+    payload: { feedbackId: row.id, roundId, format: row.format },
+    subjectKind: "feedback_accepted",
+    subjectId: row.id,
+  };
+  return isPrivate ? redactPrivateEvent(intent, row.id) : intent;
 }
 
 /**
@@ -436,9 +452,12 @@ async function reverseAcceptance(
   prior: RoundFeedbackRow,
   reason: string,
 ): Promise<void> {
-  const cancelled = await cancelPendingActivity(tx, acceptanceKey(prior));
-  const deliveredEventId =
-    prior.acceptedActivityEventId ?? (await findEmittedEventId(tx, acceptanceKey(prior)));
+  let cancelled = false;
+  let deliveredEventId = prior.acceptedActivityEventId;
+  for (const key of await keyForms(acceptanceKey(prior), prior.id)) {
+    if (await cancelPendingActivity(tx, key)) cancelled = true;
+    deliveredEventId ??= await findEmittedEventId(tx, key);
+  }
   if (!cancelled && deliveredEventId) {
     await enqueueActivity(tx, {
       operation: "retract",
@@ -463,12 +482,18 @@ async function queueAcceptanceEvents(
   after: RoundFeedbackRow[],
 ): Promise<void> {
   const previous = new Map(before.map((row) => [row.id, row]));
-  const [round] = await tx
-    .select({ isPrivate: roundsTable.isPrivate })
-    .from(roundsTable)
-    .where(eq(roundsTable.id, roundId))
-    .limit(1);
-  const isPrivate = round?.isPrivate ?? false;
+  let isPrivate: boolean | undefined;
+  const roundIsPrivate = async () => {
+    if (isPrivate === undefined) {
+      const [round] = await tx
+        .select({ isPrivate: roundsTable.isPrivate })
+        .from(roundsTable)
+        .where(eq(roundsTable.id, roundId))
+        .limit(1);
+      isPrivate = round?.isPrivate ?? false;
+    }
+    return isPrivate;
+  };
 
   for (const row of after) {
     const prior = previous.get(row.id);
@@ -479,15 +504,7 @@ async function queueAcceptanceEvents(
     if (wasAccepted === isAccepted) continue;
 
     if (isAccepted) {
-      await enqueueActivity(tx, {
-        operation: "emit",
-        eventType: "feedback.accepted",
-        actor: row.authorAccountId,
-        idempotencyKey: acceptanceKey(row),
-        payload: acceptancePayload(row, roundId, isPrivate),
-        subjectKind: "feedback_accepted",
-        subjectId: row.id,
-      });
+      await enqueueActivity(tx, await acceptanceIntent(row, roundId, await roundIsPrivate()));
       continue;
     }
 
@@ -1213,6 +1230,8 @@ export const RoundsLive = Layer.effect(
               repoUrl: roundsTable.repoUrl,
               closedAt: roundsTable.closedAt,
               isPrivate: roundsTable.isPrivate,
+              ownerAccountId: roundsTable.ownerAccountId,
+              projectRecordId: roundsTable.projectRecordId,
             })
             .from(roundCreditsTable)
             .innerJoin(roundsTable, eq(roundsTable.id, roundCreditsTable.roundId))
@@ -1245,6 +1264,8 @@ export const RoundsLive = Layer.effect(
               closedAt,
               creditedAt,
               isPrivate: row.isPrivate,
+              ownerAccountId: row.ownerAccountId,
+              projectRecordId: row.projectRecordId,
             };
           });
         } catch (error) {
@@ -1424,8 +1445,9 @@ export const RoundsLive = Layer.effect(
             // Anything with an event id was delivered, so only rows without one
             // can be missing from the gateway.
             const resolved = await tx
-              .select()
+              .select({ ...getTableColumns(roundFeedbackTable), isPrivate: roundsTable.isPrivate })
               .from(roundFeedbackTable)
+              .innerJoin(roundsTable, eq(roundsTable.id, roundFeedbackTable.roundId))
               .where(
                 and(
                   eq(roundFeedbackTable.status, "resolved"),
@@ -1436,43 +1458,29 @@ export const RoundsLive = Layer.effect(
 
             // Keyed exactly as `queueAcceptanceEvents` does, so a later
             // un-accept or delete finds this event and can cancel or retract it.
-            const keyed = resolved.map((row) => ({ row, key: acceptanceKey(row) }));
+            // Either key form counts as known: the round may have changed privacy since.
+            const keyed = await Promise.all(
+              resolved.map(async ({ isPrivate, ...row }) => ({
+                row,
+                isPrivate,
+                forms: await keyForms(acceptanceKey(row), row.id),
+              })),
+            );
             const existing = await tx
               .select({ key: activityOutboxTable.idempotencyKey })
               .from(activityOutboxTable)
               .where(
                 inArray(
                   activityOutboxTable.idempotencyKey,
-                  keyed.map((entry) => entry.key),
+                  keyed.flatMap((entry) => entry.forms),
                 ),
               );
             const known = new Set(existing.map((entry) => entry.key));
-            const privateRounds = new Set(
-              (
-                await tx
-                  .select({ id: roundsTable.id })
-                  .from(roundsTable)
-                  .where(
-                    and(
-                      inArray(roundsTable.id, [...new Set(resolved.map((row) => row.roundId))]),
-                      eq(roundsTable.isPrivate, true),
-                    ),
-                  )
-              ).map((round) => round.id),
-            );
 
             let queued = 0;
-            for (const { row, key } of keyed) {
-              if (known.has(key)) continue;
-              await enqueueActivity(tx, {
-                operation: "emit",
-                eventType: "feedback.accepted",
-                actor: row.authorAccountId,
-                idempotencyKey: key,
-                payload: acceptancePayload(row, row.roundId, privateRounds.has(row.roundId)),
-                subjectKind: "feedback_accepted",
-                subjectId: row.id,
-              });
+            for (const { row, isPrivate, forms } of keyed) {
+              if (forms.some((key) => known.has(key))) continue;
+              await enqueueActivity(tx, await acceptanceIntent(row, row.roundId, isPrivate));
               queued += 1;
             }
             return { queued, skipped: resolved.length - queued };

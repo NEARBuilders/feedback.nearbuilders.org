@@ -26,6 +26,7 @@ import {
   type ActivityLeaderboard,
   type JsonValue,
 } from "./activity-client";
+import { redactPrivateEvent } from "./activity-privacy";
 
 export type { ActivityEventType };
 
@@ -133,11 +134,6 @@ export interface ActivityEventSubmission {
   payload: Record<string, JsonValue>;
 }
 
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 export function createActivityEmitter(options: ActivityEmitterOptions = {}): ActivityEmitter {
   const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
   const apiKey = options.apiKey ?? "";
@@ -215,21 +211,20 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
         },
       }),
 
-    emitFeedbackPosted: async (feedback) =>
-      submit({
+    emitFeedbackPosted: async (feedback) => {
+      const event: ActivityEventSubmission = {
         eventType: "feedback.posted",
         actor: feedback.authorAccountId,
-        // Activity serves the key publicly, so a private round's is a digest of the id.
-        idempotencyKey: `feedback.posted:${
-          feedback.isPrivate ? await sha256Hex(feedback.id) : feedback.id
-        }`,
+        idempotencyKey: `feedback.posted:${feedback.id}`,
         payload: {
-          ...(feedback.isPrivate ? {} : { feedbackId: feedback.id }),
+          feedbackId: feedback.id,
           roundId: feedback.roundId,
           format: feedback.format,
           ...(feedback.roundTitle ? { roundTitle: feedback.roundTitle } : {}),
         },
-      }),
+      };
+      return submit(feedback.isPrivate ? await redactPrivateEvent(event, feedback.id) : event);
+    },
 
     emitRoundClosed: (round) =>
       submit({
@@ -243,8 +238,8 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
         },
       }),
 
-    emitCreditAwarded: (credit) =>
-      submit({
+    emitCreditAwarded: async (credit) => {
+      const event: ActivityEventSubmission = {
         eventType: "credit.awarded",
         actor: credit.builderAccountId,
         idempotencyKey: `credit.awarded:${credit.roundId}:${credit.builderAccountId}`,
@@ -254,9 +249,11 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           roundTitle: credit.roundTitle,
           writtenCount: credit.writtenCount,
           recordedCount: credit.recordedCount,
-          ...(credit.isPrivate ? {} : { summary: credit.summary }),
+          summary: credit.summary,
         },
-      }),
+      };
+      return submit(credit.isPrivate ? await redactPrivateEvent(event) : event);
+    },
 
     retract: async (eventId, reason) => {
       if (!enabled) return;
