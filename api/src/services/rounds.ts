@@ -227,6 +227,7 @@ export interface MyJoinedRoundRecord {
   projectSlug: string;
   projectRoundNumber: number;
   status: RoundStatus;
+  endsAt: string | null;
   formats: RoundFormat[];
   readme: string;
   repoUrl: string | null;
@@ -1241,6 +1242,7 @@ export const RoundsLive = Layer.effect(
               projectSlug: roundsTable.projectSlug,
               projectRoundNumber: roundsTable.projectRoundNumber,
               status: roundsTable.status,
+              endsAt: roundsTable.endsAt,
               formats: roundsTable.formats,
               readme: roundsTable.readme,
               repoUrl: roundsTable.repoUrl,
@@ -1282,6 +1284,7 @@ export const RoundsLive = Layer.effect(
             projectSlug: row.projectSlug,
             projectRoundNumber: row.projectRoundNumber,
             status: row.status,
+            endsAt: row.endsAt instanceof Date ? row.endsAt.toISOString() : null,
             formats: row.formats as RoundFormat[],
             readme: row.readme,
             repoUrl: row.repoUrl,
@@ -1301,7 +1304,7 @@ export const RoundsLive = Layer.effect(
           // and feedback joins would multiply each other's rows.
           const [row] = await db
             .select({
-              openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundsTable.status} = 'open')::int`,
+              openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundsTable.status} = 'open' and (${roundsTable.endsAt} is null or ${roundsTable.endsAt} > now()))::int`,
               unresolvedFeedback: sql<number>`count(distinct ${roundFeedbackTable.id}) filter (where ${roundFeedbackTable.status} = 'unresolved')::int`,
               pendingProjects: sql<number>`count(distinct ${projectsTable.id}) filter (where ${projectsTable.status} = 'pending')::int`,
             })

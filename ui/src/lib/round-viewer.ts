@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { participationQueryOptions } from "@/lib/queries/participation";
 import { roundCta } from "@/lib/round-cta";
+import { isRoundExpired } from "@/lib/round-expiry";
 import { roundHref } from "@/lib/round-links";
 import type { RoundDetail } from "@/lib/round-route";
 import { useNearAccountStatus } from "@/lib/use-near-account";
@@ -33,7 +34,7 @@ export function useRoundViewer(round: RoundDetail) {
   const isOwner = accountIds.includes(round.ownerAccountId);
   const isOpen = round.status === "open";
   const now = useNow(isOpen && !!round.endsAt);
-  const isExpired = isOpen && !!round.endsAt && new Date(round.endsAt).getTime() <= now;
+  const isExpired = isRoundExpired(round, now);
 
   return {
     accountId,

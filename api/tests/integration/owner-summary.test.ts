@@ -54,6 +54,27 @@ describe("getOwnerSummary", () => {
     expect(summary).toEqual({ openRounds: 1, unresolvedFeedback: 1, pendingProjects: 0 });
   });
 
+  it("does not count a round past its end date as open", async () => {
+    const n = ++counter;
+    const owner = await getPluginClient(nearAuthedContext("owner-summary-expired.near"));
+    const round = await owner.createRound({
+      projectSlug: `owner-summary-${n}`,
+      title: `Round ${n}`,
+      description: "Expired coverage",
+      formats: ["written"],
+      endsAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const admin = await getPluginClient(adminContext());
+    await admin.approveProject({ id: round.projectRecordId });
+    expect((await owner.getOwnerSummary()).openRounds).toBe(1);
+
+    await owner.updateRoundSettings({
+      id: round.id,
+      endsAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    expect((await owner.getOwnerSummary()).openRounds).toBe(0);
+  });
+
   it("excludes resolved and dismissed feedback from the unresolved count", async () => {
     const { owner, round } = await openRoundFor("owner-summary2.near");
     const a = await post("tester-c.near", round.id, "resolve me");

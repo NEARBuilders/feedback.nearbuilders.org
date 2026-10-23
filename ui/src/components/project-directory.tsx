@@ -3,6 +3,7 @@ import { ArrowRight, Globe } from "lucide-react";
 import type { ApiClient } from "@/app";
 import { Badge, Card } from "@/components";
 import { ProjectAvatar, projectDomainLabel, projectDomainUrl } from "@/components/project-identity";
+import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 import { roundParams } from "@/lib/round-links";
 
 type PublicProject = Awaited<ReturnType<ApiClient["listPublicProjects"]>>[number];
@@ -27,7 +28,7 @@ function ProjectCard({ project }: { project: PublicProject }) {
   const name = project.identity?.title ?? project.name;
   const domain = projectDomainLabel(project.identity);
   const domainUrl = projectDomainUrl(project.identity);
-  const openRounds = project.rounds.filter((round) => round.status === "open");
+  const openRounds = project.rounds.filter((round) => isRoundAcceptingFeedback(round));
   const latest = openRounds.at(-1) ?? project.rounds.at(-1);
 
   return (
@@ -73,7 +74,7 @@ function ProjectCard({ project }: { project: PublicProject }) {
             params={roundParams({ ...latest, projectSlug: project.slug })}
             className="inline-flex items-center gap-1 font-medium text-foreground hover:underline"
           >
-            {latest.status === "open" ? "join round" : "latest round"}
+            {isRoundAcceptingFeedback(latest) ? "join round" : "latest round"}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         )}

@@ -15,6 +15,7 @@ function round(overrides: Partial<WorkspaceRound> = {}): WorkspaceRound {
     projectSlug: "project",
     projectRoundNumber: 1,
     status: "open",
+    endsAt: null,
     formats: ["written"],
     readme: "",
     repoUrl: null,
@@ -83,5 +84,14 @@ describe("helpers", () => {
     expect(feedbackPostedLabel(0)).toBe("No feedback posted yet");
     expect(feedbackPostedLabel(1)).toBe("1 feedback item posted");
     expect(feedbackPostedLabel(3)).toBe("3 feedback items posted");
+  });
+});
+
+describe("expired rounds", () => {
+  const expired = round({ endsAt: "2020-01-01T00:00:00.000Z" });
+
+  it("stop asking the tester for feedback", () => {
+    expect(awaitingFeedback(expired)).toBe(false);
+    expect(nextAction(expired)).toEqual({ kind: "view-round", label: "view round" });
   });
 });
