@@ -16,6 +16,7 @@ interface FeedbackListProps<T extends FeedbackEntry> {
   roundId: string;
   entries: T[];
   currentAccountIds: string[];
+  canEdit: boolean;
   canDelete: boolean;
   renderFooter?: (entry: T) => ReactNode;
 }
@@ -24,6 +25,7 @@ export function FeedbackList<T extends FeedbackEntry>({
   roundId,
   entries,
   currentAccountIds,
+  canEdit,
   canDelete,
   renderFooter,
 }: FeedbackListProps<T>) {
@@ -96,7 +98,7 @@ export function FeedbackList<T extends FeedbackEntry>({
                 <span className="flex shrink-0 items-center gap-1">
                   {entry.starredAt && <StarBadge data-testid="star-badge" />}
                   <FeedbackStatusBadge status={entry.status} />
-                  {isOwn && canDelete && editId !== entry.id && (
+                  {isOwn && canEdit && editId !== entry.id && (
                     <Button
                       variant="ghost"
                       size="icon-sm"
