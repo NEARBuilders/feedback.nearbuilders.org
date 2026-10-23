@@ -7,6 +7,7 @@ import { ActionCard } from "@/components/action-card";
 import { FeedbackList } from "@/components/feedback-list";
 import { LoadMoreButton } from "@/components/load-more-button";
 import { RoundRepoLinks } from "@/components/round-repo-links";
+import { roundFeedbackPermissions } from "@/lib/feedback-edit";
 import { roundFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { loadRound, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
@@ -66,6 +67,7 @@ function RoundFeedbackPage() {
   const round = useRound(params);
   const apiClient = useApiClient();
   const viewer = useRoundViewer(round);
+  const feedbackPermissions = roundFeedbackPermissions(round.status, viewer.isExpired);
   const navigate = useNavigate();
   const feedbackQuery = useSuspenseInfiniteQuery(
     roundFeedbackQueryOptions(apiClient, round.id, { author: search.author }),
@@ -145,7 +147,7 @@ function RoundFeedbackPage() {
           roundId={round.id}
           entries={entries}
           currentAccountIds={viewer.accountIds}
-          canDelete={round.status === "open"}
+          {...feedbackPermissions}
         />
       )}
 

@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { canSaveFeedbackEdit, isOwnFeedback } from "./feedback-edit";
+import { canSaveFeedbackEdit, isOwnFeedback, roundFeedbackPermissions } from "./feedback-edit";
+
+describe("roundFeedbackPermissions", () => {
+  it("allows editing and deletion while an open round is active", () => {
+    expect(roundFeedbackPermissions("open", false)).toEqual({ canEdit: true, canDelete: true });
+  });
+
+  it("keeps deletion available after an open round expires but disables editing", () => {
+    expect(roundFeedbackPermissions("open", true)).toEqual({ canEdit: false, canDelete: true });
+  });
+
+  it("disables both actions after a round is closed", () => {
+    expect(roundFeedbackPermissions("closed", false)).toEqual({ canEdit: false, canDelete: false });
+  });
+});
 
 describe("isOwnFeedback", () => {
   it("matches any linked wallet, not only the active one", () => {

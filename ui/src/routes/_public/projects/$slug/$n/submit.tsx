@@ -8,6 +8,7 @@ import { FeedbackComposer } from "@/components/feedback-composer";
 import { FeedbackList } from "@/components/feedback-list";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
 import { RouteError, RoutePending } from "@/components/route-states";
+import { roundFeedbackPermissions } from "@/lib/feedback-edit";
 import { myFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { myFeedbackHref } from "@/lib/round-links";
 import { loadRound, type RoundDetail, useRound } from "@/lib/round-route";
@@ -32,6 +33,7 @@ function SubmitFeedbackTab() {
   const params = Route.useParams();
   const round = useRound(params);
   const viewer = useRoundViewer(round);
+  const feedbackPermissions = roundFeedbackPermissions(round.status, viewer.isExpired);
 
   if (!viewer.canPost && !viewer.joined) {
     return (
@@ -49,7 +51,12 @@ function SubmitFeedbackTab() {
   return (
     <div className="space-y-6">
       {viewer.canPost && <FeedbackComposer round={round} accountId={viewer.accountId} />}
-      <MySubmissions round={round} accountId={viewer.accountId} accountIds={viewer.accountIds} />
+      <MySubmissions
+        round={round}
+        accountId={viewer.accountId}
+        accountIds={viewer.accountIds}
+        feedbackPermissions={feedbackPermissions}
+      />
     </div>
   );
 }
@@ -58,10 +65,12 @@ function MySubmissions({
   round,
   accountId,
   accountIds,
+  feedbackPermissions,
 }: {
   round: RoundDetail;
   accountId: string | null;
   accountIds: string[];
+  feedbackPermissions: ReturnType<typeof roundFeedbackPermissions>;
 }) {
   const apiClient = useApiClient();
   const { data: mine } = useSuspenseQuery(myFeedbackQueryOptions(apiClient, round.id));
@@ -95,7 +104,7 @@ function MySubmissions({
           roundId={round.id}
           entries={mine}
           currentAccountIds={accountIds}
-          canDelete={round.status === "open"}
+          {...feedbackPermissions}
           renderFooter={(entry) => (
             <>
               <FeedbackNoteThread notes={entry.notes} />

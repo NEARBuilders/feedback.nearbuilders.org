@@ -1,5 +1,10 @@
 import { FEEDBACK_TEXT_MAX, feedbackTextLength, hasUnuploadedImage } from "./feedback-body";
 
+export function roundFeedbackPermissions(status: string, isExpired: boolean) {
+  const canDelete = status === "open";
+  return { canEdit: canDelete && !isExpired, canDelete };
+}
+
 export function isOwnFeedback(authorAccountId: string, currentAccountIds: string[]): boolean {
   return currentAccountIds.includes(authorAccountId);
 }
