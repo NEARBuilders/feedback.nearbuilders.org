@@ -1084,6 +1084,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const round = await visibleRound(input.id, context);
         const feedback = await getRuntime().rounds.getFeedback(round.id, input.feedbackId);
         if (!feedback) throw feedbackNotFound(input.feedbackId);
+        if (round.isPrivate) {
+          const project = await getRuntime().projectRecords.resolveProjectById(
+            round.projectRecordId,
+          );
+          const canReadAll = canReadAllFeedback(
+            round,
+            project,
+            await resolveActor(project, context),
+            isSiteAdmin(context),
+          );
+          if (
+            filterVisibleFeedback(
+              [feedback],
+              canReadAll,
+              linkedAccountIds(context as LinkedAccountsContext),
+            ).length === 0
+          ) {
+            throw feedbackNotFound(input.feedbackId);
+          }
+        }
         const canSeeNotes =
           managesRound(round, context) ||
           linkedAccountIds(context as LinkedAccountsContext).includes(feedback.authorAccountId);
