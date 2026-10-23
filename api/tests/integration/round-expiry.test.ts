@@ -71,4 +71,29 @@ describe("round expiration (#128)", () => {
       tester.postFeedback({ id: round.id, format: "written", body: "Too late" }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+
+  it("blocks editing submitted feedback after expiry, and allows it again if extended", async () => {
+    const { round, owner } = await openRound({
+      endsAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const tester = await getPluginClient(nearAuthedContext("expiry-editor.near"));
+    await tester.joinRound({ id: round.id });
+    const feedback = await tester.postFeedback({
+      id: round.id,
+      format: "written",
+      body: "Original",
+    });
+    await owner.updateRoundSettings({
+      id: round.id,
+      endsAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    await expect(
+      tester.editFeedback({ id: round.id, feedbackId: feedback.id, body: "Too late" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "This round has expired" });
+
+    await owner.updateRoundSettings({ id: round.id, endsAt: null });
+    await expect(
+      tester.editFeedback({ id: round.id, feedbackId: feedback.id, body: "Back in time" }),
+    ).resolves.toMatchObject({ id: feedback.id });
+  });
 });
