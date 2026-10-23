@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
 import { roundCta } from "@/lib/round-cta";
+import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { roundHref, roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
@@ -88,7 +89,7 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
   const rowCta = (round: RoundDetail) =>
     roundCta({
       redirectTo: roundHref(round),
-      canJoin: round.status === "open" && accountId !== round.ownerAccountId,
+      canJoin: isRoundAcceptingFeedback(round) && accountId !== round.ownerAccountId,
       sessionPending,
       signedIn: !!session.data?.user,
       nearAccountId: accountId,

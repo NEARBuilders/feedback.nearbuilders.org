@@ -80,6 +80,7 @@ export const ProjectWithRoundsSchema = ProjectSchema.extend({
       title: z.string(),
       status: z.enum(["pending", "open", "closed", "rejected"]),
       projectRoundNumber: z.number().int().positive(),
+      endsAt: z.string().nullable(),
     }),
   ),
 });
@@ -326,6 +327,8 @@ export const MyJoinedRoundSchema = z.object({
   projectSlug: z.string(),
   projectRoundNumber: z.number().int().positive(),
   status: RoundStatusSchema,
+  /** When the round stops taking feedback; it stays `open` until a manager closes it. */
+  endsAt: z.string().nullable(),
   formats: z.array(RoundFormatSchema),
   /** Markdown for testers from the round owner; empty string when unset. */
   readme: z.string(),

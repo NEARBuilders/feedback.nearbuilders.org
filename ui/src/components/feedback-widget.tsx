@@ -10,6 +10,7 @@ import { FEEDBACK_TEXT_MAX, feedbackTextLength } from "@/lib/feedback-body";
 import { invalidateFeedbackQueries, myFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { projectQueryOptions } from "@/lib/queries/projects";
 import { roundBySlugQueryOptions } from "@/lib/queries/rounds";
+import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 import { useRoundJoinMutation } from "@/lib/round-join";
 import { roundHref } from "@/lib/round-links";
 import type { RoundDetail } from "@/lib/round-route";
@@ -63,7 +64,7 @@ function WidgetPanel({ projectSlug, onClose }: { projectSlug: string; onClose: (
   const apiClient = useApiClient();
   const project = useQuery(projectQueryOptions(apiClient, projectSlug));
   const latestOpen = project.data?.rounds
-    .filter((r) => r.status === "open")
+    .filter((r) => isRoundAcceptingFeedback(r))
     .reduce<{ projectRoundNumber: number } | null>(
       (best, r) => (!best || r.projectRoundNumber > best.projectRoundNumber ? r : best),
       null,

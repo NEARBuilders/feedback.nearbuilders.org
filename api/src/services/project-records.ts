@@ -40,6 +40,7 @@ export interface ProjectRoundSummary {
   title: string;
   status: (typeof roundStatus)["enumValues"][number];
   projectRoundNumber: number;
+  endsAt: string | null;
 }
 
 export interface ProjectWithRounds extends ProjectRecord {
@@ -208,6 +209,7 @@ async function withRounds(db: Database, rows: ProjectRow[]): Promise<ProjectWith
       title: roundsTable.title,
       status: roundsTable.status,
       projectRoundNumber: roundsTable.projectRoundNumber,
+      endsAt: roundsTable.endsAt,
       projectRecordId: roundsTable.projectRecordId,
     })
     .from(roundsTable)
@@ -222,7 +224,10 @@ async function withRounds(db: Database, rows: ProjectRow[]): Promise<ProjectWith
     ...toProjectRecord(row),
     rounds: roundRows
       .filter((r) => r.projectRecordId === row.id)
-      .map(({ projectRecordId: _projectRecordId, ...round }) => round),
+      .map(({ projectRecordId: _projectRecordId, endsAt, ...round }) => ({
+        ...round,
+        endsAt: endsAt instanceof Date ? endsAt.toISOString() : null,
+      })),
   }));
 }
 

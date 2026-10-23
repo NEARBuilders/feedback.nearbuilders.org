@@ -10,6 +10,7 @@ import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { loadProject, useProject } from "@/lib/project-route";
+import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 import { roundParams } from "@/lib/round-links";
 
 export const Route = createFileRoute("/_public/projects/$slug/")({
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/_public/projects/$slug/")({
 function ProjectPage() {
   const { slug } = Route.useParams();
   const project = useProject(slug);
-  const current = project.rounds.filter((round) => round.status === "open").at(-1);
+  const current = project.rounds.filter((round) => isRoundAcceptingFeedback(round)).at(-1);
   const identity = project.identity;
 
   return (

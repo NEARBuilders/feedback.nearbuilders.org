@@ -1,4 +1,5 @@
 import type { RoundStatus } from "@/lib/queries/rounds";
+import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 
 export interface WorkspaceRound {
   roundId: string;
@@ -6,6 +7,7 @@ export interface WorkspaceRound {
   projectSlug: string;
   projectRoundNumber: number;
   status: RoundStatus;
+  endsAt: string | null;
   formats: string[];
   readme: string;
   repoUrl: string | null;
@@ -34,7 +36,7 @@ export function roundIssuesUrl(round: { formats: string[]; repoUrl: string | nul
 }
 
 export function nextAction(round: WorkspaceRound): NextAction {
-  if (round.status !== "open") return { kind: "view-round", label: "view round" };
+  if (!isRoundAcceptingFeedback(round)) return { kind: "view-round", label: "view round" };
   if (collectsPostedFeedback(round)) {
     return round.myFeedbackCount === 0
       ? { kind: "give-feedback", label: "give feedback" }
@@ -45,7 +47,9 @@ export function nextAction(round: WorkspaceRound): NextAction {
 }
 
 export function awaitingFeedback(round: WorkspaceRound): boolean {
-  return round.status === "open" && collectsPostedFeedback(round) && round.myFeedbackCount === 0;
+  return (
+    isRoundAcceptingFeedback(round) && collectsPostedFeedback(round) && round.myFeedbackCount === 0
+  );
 }
 
 export interface WorkspaceGroups<T extends WorkspaceRound> {
@@ -61,7 +65,7 @@ function newestJoinedFirst(a: WorkspaceRound, b: WorkspaceRound): number {
 export function groupWorkspaceRounds<T extends WorkspaceRound>(rounds: T[]): WorkspaceGroups<T> {
   const groups: WorkspaceGroups<T> = { needsFeedback: [], submitted: [], closed: [] };
   for (const round of [...rounds].sort(newestJoinedFirst)) {
-    if (round.status !== "open") groups.closed.push(round);
+    if (!isRoundAcceptingFeedback(round)) groups.closed.push(round);
     else if (awaitingFeedback(round)) groups.needsFeedback.push(round);
     else groups.submitted.push(round);
   }
