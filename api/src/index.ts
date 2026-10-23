@@ -164,7 +164,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         // Nostr is detached from the composition (see services/feedback-nostr.ts);
         // test runtimes may still inject a nostr client — read past the
         // generated PluginsClient type at the seam.
-        nostr: (plugins as PluginsClient & { nostr?: NostrClientLike })["nostr"],
+        nostr: (plugins as PluginsClient & { nostr?: NostrClientLike }).nostr,
         secretKeyHex: config.secrets.NOSTR_SECRET_KEY_HEX,
       });
 
