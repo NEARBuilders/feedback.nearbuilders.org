@@ -1013,11 +1013,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
             authorAccountId: accountId,
             body,
           });
-          // The activity event never carries the feedback body, so it's safe for private
-          // rounds too (#101).
+          // The activity event never carries the feedback body, and on a private round not
+          // its id either (#101).
           const eventId = await getRuntime().activityEvents.emitFeedbackPosted({
             ...feedback,
             roundTitle: round.title,
+            isPrivate: round.isPrivate,
           });
           if (eventId) await getRuntime().rounds.setFeedbackActivityEventId(feedback.id, eventId);
           // A Nostr comment can't be retracted, so a private round's feedback never goes there.
@@ -1040,27 +1041,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listFeedback: builder.listFeedback.handler(async ({ input, context }) => {
         const round = await visibleRound(input.id, context);
-        const page = await getRuntime().rounds.listFeedback(round.id, input);
-        if (!round.isPrivate) return page;
         // Private round (#101): everything for the managing org/team and admins, otherwise
         // only the caller's own submissions. This one handler backs the HTTP route, the
-        // data table's export and the MCP `listFeedback` tool. The cursor stays derived from
-        // the unfiltered page, so filtering never blocks pagination.
-        const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
-        const canReadAll = canReadAllFeedback(
-          round,
-          project,
-          await resolveActor(project, context),
-          isSiteAdmin(context),
+        // data table's export and the MCP `listFeedback` tool. The author filter goes into
+        // the query, so the cursor only ever points at a row the caller can read.
+        if (!round.isPrivate || managesRound(round, context)) {
+          return getRuntime().rounds.listFeedback(round.id, input);
+        }
+        const authors = linkedAccountIds(context as LinkedAccountsContext).filter(
+          (accountId) => !input.author || accountId === input.author,
         );
-        return {
-          items: filterVisibleFeedback(
-            page.items,
-            canReadAll,
-            linkedAccountIds(context as LinkedAccountsContext),
-          ),
-          nextCursor: page.nextCursor,
-        };
+        if (authors.length === 0) return { items: [], nextCursor: null };
+        return getRuntime().rounds.listFeedback(round.id, {
+          ...input,
+          author: undefined,
+          authors,
+        });
       }),
 
       listMyFeedback: builder.listMyFeedback
@@ -1469,7 +1465,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const credits = await getRuntime().rounds.listRoundCredits(round.id);
           for (const credit of credits) {
             if (!credit.contributedMeaningfully) continue;
-            await getRuntime().activityEvents.emitCreditAwarded(credit);
+            await getRuntime().activityEvents.emitCreditAwarded({
+              ...credit,
+              isPrivate: round.isPrivate,
+            });
           }
           return withRoundIdentity(detail);
         }),
@@ -1500,9 +1499,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ).map(({ authorAccountId: _author, ...credit }) => credit);
       }),
 
-      getBuilderRounds: builder.getBuilderRounds.handler(async ({ input }) =>
-        getRuntime().rounds.listBuilderRounds(input.accountId),
-      ),
+      getBuilderRounds: builder.getBuilderRounds.handler(async ({ input, context }) => {
+        const rounds = await getRuntime().rounds.listBuilderRounds(input.accountId);
+        // A private round's credit names who posted (#101), so it only shows to the builder,
+        // the round's managers and admins.
+        const seesAll =
+          isSiteAdmin(context) ||
+          linkedAccountIds(context as LinkedAccountsContext).includes(input.accountId);
+        const visible = [];
+        for (const { isPrivate, ...round } of rounds) {
+          if (isPrivate && !seesAll) {
+            const record = await getRuntime().rounds.resolveRoundById(round.roundId);
+            const project =
+              record &&
+              (await getRuntime().projectRecords.resolveProjectById(record.projectRecordId));
+            if (!record || !canManageRound(record, project, await resolveActor(project, context)))
+              continue;
+          }
+          visible.push(round);
+        }
+        return visible;
+      }),
 
       getRoundEndorsements: builder.getRoundEndorsements.handler(async ({ input }) => {
         const eventIds = await getRuntime().rounds.listRoundActivityEventIds(input.roundIds);

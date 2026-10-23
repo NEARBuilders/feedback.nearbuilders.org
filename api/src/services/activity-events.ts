@@ -64,6 +64,8 @@ export interface FeedbackPostedInput {
   format: string;
   /** Carried instead of the body, which never leaves this app (#101). */
   roundTitle?: string;
+  /** A private round's feedback id stays in this app too (#101). */
+  isPrivate?: boolean;
 }
 
 export interface RoundClosedInput {
@@ -81,6 +83,8 @@ export interface CreditAwardedInput {
   writtenCount: number;
   recordedCount: number;
   summary: string | null;
+  /** A private round's credit summary stays in this app (#101). */
+  isPrivate?: boolean;
 }
 
 export interface LeaderboardInput {
@@ -127,6 +131,11 @@ export interface ActivityEventSubmission {
   actor: string;
   idempotencyKey: string;
   payload: Record<string, JsonValue>;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function createActivityEmitter(options: ActivityEmitterOptions = {}): ActivityEmitter {
@@ -206,13 +215,16 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
         },
       }),
 
-    emitFeedbackPosted: (feedback) =>
+    emitFeedbackPosted: async (feedback) =>
       submit({
         eventType: "feedback.posted",
         actor: feedback.authorAccountId,
-        idempotencyKey: `feedback.posted:${feedback.id}`,
+        // Activity serves the key publicly, so a private round's is a digest of the id.
+        idempotencyKey: `feedback.posted:${
+          feedback.isPrivate ? await sha256Hex(feedback.id) : feedback.id
+        }`,
         payload: {
-          feedbackId: feedback.id,
+          ...(feedback.isPrivate ? {} : { feedbackId: feedback.id }),
           roundId: feedback.roundId,
           format: feedback.format,
           ...(feedback.roundTitle ? { roundTitle: feedback.roundTitle } : {}),
@@ -242,7 +254,7 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           roundTitle: credit.roundTitle,
           writtenCount: credit.writtenCount,
           recordedCount: credit.recordedCount,
-          summary: credit.summary,
+          ...(credit.isPrivate ? {} : { summary: credit.summary }),
         },
       }),
 

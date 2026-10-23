@@ -196,4 +196,91 @@ describe("private rounds (#101)", () => {
     const credited = await getPluginClient(nearAuthedContext("priv-cred.near"));
     expect(await credited.listRoundCredits({ id: round.id })).toHaveLength(1);
   });
+
+  describe("paging through a private round", () => {
+    const cursorId = (cursor: string | null) => cursor?.split("|")[1] ?? null;
+
+    async function pageAll(client: Awaited<ReturnType<typeof getPluginClient>>, roundId: string) {
+      const ids: string[] = [];
+      const cursorIds: string[] = [];
+      let cursor: string | undefined;
+      for (let i = 0; i < 20; i++) {
+        const page = await client.listFeedback({ id: roundId, limit: 1, cursor });
+        ids.push(...page.items.map((item) => item.id));
+        if (!page.nextCursor) break;
+        const id = cursorId(page.nextCursor);
+        if (id) cursorIds.push(id);
+        cursor = page.nextCursor;
+      }
+      return { ids, cursorIds };
+    }
+
+    async function seeded() {
+      const setup = await privateRound();
+      const mine = [];
+      const theirs = [];
+      theirs.push(await post("priv-page-b.near", setup.round.id, "b1"));
+      mine.push(await post("priv-page-a.near", setup.round.id, "a1"));
+      theirs.push(await post("priv-page-b.near", setup.round.id, "b2"));
+      mine.push(await post("priv-page-a.near", setup.round.id, "a2"));
+      theirs.push(await post("priv-page-b.near", setup.round.id, "b3"));
+      return { ...setup, mine, theirs };
+    }
+
+    it("gives signed-out callers and outsiders no items and no cursor", async () => {
+      const { round } = await seeded();
+      for (const client of [
+        await getPluginClient(),
+        await getPluginClient(nearAuthedContext("priv-page-stranger.near")),
+      ]) {
+        const page = await client.listFeedback({ id: round.id, limit: 1 });
+        expect(page).toEqual({ items: [], nextCursor: null });
+      }
+    });
+
+    it("pages the author through their own submissions with cursors from those only", async () => {
+      const { round, mine } = await seeded();
+      const author = await getPluginClient(nearAuthedContext("priv-page-a.near"));
+      const { ids, cursorIds } = await pageAll(author, round.id);
+      const own = mine.map((f) => f.id);
+      expect(ids.sort()).toEqual([...own].sort());
+      for (const id of cursorIds) expect(own).toContain(id);
+    });
+
+    it("pages managers and admins through every submission", async () => {
+      const { round, owner, mine, theirs } = await seeded();
+      const every = [...mine, ...theirs].map((f) => f.id).sort();
+      expect((await pageAll(owner, round.id)).ids.sort()).toEqual(every);
+      const admin = await getPluginClient(adminContext());
+      expect((await pageAll(admin, round.id)).ids.sort()).toEqual(every);
+    });
+  });
+
+  it("keeps private-round credits off builder profiles for outsiders", async () => {
+    const { round, owner } = await privateRound();
+    await post("priv-profile.near", round.id, "Credited");
+    await owner.closeRound({
+      id: round.id,
+      credits: [
+        {
+          builderAccountId: "priv-profile.near",
+          contributedMeaningfully: true,
+          summary: "Found the checkout bug",
+        },
+      ],
+    });
+
+    const roundIds = async (client: Awaited<ReturnType<typeof getPluginClient>>) =>
+      (await client.getBuilderRounds({ accountId: "priv-profile.near" })).map((r) => r.roundId);
+
+    expect(await roundIds(await getPluginClient())).not.toContain(round.id);
+    expect(
+      await roundIds(await getPluginClient(nearAuthedContext("priv-profile-stranger.near"))),
+    ).not.toContain(round.id);
+    expect(await roundIds(await getPluginClient(nearAuthedContext("priv-profile.near")))).toContain(
+      round.id,
+    );
+    expect(await roundIds(owner)).toContain(round.id);
+    expect(await roundIds(await getPluginClient(adminContext()))).toContain(round.id);
+  });
 });

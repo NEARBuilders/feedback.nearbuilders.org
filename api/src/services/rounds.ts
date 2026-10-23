@@ -219,6 +219,8 @@ export interface BuilderRoundRecord {
   recordedCount: number;
   closedAt: string;
   creditedAt: string;
+  /** Private rounds (#101) are filtered by the caller before this leaves the API. */
+  isPrivate: boolean;
 }
 
 export interface MyJoinedRoundRecord {
@@ -414,6 +416,17 @@ function acceptanceKey(row: RoundFeedbackRow): string {
   return `feedback.accepted:${row.id}:${at}`;
 }
 
+/** Never the body, and on a private round not the feedback id either (#101). */
+function acceptancePayload(
+  row: Pick<RoundFeedbackRow, "id" | "format">,
+  roundId: string,
+  isPrivate: boolean,
+) {
+  return isPrivate
+    ? { roundId, format: row.format }
+    : { feedbackId: row.id, roundId, format: row.format };
+}
+
 /**
  * Undo a `feedback.accepted` emit: cancel it if it was never delivered,
  * otherwise queue a retraction of the delivered event.
@@ -450,6 +463,12 @@ async function queueAcceptanceEvents(
   after: RoundFeedbackRow[],
 ): Promise<void> {
   const previous = new Map(before.map((row) => [row.id, row]));
+  const [round] = await tx
+    .select({ isPrivate: roundsTable.isPrivate })
+    .from(roundsTable)
+    .where(eq(roundsTable.id, roundId))
+    .limit(1);
+  const isPrivate = round?.isPrivate ?? false;
 
   for (const row of after) {
     const prior = previous.get(row.id);
@@ -465,8 +484,7 @@ async function queueAcceptanceEvents(
         eventType: "feedback.accepted",
         actor: row.authorAccountId,
         idempotencyKey: acceptanceKey(row),
-        // Never the body: private rounds must not leak through activity (#101).
-        payload: { feedbackId: row.id, roundId, format: row.format },
+        payload: acceptancePayload(row, roundId, isPrivate),
         subjectKind: "feedback_accepted",
         subjectId: row.id,
       });
@@ -1194,6 +1212,7 @@ export const RoundsLive = Layer.effect(
               formats: roundsTable.formats,
               repoUrl: roundsTable.repoUrl,
               closedAt: roundsTable.closedAt,
+              isPrivate: roundsTable.isPrivate,
             })
             .from(roundCreditsTable)
             .innerJoin(roundsTable, eq(roundsTable.id, roundCreditsTable.roundId))
@@ -1225,6 +1244,7 @@ export const RoundsLive = Layer.effect(
               recordedCount: row.recordedCount,
               closedAt,
               creditedAt,
+              isPrivate: row.isPrivate,
             };
           });
         } catch (error) {
@@ -1427,6 +1447,19 @@ export const RoundsLive = Layer.effect(
                 ),
               );
             const known = new Set(existing.map((entry) => entry.key));
+            const privateRounds = new Set(
+              (
+                await tx
+                  .select({ id: roundsTable.id })
+                  .from(roundsTable)
+                  .where(
+                    and(
+                      inArray(roundsTable.id, [...new Set(resolved.map((row) => row.roundId))]),
+                      eq(roundsTable.isPrivate, true),
+                    ),
+                  )
+              ).map((round) => round.id),
+            );
 
             let queued = 0;
             for (const { row, key } of keyed) {
@@ -1436,8 +1469,7 @@ export const RoundsLive = Layer.effect(
                 eventType: "feedback.accepted",
                 actor: row.authorAccountId,
                 idempotencyKey: key,
-                // Never the body: private rounds must not leak through activity (#101).
-                payload: { feedbackId: row.id, roundId: row.roundId, format: row.format },
+                payload: acceptancePayload(row, row.roundId, privateRounds.has(row.roundId)),
                 subjectKind: "feedback_accepted",
                 subjectId: row.id,
               });
