@@ -683,8 +683,6 @@ export declare const contract: {
         name: import("zod").ZodOptional<import("zod").ZodString>;
         prefix: import("zod").ZodOptional<import("zod").ZodString>;
         expiresIn: import("zod").ZodOptional<import("zod").ZodNumber>;
-        permissions: import("zod").ZodOptional<import("zod").ZodRecord<import("zod").ZodString, import("zod").ZodArray<import("zod").ZodString>>>;
-        metadata: import("zod").ZodOptional<import("zod").ZodUnknown>;
         rateLimit: import("zod").ZodOptional<import("zod").ZodObject<{
             enabled: import("zod").ZodOptional<import("zod").ZodBoolean>;
             timeWindow: import("zod").ZodOptional<import("zod").ZodNumber>;
@@ -835,8 +833,6 @@ export declare const contract: {
         id: import("zod").ZodString;
         name: import("zod").ZodOptional<import("zod").ZodString>;
         enabled: import("zod").ZodOptional<import("zod").ZodBoolean>;
-        permissions: import("zod").ZodOptional<import("zod").ZodNullable<import("zod").ZodRecord<import("zod").ZodString, import("zod").ZodArray<import("zod").ZodString>>>>;
-        metadata: import("zod").ZodOptional<import("zod").ZodUnknown>;
         expiresIn: import("zod").ZodOptional<import("zod").ZodNullable<import("zod").ZodNumber>>;
         rateLimit: import("zod").ZodOptional<import("zod").ZodObject<{
             enabled: import("zod").ZodOptional<import("zod").ZodBoolean>;

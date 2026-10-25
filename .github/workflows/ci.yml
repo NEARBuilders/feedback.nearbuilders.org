@@ -23,7 +23,7 @@ permissions:
 jobs:
   ci:
     name: CI
-    uses: NEARBuilders/everything-dev/.github/workflows/consumer-ci.yml@v2.0.0-rc.16
+    uses: NEARBuilders/everything-dev/.github/workflows/consumer-ci.yml@v2.0.0-rc.22
     with:
       working_directory: .
     secrets: inherit
