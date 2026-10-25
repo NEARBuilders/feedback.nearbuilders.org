@@ -265,7 +265,7 @@ The Railway template deploys the everything.dev Docker image. Set these variable
 
 You don't need to wait for a PR to merge and run through CI/CD. Publish your own config on-chain under your own NEAR account and run your own host instance, inheriting the base platform via `extends`.
 
-1. **Install near-cli-rs** (the `bos` CLI shells out to it for `bos publish` and `bos key generate`):
+1. **Install near-cli-rs** (the `bos` CLI shells out to it for `bos publish` and `bos login --key`):
    ```bash
    curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/near-cli-rs/releases/download/v0.23.5/near-cli-rs-installer.sh | sh
    ```
@@ -275,10 +275,9 @@ You don't need to wait for a PR to merge and run through CI/CD. Publish your own
    ```
 3. **Generate a publish key** — a function-call key scoped to the FastKV registry contract:
    ```bash
-   bos key generate
-   # Output: NEAR_PRIVATE_KEY=ed25519:...
+   bos login --key
    ```
-   Add the key to your account via near-cli-rs, then set `NEAR_PRIVATE_KEY` in `.env` or CI secrets.
+   The key is exported to the near-cli-rs keystore; set `NEAR_PRIVATE_KEY` in `.env` or CI secrets when running non-interactively.
 4. **Update `bos.app.ts`** — set `account` to your NEAR account, add `extends` to inherit the base platform, keep `domain` as the gateway:
    ```ts
    { "extends": "bos://<parent-account>/<parent-gateway>", "account": "<your-account>.near", "domain": "<parent-gateway>" }
@@ -338,11 +337,15 @@ The parent runtime provides the shared framework; your project provides custom o
 - Component file naming: lowercase kebab-case (`data-table.tsx`, `user-profile.tsx`)
 - Follow existing patterns in neighboring files
 
+Review-time rules — the write-once goal, type-safety patterns, the workaround protocol, and the comment `KEEP`/`TODO` conventions — are in [`docs/agents/coding-standards.md`](docs/agents/coding-standards.md).
+
 ### Framework-owned files and the upstream-change protocol (ADR 0032)
 
-The files carrying the `FRAMEWORK-OWNED` header (build configs, db/lib plumbing, workflows) are reconciled from the parent template by `bos sync` / `bos upgrade`: template wins on the next sync, local copies are backed up under `.bos/sync-backup/`, and **same-version upgrades never touch them** (only a framework version change reconciles; `bos sync` pulls drift explicitly).
+The files carrying the `FRAMEWORK-OWNED` header (build configs, db/lib plumbing, workflows) are reconciled from the parent template by `bos upgrade`: template wins on the next upgrade, local copies are backed up under `.bos/sync-backup/`, and **same-version upgrades never touch them** (only the framework version change reconciles them).
 
-**Editing them is allowed.** When the work needs it, edit a framework-owned file, keep the build/typecheck/tests green — then **file an accompanying issue at https://github.com/NEARBuilders/everything-dev/issues** describing the change so it gets implemented in the framework and shipped in package versions. A local edit without an upstream issue is an undocumented fork that the next sync will quietly clobber.
+**Editing them is allowed.** When the work needs it, edit a framework-owned file, keep the build/typecheck/tests green — then **file an accompanying issue at https://github.com/NEARBuilders/everything-dev/issues** describing the change so it gets implemented in the framework and shipped in package versions. A local edit without an upstream issue is an undocumented fork that the next upgrade will quietly clobber.
+
+When the need is a **bug**, a **missing capability**, or a **pattern improvement**, follow [`docs/agents/change-placement.md`](docs/agents/change-placement.md) — including its first rule: sync-owned files are a contribution channel, not a fence. A human-facing diagram tour of the whole runtime lives in [`docs/agents/how-it-fits.md`](docs/agents/how-it-fits.md); `/teach` builds lessons from it.
 
 ### Adding API Endpoints
 1. Define in `api/src/contract.ts` — the oRPC route definitions and Zod schemas
@@ -376,6 +379,9 @@ pnpm run test    # Run all tests
 pnpm run typecheck   # Type check all packages
 pnpm run lint        # Run linting
 ```
+
+When to write a test, which layer, what the parent framework covers vs what
+this repo must cover: [`docs/agents/testing.md`](docs/agents/testing.md).
 
 ## Common Patterns
 
