@@ -3206,6 +3206,7 @@ export declare const contract: {
     }, import("zod/v4/core").$strip>, import("zod").ZodObject<{
         success: import("zod").ZodBoolean;
         alreadyRedeemed: import("zod").ZodBoolean;
+        organizationId: import("zod").ZodString;
         organizationName: import("zod").ZodString;
         eventName: import("zod").ZodString;
     }, import("zod/v4/core").$strip>, {
