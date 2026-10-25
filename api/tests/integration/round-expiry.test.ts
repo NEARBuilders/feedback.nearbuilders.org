@@ -96,4 +96,46 @@ describe("round expiration (#128)", () => {
       tester.editFeedback({ id: round.id, feedbackId: feedback.id, body: "Back in time" }),
     ).resolves.toMatchObject({ id: feedback.id });
   });
+
+  describe.each([
+    [
+      "expired",
+      async (owner: Awaited<ReturnType<typeof getPluginClient>>, id: string) => {
+        await owner.updateRoundSettings({ id, endsAt: new Date(Date.now() - 1000).toISOString() });
+      },
+    ],
+    [
+      "closed",
+      async (owner: Awaited<ReturnType<typeof getPluginClient>>, id: string) => {
+        await owner.closeRound({ id });
+      },
+    ],
+  ])("reviewing feedback once the round is %s", (_label, end) => {
+    it("still lets the owner open, note, star and resolve it", async () => {
+      const { round, owner } = await openRound({
+        endsAt: new Date(Date.now() + 60_000).toISOString(),
+      });
+      const tester = await getPluginClient(nearAuthedContext(`expiry-review-${++counter}.near`));
+      await tester.joinRound({ id: round.id });
+      const feedback = await tester.postFeedback({
+        id: round.id,
+        format: "written",
+        body: "Review me later",
+      });
+      await end(owner, round.id);
+
+      await expect(
+        owner.getFeedback({ id: round.id, feedbackId: feedback.id }),
+      ).resolves.toMatchObject({ id: feedback.id });
+      await expect(
+        owner.addFeedbackNote({ id: round.id, feedbackId: feedback.id, body: "Thanks" }),
+      ).resolves.toMatchObject({ role: "owner" });
+      await expect(
+        owner.setFeedbackStarred({ id: round.id, feedbackIds: [feedback.id], starred: true }),
+      ).resolves.toBeDefined();
+      await expect(
+        owner.setFeedbackStatus({ id: round.id, feedbackIds: [feedback.id], status: "resolved" }),
+      ).resolves.toHaveLength(1);
+    });
+  });
 });
