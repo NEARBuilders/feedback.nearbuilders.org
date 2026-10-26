@@ -1,16 +1,14 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { PublicShell, PublicShellFooter } from "@/components/layout/public-shell";
-import { useAppShellState } from "@/components/layout/use-app-shell";
+import { useInAppShell } from "@/components/layout/use-app-shell";
 
 export const Route = createFileRoute("/_public")({
   component: PublicLayout,
 });
 
 function PublicLayout() {
-  const { useAppShell } = useAppShellState();
-
-  // Signed-in users get the app shell from the root route.
-  if (useAppShell) return <Outlet />;
+  // The root already renders the app shell around us — step aside and let the page fill it.
+  if (useInAppShell()) return <Outlet />;
 
   return (
     <PublicShell footer={<PublicShellFooter />}>
