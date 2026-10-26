@@ -25,7 +25,7 @@ import { getBaseStyles } from "@/app";
 import { FeedbackWidget, Toaster } from "@/components";
 import { AppFrame } from "@/components/layout/app-frame";
 import { AppShell } from "@/components/layout/app-shell";
-import { useAppShellState } from "@/components/layout/use-app-shell";
+import { AppShellContext, useAppShellState } from "@/components/layout/use-app-shell";
 import { useMediaQuery } from "@/hooks";
 import { AppI18nProvider } from "@/i18n/runtime";
 import { sessionQueryKey } from "@/lib/auth";
@@ -195,20 +195,22 @@ function SessionShell() {
 
   return (
     <AppFrame>
-      <AppI18nProvider
-        preferredLocale={(session?.user as { locale?: string | null } | undefined)?.locale}
-      >
-        {useAppShell ? (
-          <AppShell
-            runtimeConfig={runtimeConfig}
-            session={session}
-            isAdmin={session?.user?.role === "admin"}
-          />
-        ) : (
-          <Outlet />
-        )}
-        <FeedbackWidget projectSlug={FEEDBACK_WIDGET_PROJECT_SLUG} />
-      </AppI18nProvider>
+      <AppShellContext.Provider value={useAppShell}>
+        <AppI18nProvider
+          preferredLocale={(session?.user as { locale?: string | null } | undefined)?.locale}
+        >
+          {useAppShell ? (
+            <AppShell
+              runtimeConfig={runtimeConfig}
+              session={session}
+              isAdmin={session?.user?.role === "admin"}
+            />
+          ) : (
+            <Outlet />
+          )}
+          <FeedbackWidget projectSlug={FEEDBACK_WIDGET_PROJECT_SLUG} />
+        </AppI18nProvider>
+      </AppShellContext.Provider>
     </AppFrame>
   );
 }
