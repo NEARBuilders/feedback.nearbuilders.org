@@ -30,6 +30,6 @@ export function useAppShellState() {
 }
 
 /** Read-only projection for descendants: am I inside the app shell? */
-export function useInAppShell(): boolean {
+export function useAppShell(): boolean {
   return useContext(AppShellContext);
 }
