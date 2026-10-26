@@ -17,10 +17,7 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "start": "bos start",
-    "changeset": "changeset",
     "postinstall": "bos types gen || true",
-    "version": "changeset version",
-    "release": "echo 'Packages versioned - app release handled by workflow'",
     "db:push": "pnpm --dir api exec drizzle-kit push",
     "db:studio": "bos db:studio",
     "db:generate": "pnpm --dir api exec drizzle-kit generate",
@@ -43,7 +40,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
-    "@changesets/cli": "^2.29.8",
     "@effect/tsgo": "^0.45.0",
     "@playwright/test": "^1.58.1",
     "@shadcn/lint": "^0.2.0",
@@ -56,7 +52,8 @@
     "oxlint-tsgolint": "7.0.2001",
     "tsx": "^4.21.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@changesets/cli": "^2.29.8"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",
@@ -74,7 +71,8 @@
     "every-plugin": "catalog:",
     "everything-dev": "catalog:",
     "pg": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@effect/oxc": "link:repos/effect/packages/tools/oxc"
   },
   "peerDependencies": {
     "typescript": "catalog:"

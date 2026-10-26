@@ -164,7 +164,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         // Nostr is detached from the composition (see services/feedback-nostr.ts);
         // test runtimes may still inject a nostr client — read past the
         // generated PluginsClient type at the seam.
-        nostr: (plugins as PluginsClient & { nostr?: NostrClientLike })["nostr"],
+        nostr: (plugins as PluginsClient & { nostr?: NostrClientLike }).nostr,
         secretKeyHex: config.secrets.NOSTR_SECRET_KEY_HEX,
       });
 
@@ -1080,6 +1080,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const round = await visibleRound(input.id, context);
         const feedback = await getRuntime().rounds.getFeedback(round.id, input.feedbackId);
         if (!feedback) throw feedbackNotFound(input.feedbackId);
+        if (round.isPrivate) {
+          const project = await getRuntime().projectRecords.resolveProjectById(
+            round.projectRecordId,
+          );
+          const canReadAll = canReadAllFeedback(
+            round,
+            project,
+            await resolveActor(project, context),
+            isSiteAdmin(context),
+          );
+          if (
+            filterVisibleFeedback(
+              [feedback],
+              canReadAll,
+              linkedAccountIds(context as LinkedAccountsContext),
+            ).length === 0
+          ) {
+            throw feedbackNotFound(input.feedbackId);
+          }
+        }
         const canSeeNotes =
           managesRound(round, context) ||
           linkedAccountIds(context as LinkedAccountsContext).includes(feedback.authorAccountId);

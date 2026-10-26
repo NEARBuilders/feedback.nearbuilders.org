@@ -103,6 +103,38 @@ describe("private rounds (#101)", () => {
     expect((await otherOrgMember.listFeedback({ id: round.id })).items).toEqual([]);
   });
 
+  it("applies private-round visibility to individual feedback reads", async () => {
+    const { round, owner } = await privateRound();
+    const ownFeedback = await post("priv-detail-author.near", round.id, "My private submission");
+    const otherFeedback = await post(
+      "priv-detail-other.near",
+      round.id,
+      "Another private submission",
+    );
+
+    const author = await getPluginClient(nearAuthedContext("priv-detail-author.near"));
+    const stranger = await getPluginClient(nearAuthedContext("priv-detail-stranger.near"));
+    const admin = await getPluginClient(adminContext());
+    const anon = await getPluginClient();
+
+    await expect(
+      author.getFeedback({ id: round.id, feedbackId: ownFeedback.id }),
+    ).resolves.toMatchObject({ body: "My private submission" });
+    await expect(
+      owner.getFeedback({ id: round.id, feedbackId: otherFeedback.id }),
+    ).resolves.toMatchObject({ body: "Another private submission" });
+    await expect(
+      admin.getFeedback({ id: round.id, feedbackId: otherFeedback.id }),
+    ).resolves.toMatchObject({ body: "Another private submission" });
+
+    await expect(
+      stranger.getFeedback({ id: round.id, feedbackId: ownFeedback.id }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      anon.getFeedback({ id: round.id, feedbackId: ownFeedback.id }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   it("keeps public rounds readable by everyone", async () => {
     const { round, owner } = await privateRound();
     await owner.updateRoundSettings({ id: round.id, isPrivate: false });
