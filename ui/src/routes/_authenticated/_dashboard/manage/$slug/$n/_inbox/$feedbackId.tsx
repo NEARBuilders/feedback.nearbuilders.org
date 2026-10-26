@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Filter, Star } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Button, Card } from "@/components";
@@ -33,7 +33,7 @@ export const Route = createFileRoute(
 
 function FeedbackDetailPane() {
   const { feedbackId, ...params } = Route.useParams();
-  const inboxSearch = useSearch({ from: "/_authenticated/_dashboard/manage/$slug/$n/_inbox" });
+  const inboxSearch = Route.useSearch();
   const round = useRound(params);
   const apiClient = useApiClient();
   const { data: feedback } = useSuspenseQuery(
