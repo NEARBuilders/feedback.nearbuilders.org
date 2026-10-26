@@ -237,6 +237,7 @@ describe("RoundsService", () => {
   it("adds participants idempotently, counts them, and removes them", async () => {
     const layer = freshLayer();
     const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await approveProjectOf(layer, round);
 
     await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
     await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
@@ -263,6 +264,7 @@ describe("RoundsService", () => {
   it("stores written and recorded feedback and lists it for a round", async () => {
     const layer = freshLayer();
     const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await approveProjectOf(layer, round);
 
     await runService(layer, (svc) =>
       svc.addFeedback({
@@ -340,6 +342,64 @@ describe("RoundsService", () => {
 
     const reloaded = await runService(layer, (svc) => svc.resolveRoundById(round.id));
     expect(reloaded?.status).toBe("closed");
+  });
+
+  it("rejects participant and feedback writes after a round is closed", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await approveProjectOf(layer, round);
+
+    await runService(layer, (svc) => svc.closeRound(round.id, []));
+
+    await expect(
+      runService(layer, (svc) => svc.addParticipant(round.id, "late.near")),
+    ).rejects.toThrow("already closed");
+    await expect(
+      runService(layer, (svc) =>
+        svc.addFeedback({
+          roundId: round.id,
+          authorAccountId: "late.near",
+          format: "written",
+          body: "late",
+          url: null,
+        }),
+      ),
+    ).rejects.toThrow("already closed");
+  });
+
+  it("allows only one concurrent close to commit", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await approveProjectOf(layer, round);
+    await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
+    await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "alice.near",
+        format: "written",
+        body: "Looks good",
+        url: null,
+      }),
+    );
+
+    const creditOptions = [
+      [{ builderAccountId: "alice.near", contributedMeaningfully: true, summary: "first" }],
+      [{ builderAccountId: "alice.near", contributedMeaningfully: false, summary: "second" }],
+    ];
+
+    const results = await Promise.allSettled([
+      runService(layer, (svc) => svc.closeRound(round.id, creditOptions[0]!)),
+      runService(layer, (svc) => svc.closeRound(round.id, creditOptions[1]!)),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+
+    const winnerIndex = results.findIndex((result) => result.status === "fulfilled");
+    expect(winnerIndex).toBeGreaterThanOrEqual(0);
+    const credits = await runService(layer, (svc) => svc.listRoundCredits(round.id));
+    expect(credits).toHaveLength(1);
+    expect(credits[0]).toMatchObject(creditOptions[winnerIndex]![0]!);
   });
 
   it("lists a builder's credited closed rounds newest-first, with an issues link", async () => {

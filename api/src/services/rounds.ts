@@ -773,10 +773,24 @@ export const RoundsLive = Layer.effect(
 
       addParticipant: async (roundId, accountId) => {
         try {
-          await db
-            .insert(roundParticipantsTable)
-            .values({ roundId, accountId })
-            .onConflictDoNothing();
+          await db.transaction(async (tx) => {
+            const [round] = await tx
+              .select({ status: roundsTable.status })
+              .from(roundsTable)
+              .where(eq(roundsTable.id, roundId))
+              .for("update")
+              .limit(1);
+            if (!round) {
+              throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+            }
+            if (round.status !== "open") {
+              throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
+            }
+            await tx
+              .insert(roundParticipantsTable)
+              .values({ roundId, accountId })
+              .onConflictDoNothing();
+          });
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -818,20 +832,35 @@ export const RoundsLive = Layer.effect(
 
       addFeedback: async (input) => {
         try {
-          const [row] = await db
-            .insert(roundFeedbackTable)
-            .values({
-              roundId: input.roundId,
-              authorAccountId: input.authorAccountId,
-              format: input.format,
-              body: input.body,
-              url: input.url,
-            })
-            .returning();
-          if (!row) {
-            throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to post feedback" });
-          }
-          return toFeedbackRecord(row);
+          return await db.transaction(async (tx) => {
+            const [round] = await tx
+              .select({ status: roundsTable.status })
+              .from(roundsTable)
+              .where(eq(roundsTable.id, input.roundId))
+              .for("update")
+              .limit(1);
+            if (!round) {
+              throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+            }
+            if (round.status !== "open") {
+              throw new ORPCError("BAD_REQUEST", { message: "This round is already closed" });
+            }
+
+            const [row] = await tx
+              .insert(roundFeedbackTable)
+              .values({
+                roundId: input.roundId,
+                authorAccountId: input.authorAccountId,
+                format: input.format,
+                body: input.body,
+                url: input.url,
+              })
+              .returning();
+            if (!row) {
+              throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Failed to post feedback" });
+            }
+            return toFeedbackRecord(row);
+          });
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -1090,6 +1119,7 @@ export const RoundsLive = Layer.effect(
               .select()
               .from(roundsTable)
               .where(eq(roundsTable.id, roundId))
+              .for("update")
               .limit(1);
             if (!round) {
               throw new ORPCError("NOT_FOUND", { message: "Round not found" });
