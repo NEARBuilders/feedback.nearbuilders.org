@@ -13,14 +13,12 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ProductLink } from "@/components/project-identity";
 import { RoundShareActions } from "@/components/round-share-actions";
 import { RoundStatusBadge } from "@/components/round-status-badge";
-import { RoundWinners } from "@/components/round-winners";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { RouteTab, RouteTabs } from "@/components/route-tabs";
 import { isCompact } from "@/lib/app-shell";
 import { pageHead } from "@/lib/page-title";
 import { loadRound, useRound } from "@/lib/round-route";
 import { useRoundViewer } from "@/lib/round-viewer";
-import { getRoundWinners } from "@/lib/round-winners";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_public/projects/$slug/$n")({
@@ -107,10 +105,6 @@ function RoundLayout() {
         )}
 
         {!compact && round.bannerUrl && <RoundBanner src={round.bannerUrl} />}
-
-        {!compact && (
-          <RoundWinners winners={getRoundWinners(round.projectSlug, round.projectRoundNumber)} />
-        )}
 
         <PageHeader
           icon={MessageSquare}

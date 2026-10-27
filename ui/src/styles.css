@@ -264,3 +264,16 @@
 .animate-subtitle-cycle {
   animation: subtitle-cycle 4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
+
+@keyframes winners-marquee {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-winners-marquee {
+  animation: winners-marquee 40s linear infinite;
+}

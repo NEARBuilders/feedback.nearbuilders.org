@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getRoundWinners } from "./round-winners";
+import { getRoundWinners, getWinnersForPath } from "./round-winners";
 
 describe("getRoundWinners", () => {
   it("returns the ranked top 10 for the nearly-trade campaign", () => {
@@ -16,5 +16,20 @@ describe("getRoundWinners", () => {
 
   it("returns nothing for other projects", () => {
     expect(getRoundWinners("kinu", 1)).toEqual([]);
+  });
+});
+
+describe("getWinnersForPath", () => {
+  it("returns the winners only on the round overview page", () => {
+    expect(getWinnersForPath("/projects/nearly-trade/1")).toHaveLength(10);
+    expect(getWinnersForPath("/projects/nearly-trade/1/")).toHaveLength(10);
+  });
+
+  it("returns nothing on the round's other pages and other routes", () => {
+    expect(getWinnersForPath("/projects/nearly-trade/1/feedback")).toEqual([]);
+    expect(getWinnersForPath("/projects/nearly-trade/1/submit")).toEqual([]);
+    expect(getWinnersForPath("/projects/nearly-trade")).toEqual([]);
+    expect(getWinnersForPath("/manage/nearly-trade/1")).toEqual([]);
+    expect(getWinnersForPath("/")).toEqual([]);
   });
 });

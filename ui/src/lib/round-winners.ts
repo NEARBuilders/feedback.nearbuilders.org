@@ -19,3 +19,11 @@ export function getRoundWinners(
 ): readonly string[] {
   return ROUND_WINNERS[`${projectSlug}/${projectRoundNumber}`] ?? [];
 }
+
+const ROUND_OVERVIEW_PATH = /^\/projects\/([^/]+)\/(\d+)\/?$/;
+
+export function getWinnersForPath(pathname: string): readonly string[] {
+  const match = ROUND_OVERVIEW_PATH.exec(pathname);
+  if (!match) return [];
+  return getRoundWinners(decodeURIComponent(match[1] ?? ""), Number(match[2]));
+}
