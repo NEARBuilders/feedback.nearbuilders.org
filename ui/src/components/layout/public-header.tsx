@@ -56,12 +56,12 @@ export function PublicHeader({ showConnect = true }: PublicHeaderProps) {
         <Link
           to="/"
           preload="intent"
-          className="shrink-0 text-sm font-semibold text-foreground"
+          className="shrink-0 text-lg font-semibold text-foreground"
           data-testid="public-nav-home"
         >
           Feedback Rounds
         </Link>
-        <PublicNavLinks className="hidden min-w-0 flex-1 items-center gap-4 md:flex" />
+        <PublicNavLinks className="hidden min-w-0 flex-1 items-center gap-4 md:ml-6 md:flex" />
         <div className="ml-auto flex items-center gap-2">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
