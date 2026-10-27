@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_public")({
 });
 
 function PublicLayout() {
-  // The root already renders the app shell around us — step aside and let the page fill it.
+  // Signed-in users get the app shell from the root route.
   if (useAppShell()) return <Outlet />;
 
   return (

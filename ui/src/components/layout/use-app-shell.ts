@@ -6,7 +6,7 @@ import { nextAppShellSession, type ShellMatch, shouldUseAppShell } from "@/lib/a
 
 export const AppShellContext = createContext(false);
 
-/** Single source of truth for whether the app shell wraps the page. Mounts once, at the root. */
+/** Single source of truth for whether the current page renders inside the app shell. */
 export function useAppShellState() {
   const authClient = useAuthClient();
   const initialSession = useRouteContext({ strict: false, select: (c) => c.session });
@@ -19,9 +19,9 @@ export function useAppShellState() {
     staticData: m.staticData,
   }));
 
-  const [appShellSession, setAppShellSession] = useState(false);
-  const next = nextAppShellSession(appShellSession, shellMatches);
-  if (next !== appShellSession) setAppShellSession(next);
+  const [carriedSession, setCarriedSession] = useState(false);
+  const appShellSession = nextAppShellSession(carriedSession, shellMatches);
+  if (appShellSession !== carriedSession) setCarriedSession(appShellSession);
 
   return {
     session,
@@ -29,7 +29,6 @@ export function useAppShellState() {
   };
 }
 
-/** Read-only projection for descendants: am I inside the app shell? */
 export function useAppShell(): boolean {
   return useContext(AppShellContext);
 }

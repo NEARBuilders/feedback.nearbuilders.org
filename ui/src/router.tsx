@@ -42,7 +42,6 @@ declare module "@tanstack/react-router" {
   }
 
   interface StaticDataRouterContext {
-    /** Declares the route's app-shell stance; absent means inherit the current session. */
     appShell?: boolean;
   }
 }
