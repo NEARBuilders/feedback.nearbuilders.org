@@ -1,30 +1,40 @@
-const WORKSPACE_ROUTE_PREFIXES = ["/_authenticated", "/_admin"];
-
-export interface ShellMatch {
-  routeId: string;
-  staticData?: { appShell?: boolean };
-}
+const APP_SHELL_PREFIXES = ["/dashboard", "/testing", "/manage", "/settings", "/orgs", "/admin"];
+const PUBLIC_BROWSE_PREFIXES = ["/rounds", "/projects", "/leaderboard", "/how-to-integrate"];
+const MARKETING_HOME_PATHS = new Set(["/", "/login"]);
 
 export function isCompact(search: { compact?: unknown }): boolean {
   return search.compact === 1 || search.compact === "1" || search.compact === true;
 }
 
-/** Folds the matched route chain into the sticky "user is in an app-shell session" state. */
-export function nextAppShellSession(previous: boolean, matches: ShellMatch[]): boolean {
-  const declared = matches.find((m) => typeof m.staticData?.appShell === "boolean");
-  if (declared) return declared.staticData?.appShell === true;
-  return (
-    matches.some((m) =>
-      WORKSPACE_ROUTE_PREFIXES.some((p) => m.routeId === p || m.routeId.startsWith(`${p}/`)),
-    ) || previous
-  );
+function normalizePath(pathname: string): string {
+  return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+}
+
+function matchesPrefix(pathname: string, prefixes: string[]): boolean {
+  const normalized = normalizePath(pathname);
+  return prefixes.some((prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`));
+}
+
+export function isWorkspacePath(pathname: string): boolean {
+  return matchesPrefix(pathname, APP_SHELL_PREFIXES);
+}
+
+export function isMarketingHomePath(pathname: string): boolean {
+  return MARKETING_HOME_PATHS.has(normalizePath(pathname));
+}
+
+export function isPublicBrowsePath(pathname: string): boolean {
+  return matchesPrefix(pathname, PUBLIC_BROWSE_PREFIXES);
 }
 
 export function shouldUseAppShell(
   isSignedIn: boolean,
-  search: { compact?: unknown },
-  appShellSession: boolean,
+  pathname: string,
+  search: { compact?: unknown } = {},
+  options: { stayInAppShell?: boolean } = {},
 ): boolean {
   if (!isSignedIn || isCompact(search)) return false;
-  return appShellSession;
+  if (isWorkspacePath(pathname)) return true;
+  if (options.stayInAppShell && isPublicBrowsePath(pathname)) return true;
+  return false;
 }

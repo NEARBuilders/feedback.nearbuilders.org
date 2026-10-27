@@ -17,7 +17,6 @@ function afterLogin(redirect?: string) {
 
 export const Route = createFileRoute("/_public/login")({
   ssr: false,
-  staticData: { appShell: false },
   head: () => pageHead("Sign in"),
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     redirect: typeof search.redirect === "string" ? search.redirect : undefined,
