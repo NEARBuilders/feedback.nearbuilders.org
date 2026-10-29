@@ -3,16 +3,20 @@
  * Local edits are allowed: on the next upgrade the template version wins and your
  * copy is backed up under `.bos/sync-backup/`. To make a change permanent, file an
  * issue: https://github.com/NEARBuilders/everything-dev/issues
- *
- * LOCAL FORK (everything-dev#628): the rc.23 template passes BETTER_AUTH_SECRET
- * into api secrets, but this child's api doesn't host the secrets vault — auth
- * runs as a remote and takes its secret from the host env. Re-apply this removal
- * after every `bos upgrade` until the template stops passing it.
  */
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import type { PluginConfigInput } from "every-plugin";
 import packageJson from "./package.json" with { type: "json" };
 import type Plugin from "./src/index";
+
+/**
+ * The api shell's dev root secret — per-run when the operator supplies none
+ * (zero-config dev, plan 055 ticket 11). Exported for the test harness so it
+ * can derive the same KEK.
+ */
+export const devAuthSecret =
+  process.env.BETTER_AUTH_SECRET || randomBytes(32).toString("base64url");
 
 export default {
   pluginId: packageJson.name,
