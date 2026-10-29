@@ -19,7 +19,7 @@ export default App({
   repository: "https://github.com/NEARBuilders/feedback.nearbuilders.org",
   // Platform release pin (ADR 0034): fail loudly when the resolved parent
   // platform doesn't match, instead of silently floating.
-  platform: "2.0.0-rc.25",
+  platform: "2.0.0-rc.26",
   // CI settings: runtime image name, Railway service.
   ci: {
     railway: {
