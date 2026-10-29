@@ -150,6 +150,52 @@ describe("createActivityEmitter (enabled)", () => {
     });
   });
 
+  it("keeps a private round's feedback id out of feedback.posted", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse());
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    await emitter.emitFeedbackPosted({ ...feedback, isPrivate: true });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const sent = JSON.parse(init.body as string);
+    expect(sent.payload).toEqual({ roundId: round.id, format: "written" });
+    expect(sent.idempotencyKey).toMatch(/^feedback\.posted:/);
+    expect(init.body as string).not.toContain(feedback.id);
+  });
+
+  it("keeps the same idempotency key across retries of a private feedback.posted", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse());
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    await emitter.emitFeedbackPosted({ ...feedback, isPrivate: true });
+    await emitter.emitFeedbackPosted({ ...feedback, isPrivate: true });
+
+    const keys = fetchMock.mock.calls.map(
+      ([, init]) => JSON.parse((init as RequestInit).body as string).idempotencyKey,
+    );
+    expect(keys[0]).toBe(keys[1]);
+  });
+
+  it("keeps a private round's credit summary out of credit.awarded", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse());
+    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
+
+    await emitter.emitCreditAwarded({
+      roundId: round.id,
+      builderAccountId: "tester.near",
+      projectSlug: "my-project",
+      roundTitle: "Try the onboarding flow",
+      writtenCount: 2,
+      recordedCount: 0,
+      summary: "Found the checkout bug",
+      isPrivate: true,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.body as string).not.toContain("Found the checkout bug");
+    expect(JSON.parse(init.body as string).payload).not.toHaveProperty("summary");
+  });
+
   it("swallows and logs a rejected gateway response", async () => {
     const fetchMock = vi.fn().mockResolvedValue(okResponse(503));
     const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
