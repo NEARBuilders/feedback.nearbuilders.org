@@ -204,6 +204,13 @@
       "when": 1791474095773,
       "tag": "0028_pink_bill_hollister",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793428895690,
+      "tag": "0029_striped_rattler",
+      "breakpoints": true
     }
   ]
 }

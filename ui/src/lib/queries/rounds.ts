@@ -7,7 +7,8 @@ export type RoundStatus = NonNullable<
 
 export const roundKeys = {
   all: ["rounds"] as const,
-  list: (status?: RoundStatus) => [...roundKeys.all, "list", status ?? "all"] as const,
+  list: (status?: RoundStatus, organizationId?: string) =>
+    [...roundKeys.all, "list", status ?? "all", organizationId ?? "any"] as const,
   detail: (id: string) => [...roundKeys.all, "detail", id] as const,
   bySlug: (slug: string, number: number) => [...roundKeys.all, "slug", slug, number] as const,
   participants: (id: string) => [...roundKeys.detail(id), "participants"] as const,
@@ -16,10 +17,14 @@ export const roundKeys = {
   endorsements: (roundIds: string[]) => [...roundKeys.all, "endorsements", roundIds] as const,
 };
 
-export function roundsQueryOptions(apiClient: ApiClient, status?: RoundStatus) {
+export function roundsQueryOptions(
+  apiClient: ApiClient,
+  status?: RoundStatus,
+  organizationId?: string,
+) {
   return queryOptions({
-    queryKey: roundKeys.list(status),
-    queryFn: () => apiClient.listRounds({ status }),
+    queryKey: roundKeys.list(status, organizationId),
+    queryFn: () => apiClient.listRounds({ status, organizationId }),
     staleTime: 30 * 1000,
   });
 }

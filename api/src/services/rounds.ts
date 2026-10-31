@@ -69,6 +69,8 @@ export type RoundFeedbackStatus = (typeof roundFeedbackStatus)["enumValues"][num
 export interface RoundRecord {
   id: string;
   ownerAccountId: string;
+  /** The organization the round was created under (#223); null on older rounds without one. */
+  organizationId: string | null;
   projectSlug: string;
   /** The projects-table row this round belongs to (#69). */
   projectRecordId: string;
@@ -304,7 +306,10 @@ export interface RoundsService {
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailWithSurfaceRecord | null>;
   getRoundDetailBySlug(slug: string, number: number): Promise<RoundDetailWithSurfaceRecord | null>;
-  listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
+  listRounds(filter?: {
+    status?: RoundStatus;
+    organizationId?: string;
+  }): Promise<RoundDetailRecord[]>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   /** The first of `accountIds` that joined the round, or null when none did (#121). */
@@ -371,6 +376,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
   return {
     id: row.id,
     ownerAccountId: row.ownerAccountId,
+    organizationId: row.organizationId,
     projectSlug: row.projectSlug,
     projectRecordId: row.projectRecordId,
     projectRoundNumber: row.projectRoundNumber,
@@ -623,6 +629,7 @@ export const RoundsLive = Layer.effect(
               .insert(roundsTable)
               .values({
                 ownerAccountId: input.ownerAccountId,
+                organizationId: input.ownerOrgId,
                 projectSlug: project.slug,
                 projectRecordId: project.id,
                 projectRoundNumber: counter!.lastNumber,
@@ -771,12 +778,19 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      listRounds: async (status) => {
+      listRounds: async (filter) => {
         try {
           const rows = await db
             .select()
             .from(roundsTable)
-            .where(status ? eq(roundsTable.status, status) : undefined)
+            .where(
+              and(
+                filter?.status ? eq(roundsTable.status, filter.status) : undefined,
+                filter?.organizationId
+                  ? eq(roundsTable.organizationId, filter.organizationId)
+                  : undefined,
+              ),
+            )
             .orderBy(desc(roundsTable.createdAt));
           if (rows.length === 0) return [];
           const countRows = await db

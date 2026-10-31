@@ -90,6 +90,8 @@ export type ProjectWithRounds = z.infer<typeof ProjectWithRoundsSchema>;
 export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
+  /** The organization the round was created under (#223); null on older rounds without one. */
+  organizationId: z.string().nullable(),
   projectSlug: z.string(),
   /** The approved-project anchor this round hangs off (#69). */
   projectRecordId: z.string(),
@@ -619,7 +621,13 @@ export const contract = oc.router({
 
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })
-    .input(z.object({ status: RoundStatusSchema.optional() }))
+    .input(
+      z.object({
+        status: RoundStatusSchema.optional(),
+        /** Only rounds created under this organization (#223). */
+        organizationId: z.string().optional(),
+      }),
+    )
     .output(z.array(RoundDetailSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
