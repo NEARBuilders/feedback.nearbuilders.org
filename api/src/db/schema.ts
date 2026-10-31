@@ -105,6 +105,9 @@ export const rounds = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     ownerAccountId: text("owner_account_id").notNull(),
+    // The organization the round was created under (#223); null on rounds that predate it
+    // and whose project had no owning org.
+    organizationId: text("organization_id"),
     projectSlug: text("project_slug").notNull(),
     projectRecordId: uuid("project_record_id")
       .notNull()
@@ -138,6 +141,7 @@ export const rounds = pgTable(
   },
   (table) => ({
     ownerAccountIdIdx: index("rounds_owner_account_id_idx").on(table.ownerAccountId),
+    organizationIdIdx: index("rounds_organization_id_idx").on(table.organizationId),
     projectRecordIdIdx: index("rounds_project_record_id_idx").on(table.projectRecordId),
     statusIdx: index("rounds_status_idx").on(table.status),
     projectRoundNumberIdx: uniqueIndex("rounds_project_round_number_idx").on(

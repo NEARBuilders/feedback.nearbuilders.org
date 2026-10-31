@@ -606,7 +606,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             message: "Only admins can list pending or rejected rounds",
           });
         }
-        const rounds = await getRuntime().rounds.listRounds(input.status);
+        const rounds = await getRuntime().rounds.listRounds({
+          status: input.status,
+          organizationId: input.organizationId,
+        });
         // Without a status filter this is the public browse listing, so pending/rejected
         // rounds — visible only to their owning org or an admin — never appear in it.
         const visible = input.status ? rounds : rounds.filter(isPublic);
