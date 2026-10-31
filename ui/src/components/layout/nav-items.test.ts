@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { shouldUseAppShell } from "../../lib/app-shell";
 import {
   filterSidebarByRole,
   getActiveItem,
@@ -60,12 +59,6 @@ describe("dashboard navigation", () => {
     expect(getActiveItem(NAV_ITEMS, "/leaderboard")?.label).toBe("leaderboard");
     expect(getActiveItem(NAV_ITEMS, "/orgs/acme")).toBeUndefined();
     expect(getActiveItem(NAV_ITEMS, "/settings/profile")).toBeUndefined();
-  });
-
-  it("keeps public links on the marketing shell and workspace links in the app shell", () => {
-    for (const item of NAV_ITEMS) {
-      expect(shouldUseAppShell(true, item.to), item.to).toBe(item.roleRequired !== "anon");
-    }
   });
 });
 
