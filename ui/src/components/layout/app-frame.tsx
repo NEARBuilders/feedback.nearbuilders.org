@@ -1,6 +1,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { TooltipProvider } from "@/components";
+import { RoundWinnersBanner } from "@/components/round-winners";
 
 export function AppFrame({ children }: { children: ReactNode }) {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
@@ -30,6 +31,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
             <div className="h-full bg-foreground animate-progress-bar" style={{ width: "100%" }} />
           </div>
         )}
+
+        <RoundWinnersBanner />
 
         {children}
       </div>
