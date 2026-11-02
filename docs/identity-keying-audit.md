@@ -1,6 +1,6 @@
 # Identity-keying audit: feedback.nearbuilders.org
 
-Issue: #224 (the feedback instance of NEARBuilders/nearbuilders.org#329, which defines the convention). Audited at `6cbd739` (origin/main, 31 Oct). Audit order: nearbuilders.org, then this repo, then activity.nearbuilders.org.
+Issue: #224 (the feedback instance of NEARBuilders/nearbuilders.org#329, which defines the convention). Audited at `6cbd739` (origin/main, 31 Oct), then re-checked at `f6e84b0` after #228 landed fixes for L1–L3. Audit order: nearbuilders.org, then this repo, then activity.nearbuilders.org.
 
 ## Convention checked against
 
@@ -22,7 +22,8 @@ Issue: #224 (the feedback instance of NEARBuilders/nearbuilders.org#329, which d
 
 - **High: none.** Every user-referencing column in the API schema is a NEAR account id. `api/tests/unit/schema-identity.test.ts` already fails the build if an API table gains a `user_id` or `session*` column, which covers #224's acceptance criterion "no write path can key new data on session id" for the API schema.
 - **Medium (1):** the storage plugin resolves the uploader from the primary account only, so assets uploaded under one linked account can't be confirmed, deleted or attached once the user acts as another.
-- **Low (3):** one write path can store an auth user id in `starred_by_account_id`, the storage plugin's schema isn't covered by the identity guard test, and the Legion access hint checks only the primary account.
+- **Low (3, all fixed in #228):** one write path could store an auth user id in `starred_by_account_id`, the storage plugin's schema wasn't covered by the identity guard test, and the Legion access hint checked only the primary account.
+- **Open:** M1 is the only finding still open.
 - Rounds, participation, feedback, notes, credits and notifications all resolve "mine" across linked accounts already.
 
 ## Schema inventory
@@ -32,7 +33,7 @@ Issue: #224 (the feedback instance of NEARBuilders/nearbuilders.org#329, which d
 | `rounds.owner_account_id` (`api/src/db/schema.ts:107`) | primary account at creation (`api/src/index.ts:488`) | OK; ownership fans out (`api/src/services/round-access.ts:26,62`) |
 | `round_participants.account_id` (`api/src/db/schema.ts:157`) | the account that joined | OK; posting reuses it (`api/src/index.ts:993`) |
 | `round_feedback.author_account_id` (`api/src/db/schema.ts:185`) | participant account | OK; author checks fan out (`api/src/index.ts:1117-1119`) |
-| `round_feedback.starred_by_account_id` (`api/src/db/schema.ts:193`) | `primaryAccountId ?? user.id ?? "admin"` (`api/src/index.ts:1286`) | **Low (L1)** |
+| `round_feedback.starred_by_account_id` (`api/src/db/schema.ts:193`) | first linked account or null (`api/src/index.ts:1288`) | OK (L1, fixed in #228) |
 | `feedback_notes.author_account_id` (`api/src/db/schema.ts:217`) | manager's primary account, or the feedback author (`api/src/index.ts:1137`) | OK |
 | `round_credits.builder_account_id` (`api/src/db/schema.ts:237`) | participant account | OK |
 | `notifications.recipient_account_id` (`api/src/db/schema.ts:268`) | participant account | OK; inbox reads fan out (`api/src/index.ts:1051`) |
@@ -40,7 +41,7 @@ Issue: #224 (the feedback instance of NEARBuilders/nearbuilders.org#329, which d
 | `projects.owner_org_id`, `managing_team_id` (`api/src/db/schema.ts:77,79`) | organization / team ids from the auth plugin | OK (not user-keyed) |
 | `activity_outbox.actor` (`api/src/db/schema.ts:331`) | account id | OK |
 | `tenants.account_id` (`api/src/db/schema.ts:44`) | dead table, no reads or writes | n/a |
-| `storage_assets.uploader_account_id` (`plugins/storage/src/db/schema.ts:15`) | primary account at upload | OK as a key; read path is M1 |
+| `storage_assets.uploader_account_id` (`plugins/storage/src/db/schema.ts:15`) | primary account at upload | OK as a key (guard test since #228); read path is M1 |
 | `storage_assets.owner_id` (`plugins/storage/src/db/schema.ts:19`) | feedback or round id the asset is attached to, not a person | OK |
 
 ## Findings
@@ -52,21 +53,21 @@ Issue: #224 (the feedback instance of NEARBuilders/nearbuilders.org#329, which d
 - Failure case: a tester joins a round as account A, switches primary to linked account B, then uploads an image and posts feedback. The upload is stored under B, the feedback is authored by A, and `attachByUrls` filters on `uploader = A`, so the image is never attached. Deleting that feedback later won't clean the asset up either. The same applies to round banners after an owner switches primary. A user also can't delete their own earlier uploads after switching.
 - Fix: pass the caller's linked account ids into the storage context, and match `uploader_account_id IN (...)` in the owned-asset checks. For server-side attach, accept the author's linked set, or attach by `(url, uploader in linked set)`. No migration.
 
-### L1. `starred_by_account_id` can receive an auth user id (Low)
+### L1. `starred_by_account_id` could receive an auth user id (Low, fixed in #228)
 
-- `api/src/index.ts:1286`: `viewer.near?.primaryAccountId ?? viewer.user?.id ?? "admin"`. A site admin without a NEAR account who stars feedback writes their auth user id (or the literal `"admin"`) into an account column. The schema guard test can't catch this because the column name is correct.
-- Impact: audit trail only, never used for authorization. It is the only write path found that can store an auth user id.
-- Fix: one line, store `linkedAccountIds(context)[0] ?? null` (the column is nullable). Left out of this PR on purpose so it can ship with a test. See ticket 2.
+- Was: `viewer.near?.primaryAccountId ?? viewer.user?.id ?? "admin"`. A site admin without a NEAR account who starred feedback wrote their auth user id (or the literal `"admin"`) into an account column. Audit trail only, never used for authorization.
+- Now: `api/src/index.ts:1288` stores `linkedAccountIds(context)[0] ?? null`, and `setFeedbackStarred` accepts null.
+- Rows written before #228 can still hold a non-account value. Expect zero or a handful, from admins without NEAR. An optional cleanup sets those to null.
 
-### L2. The identity guard test skips plugin schemas (Low)
+### L2. The identity guard test skipped plugin schemas (Low, fixed in #228)
 
-- `api/tests/unit/schema-identity.test.ts:4` imports only `@/db/schema`. `plugins/storage/src/db/schema.ts` (and any future plugin table) isn't checked for `user_id` or `session*` columns.
-- Fix: run the same assertions over every plugin schema module, or add a sibling test per plugin.
+- Was: `api/tests/unit/schema-identity.test.ts` imported only `@/db/schema`, so `plugins/storage/src/db/schema.ts` wasn't checked for `user_id` or `session*` columns.
+- Now: `plugins/storage/src/__tests__/schema-identity.test.ts` applies the same check to the storage schema. A future plugin will need its own copy of the test.
 
-### L3. The Legion access hint checks only the primary account (Low)
+### L3. The Legion access hint checked only the primary account (Low, fixed in #228)
 
-- `api/src/index.ts:948-952` (`getMyLegionAccess`) passes `primaryAccountId` only. Enforcement uses the participant account (`api/src/index.ts:1000`, `assertLegionAccess(round, accountId, ...)`), so access control is correct. But the UI hint can say "no access" when a linked account holds the SBT, or the reverse.
-- Fix: check the linked set and report which account qualifies.
+- Was: `getMyLegionAccess` passed `primaryAccountId` only, so the hint could say "no access" when a linked account held the SBT. Enforcement (`api/src/index.ts:1000`, `assertLegionAccess(round, accountId, ...)`) was already correct.
+- Now: `api/src/index.ts:948-952` calls `getMyAccessAcross` over every linked account (`api/src/services/legion-access.ts`) and reports the holder.
 
 ## Not findings (checked)
 
@@ -80,9 +81,9 @@ Issue: #224 (the feedback instance of NEARBuilders/nearbuilders.org#329, which d
 
 Not filed. The user decides which to open.
 
-| # | Title | Severity | Migration / backfill |
-| --- | --- | --- | --- |
-| 1 | storage: resolve the uploader across all linked accounts (confirm, delete, attach, delete-by-owner) | Medium | No |
-| 2 | Star feedback: never write an auth user id into `starred_by_account_id` | Low | Optional: null out any non-account values (expected to be zero or a handful) |
-| 3 | Extend the schema identity guard test to plugin schemas (storage, future plugins) | Low | No |
-| 4 | `getMyLegionAccess`: check every linked account and report which one holds the SBT | Low | No |
+| # | Title | Severity | Migration / backfill | Status |
+| --- | --- | --- | --- | --- |
+| 1 | storage: resolve the uploader across all linked accounts (confirm, delete, attach, delete-by-owner) | Medium | No | Open. Needs a design for how server-side calls name the account set |
+| 2 | Star feedback: never write an auth user id into `starred_by_account_id` | Low | Optional: null out any non-account values written before #228 | Code fixed in #228; optional cleanup open |
+| 3 | Extend the schema identity guard test to plugin schemas (storage, future plugins) | Low | No | Fixed in #228 (storage) |
+| 4 | `getMyLegionAccess`: check every linked account and report which one holds the SBT | Low | No | Fixed in #228 |
