@@ -57,6 +57,29 @@ describe("createFeedbackAssets", () => {
     expect(deleteByOwner).toHaveBeenCalledWith({ ownerId: "f2" });
   });
 
+  it("acts as the author's linked accounts too when they are known (#224)", async () => {
+    const attachByUrls = vi.fn().mockResolvedValue({ attached: 1 });
+    const clientContext = vi.fn().mockReturnValue({ attachByUrls });
+    const assets = createFeedbackAssets({ client: clientContext }, { warn });
+
+    await assets.attachForFeedback({
+      id: "f3",
+      authorAccountId: "a.near",
+      body: "![s](https://cdn.test/s.png)",
+      linkedAccountIds: ["a-new.near", "a.near"],
+    });
+    expect(clientContext).toHaveBeenCalledWith({
+      near: {
+        primaryAccountId: "a.near",
+        hasNearAccount: true,
+        linkedAccounts: [
+          { accountId: "a.near", network: "mainnet", publicKey: "", isPrimary: true },
+          { accountId: "a-new.near", network: "mainnet", publicKey: "", isPrimary: false },
+        ],
+      },
+    });
+  });
+
   it("logs instead of throwing when the storage plugin fails, and works without one", async () => {
     const storage = {
       client: () => ({

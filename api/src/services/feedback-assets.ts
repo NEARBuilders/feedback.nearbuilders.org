@@ -16,13 +16,18 @@ export interface FeedbackAssets {
     id: string;
     authorAccountId: string;
     body: string | null;
+    linkedAccountIds?: readonly string[];
   }): Promise<void>;
   /**
    * Deletes the images attached to removed feedback. Assets belong to whoever uploaded them,
    * so the storage plugin is called as the feedback's author, whoever removed it. Best
    * effort: a failure is logged and never blocks the removal.
    */
-  deleteForFeedback(feedback: { id: string; authorAccountId: string | null }): Promise<void>;
+  deleteForFeedback(feedback: {
+    id: string;
+    authorAccountId: string | null;
+    linkedAccountIds?: readonly string[];
+  }): Promise<void>;
   /**
    * Links a round's banner image to the round, so it can be removed with it. Assets belong
    * to the round owner, so the storage plugin is called as them. Best effort: a failure is
@@ -32,9 +37,14 @@ export interface FeedbackAssets {
     roundId: string;
     ownerAccountId: string;
     bannerUrl: string | null;
+    linkedAccountIds?: readonly string[];
   }): Promise<void>;
   /** Deletes the banner image attached to a deleted round. Best effort. */
-  deleteRoundBanner(banner: { roundId: string; ownerAccountId: string | null }): Promise<void>;
+  deleteRoundBanner(banner: {
+    roundId: string;
+    ownerAccountId: string | null;
+    linkedAccountIds?: readonly string[];
+  }): Promise<void>;
 }
 
 /** The image URLs in a markdown body, in order, without duplicates. */
@@ -47,12 +57,25 @@ export function imageUrlsIn(body: string | null | undefined): string[] {
   return [...urls];
 }
 
-function asAccount(accountId: string): Record<string, unknown> {
+/**
+ * A storage context acting as `accountId`. `linkedAccountIds` (the acting user's other
+ * accounts, when known) let it reach assets uploaded under any of them (#224).
+ */
+function asAccount(
+  accountId: string,
+  linkedAccountIds?: readonly string[],
+): Record<string, unknown> {
+  const ids = [...new Set([accountId, ...(linkedAccountIds ?? [])])];
   return {
     near: {
       primaryAccountId: accountId,
       hasNearAccount: true,
-      linkedAccounts: [{ accountId, network: "mainnet", publicKey: "", isPrimary: true }],
+      linkedAccounts: ids.map((id) => ({
+        accountId: id,
+        network: "mainnet",
+        publicKey: "",
+        isPrimary: id === accountId,
+      })),
     },
   };
 }
@@ -73,10 +96,12 @@ export function createFeedbackAssets(
       const urls = imageUrlsIn(feedback.body);
       if (!storage || urls.length === 0) return;
       try {
-        await storage.client(asAccount(feedback.authorAccountId)).attachByUrls({
-          ownerId: feedback.id,
-          urls,
-        });
+        await storage
+          .client(asAccount(feedback.authorAccountId, feedback.linkedAccountIds))
+          .attachByUrls({
+            ownerId: feedback.id,
+            urls,
+          });
       } catch (error) {
         failed("attach", feedback.id, error);
       }
@@ -86,9 +111,11 @@ export function createFeedbackAssets(
       // Anonymous feedback has no uploader to act as, and no attached assets (#89).
       if (!storage || !feedback.authorAccountId) return;
       try {
-        await storage.client(asAccount(feedback.authorAccountId)).deleteByOwner({
-          ownerId: feedback.id,
-        });
+        await storage
+          .client(asAccount(feedback.authorAccountId, feedback.linkedAccountIds))
+          .deleteByOwner({
+            ownerId: feedback.id,
+          });
       } catch (error) {
         failed("delete", feedback.id, error);
       }
@@ -97,10 +124,12 @@ export function createFeedbackAssets(
     attachRoundBanner: async (banner) => {
       if (!storage || !banner.bannerUrl || !banner.ownerAccountId) return;
       try {
-        await storage.client(asAccount(banner.ownerAccountId)).attachByUrls({
-          ownerId: banner.roundId,
-          urls: [banner.bannerUrl],
-        });
+        await storage
+          .client(asAccount(banner.ownerAccountId, banner.linkedAccountIds))
+          .attachByUrls({
+            ownerId: banner.roundId,
+            urls: [banner.bannerUrl],
+          });
       } catch (error) {
         failed("attach the banner of", banner.roundId, error);
       }
@@ -109,9 +138,11 @@ export function createFeedbackAssets(
     deleteRoundBanner: async (banner) => {
       if (!storage || !banner.ownerAccountId) return;
       try {
-        await storage.client(asAccount(banner.ownerAccountId)).deleteByOwner({
-          ownerId: banner.roundId,
-        });
+        await storage
+          .client(asAccount(banner.ownerAccountId, banner.linkedAccountIds))
+          .deleteByOwner({
+            ownerId: banner.roundId,
+          });
       } catch (error) {
         failed("delete the banner of", banner.roundId, error);
       }

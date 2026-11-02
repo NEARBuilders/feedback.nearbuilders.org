@@ -21,6 +21,19 @@ export function linkedAccountIds(context: LinkedAccountsContext): string[] {
 }
 
 /**
+ * The caller's linked accounts when one of them is `accountId`, so a storage call made on that
+ * account's behalf also covers assets it uploaded under its other linked accounts (#224).
+ * Undefined when the caller isn't that account (an admin or round manager acting on it).
+ */
+export function linkedAccountsActingAs(
+  context: LinkedAccountsContext,
+  accountId: string | null,
+): string[] | undefined {
+  const ids = linkedAccountIds(context);
+  return accountId && ids.includes(accountId) ? ids : undefined;
+}
+
+/**
  * The account the caller acts as on something they may already have joined: the primary
  * account, unless a different linked account is the one that joined, in which case that one
  * (so posting stays attached to the account that holds the participation).

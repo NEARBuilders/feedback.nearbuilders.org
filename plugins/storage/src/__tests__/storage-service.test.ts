@@ -372,6 +372,49 @@ describe("StorageLive", () => {
     });
   });
 
+  it("treats assets uploaded under any linked account as the caller's (#224)", async () => {
+    r2.generatePresignedPutUrl.mockResolvedValue("https://signed.test/put");
+    r2.headObject.mockResolvedValue({ size: 1024, contentType: "image/png" });
+    r2.deleteObject.mockReset();
+    r2.deleteObject.mockResolvedValue(undefined);
+
+    await withService(async (service) => {
+      const upload = async (account: string, name: string) => {
+        const requested = await service.requestUpload({
+          uploaderAccountId: account,
+          filename: name,
+          contentType: "image/png",
+          sizeBytes: 1024,
+        });
+        await service.confirmUpload({ uploaderAccountId: account, key: requested.key });
+        return requested;
+      };
+      // Uploaded while ivy-alt.near was primary; ivy.near is primary now.
+      const earlier = await upload("ivy-alt.near", "earlier.png");
+      const earlierLoose = await upload("ivy-alt.near", "loose.png");
+      const stranger = await upload("jack.near", "stranger.png");
+      const ivy = { uploaderAccountId: "ivy.near", linkedAccountIds: ["ivy.near", "ivy-alt.near"] };
+
+      await expect(
+        service.attachByUrls({
+          ...ivy,
+          ownerId: "feedback-linked",
+          urls: [earlier.publicUrl, stranger.publicUrl],
+        }),
+      ).resolves.toEqual({ attached: 1 });
+      await expect(service.deleteByOwner({ ...ivy, ownerId: "feedback-linked" })).resolves.toEqual({
+        deleted: 1,
+      });
+      await expect(service.deleteFile({ ...ivy, key: earlierLoose.key })).resolves.toEqual({
+        success: true,
+      });
+      // Without the linked account, the earlier upload isn't theirs.
+      await expect(
+        service.deleteFile({ uploaderAccountId: "ivy.near", key: stranger.key }),
+      ).rejects.toThrow("Only the uploader can modify this asset");
+    });
+  });
+
   it("stays initialized but rejects writes when unconfigured", async () => {
     await withService(async (service) => {
       expect(service.configured).toBe(false);

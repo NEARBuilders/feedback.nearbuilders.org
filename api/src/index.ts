@@ -18,6 +18,7 @@ import {
   actingAccountId,
   type LinkedAccountsContext,
   linkedAccountIds,
+  linkedAccountsActingAs,
 } from "./services/linked-accounts";
 import { type FeedbackStatusKind, notificationText } from "./services/notification-text";
 import {
@@ -523,6 +524,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             roundId: round.id,
             ownerAccountId,
             bannerUrl: input.bannerUrl ?? null,
+            linkedAccountIds: linkedAccountsActingAs(
+              context as LinkedAccountsContext,
+              ownerAccountId,
+            ),
           });
           // A round on a not-yet-approved project waits as "pending" until an admin
           // decides the project (#69); round.opened fires then. On an already
@@ -560,12 +565,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
             await getRuntime().feedbackAssets.deleteRoundBanner({
               roundId: round.id,
               ownerAccountId: round.ownerAccountId,
+              linkedAccountIds: linkedAccountsActingAs(
+                context as LinkedAccountsContext,
+                round.ownerAccountId,
+              ),
             });
           } else if (input.bannerUrl && input.bannerUrl !== round.bannerUrl) {
             await getRuntime().feedbackAssets.attachRoundBanner({
               roundId: round.id,
               ownerAccountId: round.ownerAccountId,
               bannerUrl: input.bannerUrl,
+              linkedAccountIds: linkedAccountsActingAs(
+                context as LinkedAccountsContext,
+                round.ownerAccountId,
+              ),
             });
           }
           return updated;
@@ -1012,6 +1025,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             id: feedback.id,
             authorAccountId: accountId,
             body,
+            linkedAccountIds: myAccounts,
           });
           // The activity event never carries the feedback body, and on a private round not
           // its id either (#101).
@@ -1187,6 +1201,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             id: updated.id,
             authorAccountId: updated.authorAccountId,
             body: updated.body,
+            linkedAccountIds: linkedAccountsActingAs(
+              context as LinkedAccountsContext,
+              updated.authorAccountId,
+            ),
           });
           return updated;
         }),
@@ -1223,7 +1241,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const result = await getRuntime().rounds.deleteFeedback(input.feedbackId);
-          await getRuntime().feedbackAssets.deleteForFeedback(feedback);
+          await getRuntime().feedbackAssets.deleteForFeedback({
+            ...feedback,
+            linkedAccountIds: linkedAccountsActingAs(
+              context as LinkedAccountsContext,
+              feedback.authorAccountId,
+            ),
+          });
           if (result?.activityEventId) {
             await getRuntime().activityEvents.retract(
               result.activityEventId,
