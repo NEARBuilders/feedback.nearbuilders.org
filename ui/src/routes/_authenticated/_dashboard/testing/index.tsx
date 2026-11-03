@@ -125,7 +125,7 @@ function TesterRoundCard({ round }: { round: WorkspaceRound }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <RoundStatusBadge status={round.status} />
+          <RoundStatusBadge status={round.status} endsAt={round.endsAt} />
           {action.kind === "file-issues" && issues ? (
             <Button asChild size="sm" variant="outline">
               <a href={issues} target="_blank" rel="noopener noreferrer">

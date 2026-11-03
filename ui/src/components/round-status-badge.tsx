@@ -1,6 +1,7 @@
-import { CircleDot, Clock, Lock, XCircle } from "lucide-react";
+import { CircleDot, Clock, Lock, TimerOff, XCircle } from "lucide-react";
 import { Badge } from "@/components";
 import type { RoundStatus } from "@/lib/queries/rounds";
+import { isRoundExpired } from "@/lib/round-expiry";
 
 const ROUND_STATUS: Record<
   RoundStatus,
@@ -12,7 +13,21 @@ const ROUND_STATUS: Record<
   rejected: { variant: "destructive", icon: XCircle },
 };
 
-export function RoundStatusBadge({ status }: { status: RoundStatus }) {
+export function RoundStatusBadge({
+  status,
+  endsAt,
+}: {
+  status: RoundStatus;
+  endsAt?: string | null;
+}) {
+  if (isRoundExpired({ status, endsAt })) {
+    return (
+      <Badge variant="outline">
+        <TimerOff />
+        expired
+      </Badge>
+    );
+  }
   const { variant, icon: Icon } = ROUND_STATUS[status];
   return (
     <Badge variant={variant}>
