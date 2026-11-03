@@ -12,7 +12,7 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { type ApiClient, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Badge, Button, LegionMark } from "@/components";
@@ -124,6 +124,14 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
               params={roundParams(row.original)}
               className="font-medium text-foreground hover:underline"
             >
+              {row.original.isPrivate && (
+                <Lock
+                  className="mr-1 inline-block h-3.5 w-3.5 align-[-2px] text-muted-foreground"
+                  aria-hidden="true"
+                  title="Private feedback"
+                  data-testid="rounds-table-private-mark"
+                />
+              )}
               {row.original.legionOnly && (
                 <LegionMark
                   className="mr-1 inline-block align-[-2px]"
