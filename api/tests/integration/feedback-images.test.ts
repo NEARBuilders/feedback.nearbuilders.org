@@ -135,6 +135,22 @@ describe("feedback images", () => {
     });
   });
 
+  it("reaches images the author uploaded under another linked account when a manager removes it (#224)", async () => {
+    const { owner, round } = await openRound();
+    const body = "![x](https://cdn.test/feedback/img-tester-14-alt.near/1-x.png)";
+    const { feedback } = await post("img-tester-14.near", round.id, body);
+
+    await owner.deleteFeedback({ id: round.id, feedbackId: feedback.id });
+
+    expect(storageDeleteByOwner).toHaveBeenCalledWith({ ownerId: feedback.id });
+    const near = storageContexts.at(-1)?.near as {
+      primaryAccountId: string;
+      linkedAccounts: { accountId: string }[];
+    };
+    expect(near.primaryAccountId).toBe("img-tester-14.near");
+    expect(near.linkedAccounts.map((a) => a.accountId)).toContain("img-tester-14-alt.near");
+  });
+
   it("still removes the feedback when the image cleanup fails", async () => {
     storageDeleteByOwner.mockRejectedValue(new Error("R2 unavailable"));
     const { owner, round } = await openRound();
@@ -168,6 +184,64 @@ describe("feedback images", () => {
     expect(storageContexts.at(-1)).toMatchObject({
       near: { primaryAccountId: `img-owner-${n}.near` },
     });
+  });
+
+  it("deletes a round's banner as the caller's linked accounts and the banner's uploader (#224)", async () => {
+    const n = ++counter;
+    const ctx = nearAuthedContext(`img-owner-${n}.near`);
+    (ctx.near as { linkedAccounts: unknown[] }).linkedAccounts.push({
+      accountId: `img-owner-${n}-alt.near`,
+      network: "mainnet",
+      publicKey: "ed25519:test",
+      isPrimary: false,
+    });
+    const owner = await getPluginClient(ctx);
+    const bannerUrl = `https://cdn.test/feedback/img-owner-${n}-alt.near/1-banner.png`;
+    const round = await owner.createRound({
+      projectSlug: `img-project-${n}`,
+      title: `Images ${n}`,
+      description: "Attach screenshots.",
+      formats: ["written"],
+      bannerUrl,
+    });
+
+    await owner.deleteRound({ id: round.id });
+
+    expect(storageDeleteByOwner).toHaveBeenCalledWith({ ownerId: round.id });
+    const near = storageContexts.at(-1)?.near as { linkedAccounts: { accountId: string }[] };
+    expect(near.linkedAccounts.map((a) => a.accountId)).toEqual([
+      `img-owner-${n}.near`,
+      `img-owner-${n}-alt.near`,
+    ]);
+  });
+
+  it("attaches a banner a round manager sets as the manager, and deletes it later (#224)", async () => {
+    const n = ++counter;
+    const orgId = `img-org-${n}`;
+    const owner = await getPluginClient(
+      nearAuthedContext(`img-owner-${n}.near`, `img-owner-user-${n}`, orgId, "owner"),
+    );
+    const round = await owner.createRound({
+      projectSlug: `img-project-${n}`,
+      title: `Images ${n}`,
+      description: "Attach screenshots.",
+      formats: ["written"],
+    });
+    const manager = await getPluginClient(
+      nearAuthedContext(`img-manager-${n}.near`, `img-manager-user-${n}`, orgId, "admin"),
+    );
+    const bannerUrl = `https://cdn.test/feedback/img-manager-${n}.near/1-banner.png`;
+
+    await manager.updateRound({ id: round.id, bannerUrl });
+    expect(storageAttachByUrls).toHaveBeenCalledWith({ ownerId: round.id, urls: [bannerUrl] });
+    expect(storageContexts.at(-1)).toMatchObject({
+      near: { primaryAccountId: `img-manager-${n}.near` },
+    });
+
+    await owner.deleteRound({ id: round.id });
+    expect(storageDeleteByOwner).toHaveBeenCalledWith({ ownerId: round.id });
+    const near = storageContexts.at(-1)?.near as { linkedAccounts: { accountId: string }[] };
+    expect(near.linkedAccounts.map((a) => a.accountId)).toContain(`img-manager-${n}.near`);
   });
 
   it("doesn't touch storage when the removal is refused", async () => {

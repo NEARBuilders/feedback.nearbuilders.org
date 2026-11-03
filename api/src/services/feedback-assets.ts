@@ -20,29 +20,38 @@ export interface FeedbackAssets {
   }): Promise<void>;
   /**
    * Deletes the images attached to removed feedback. Assets belong to whoever uploaded them,
-   * so the storage plugin is called as the feedback's author, whoever removed it. Best
-   * effort: a failure is logged and never blocks the removal.
+   * so the storage plugin is called as the feedback's author, whoever removed it, plus the
+   * uploader accounts named in the body's image URLs (#224). Only assets already attached to
+   * this feedback are ever deleted. Best effort: a failure is logged and never blocks the
+   * removal.
    */
   deleteForFeedback(feedback: {
     id: string;
     authorAccountId: string | null;
+    body?: string | null;
     linkedAccountIds?: readonly string[];
   }): Promise<void>;
   /**
    * Links a round's banner image to the round, so it can be removed with it. Assets belong
-   * to the round owner, so the storage plugin is called as them. Best effort: a failure is
-   * logged and never blocks the save.
+   * to whoever uploaded them, so the storage plugin is called as the uploader: the caller
+   * who set the banner, which may be a round manager rather than the owner (#224). Best
+   * effort: a failure is logged and never blocks the save.
    */
   attachRoundBanner(banner: {
     roundId: string;
-    ownerAccountId: string;
+    uploaderAccountId: string;
     bannerUrl: string | null;
     linkedAccountIds?: readonly string[];
   }): Promise<void>;
-  /** Deletes the banner image attached to a deleted round. Best effort. */
+  /**
+   * Deletes the banner image attached to a round, acting as the owner plus the uploader
+   * account named in the banner URL (#224), so a banner a round manager uploaded goes too.
+   * Only assets already attached to this round are ever deleted. Best effort.
+   */
   deleteRoundBanner(banner: {
     roundId: string;
     ownerAccountId: string | null;
+    bannerUrl?: string | null;
     linkedAccountIds?: readonly string[];
   }): Promise<void>;
 }
@@ -55,6 +64,32 @@ export function imageUrlsIn(body: string | null | undefined): string[] {
     if (match[2]) urls.add(match[2]);
   }
   return [...urls];
+}
+
+/**
+ * The uploader accounts named in storage URLs: keys are `feedback/<uploader>/<file>`. Only
+ * used to widen a delete-by-owner, which never touches assets not already attached to that
+ * owner, so a URL naming someone else's account can't reach their other files.
+ */
+export function uploaderAccountsIn(urls: readonly (string | null | undefined)[]): string[] {
+  const accounts = new Set<string>();
+  for (const url of urls) {
+    if (!url) continue;
+    let path: string;
+    try {
+      path = new URL(url).pathname;
+    } catch {
+      continue;
+    }
+    const match = /\/feedback\/([^/]+)\/[^/]+$/.exec(path);
+    if (!match?.[1]) continue;
+    try {
+      accounts.add(decodeURIComponent(match[1]));
+    } catch {
+      // A malformed escape can't name a real uploader; skip it rather than fail the cleanup.
+    }
+  }
+  return [...accounts];
 }
 
 /**
@@ -112,7 +147,12 @@ export function createFeedbackAssets(
       if (!storage || !feedback.authorAccountId) return;
       try {
         await storage
-          .client(asAccount(feedback.authorAccountId, feedback.linkedAccountIds))
+          .client(
+            asAccount(feedback.authorAccountId, [
+              ...(feedback.linkedAccountIds ?? []),
+              ...uploaderAccountsIn(imageUrlsIn(feedback.body)),
+            ]),
+          )
           .deleteByOwner({
             ownerId: feedback.id,
           });
@@ -122,10 +162,10 @@ export function createFeedbackAssets(
     },
 
     attachRoundBanner: async (banner) => {
-      if (!storage || !banner.bannerUrl || !banner.ownerAccountId) return;
+      if (!storage || !banner.bannerUrl || !banner.uploaderAccountId) return;
       try {
         await storage
-          .client(asAccount(banner.ownerAccountId, banner.linkedAccountIds))
+          .client(asAccount(banner.uploaderAccountId, banner.linkedAccountIds))
           .attachByUrls({
             ownerId: banner.roundId,
             urls: [banner.bannerUrl],
@@ -139,7 +179,12 @@ export function createFeedbackAssets(
       if (!storage || !banner.ownerAccountId) return;
       try {
         await storage
-          .client(asAccount(banner.ownerAccountId, banner.linkedAccountIds))
+          .client(
+            asAccount(banner.ownerAccountId, [
+              ...(banner.linkedAccountIds ?? []),
+              ...uploaderAccountsIn([banner.bannerUrl]),
+            ]),
+          )
           .deleteByOwner({
             ownerId: banner.roundId,
           });

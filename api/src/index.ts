@@ -333,6 +333,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
     };
 
     /**
+     * Who a storage attach acts as: the caller, who uploaded the file they're linking, with all
+     * their linked accounts (#224). Falls back to `fallback` for a caller with no NEAR account
+     * (a site admin), as before.
+     */
+    const callerAsUploader = (context: ViewerContext, fallback: string) => {
+      const ids = linkedAccountIds(context as LinkedAccountsContext);
+      return ids[0]
+        ? { uploaderAccountId: ids[0], linkedAccountIds: ids }
+        : { uploaderAccountId: fallback };
+    };
+
+    /**
      * Rounds are managed by the org that owns their project (#70), or by the team the org
      * delegated the project to (#79). Throws FORBIDDEN with `message` otherwise.
      */
@@ -522,12 +534,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
           // lets a later round delete clean it up.
           await getRuntime().feedbackAssets.attachRoundBanner({
             roundId: round.id,
-            ownerAccountId,
             bannerUrl: input.bannerUrl ?? null,
-            linkedAccountIds: linkedAccountsActingAs(
-              context as LinkedAccountsContext,
-              ownerAccountId,
-            ),
+            ...callerAsUploader(context, ownerAccountId),
           });
           // A round on a not-yet-approved project waits as "pending" until an admin
           // decides the project (#69); round.opened fires then. On an already
@@ -565,20 +573,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
             await getRuntime().feedbackAssets.deleteRoundBanner({
               roundId: round.id,
               ownerAccountId: round.ownerAccountId,
-              linkedAccountIds: linkedAccountsActingAs(
-                context as LinkedAccountsContext,
-                round.ownerAccountId,
-              ),
+              bannerUrl: round.bannerUrl,
+              linkedAccountIds: linkedAccountIds(context as LinkedAccountsContext),
             });
           } else if (input.bannerUrl && input.bannerUrl !== round.bannerUrl) {
+            // The caller uploaded the new banner, and may be a manager, not the owner (#224).
             await getRuntime().feedbackAssets.attachRoundBanner({
               roundId: round.id,
-              ownerAccountId: round.ownerAccountId,
               bannerUrl: input.bannerUrl,
-              linkedAccountIds: linkedAccountsActingAs(
-                context as LinkedAccountsContext,
-                round.ownerAccountId,
-              ),
+              ...callerAsUploader(context, round.ownerAccountId),
             });
           }
           return updated;
@@ -825,6 +828,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
           await getRuntime().feedbackAssets.deleteRoundBanner({
             roundId: round.id,
             ownerAccountId: round.ownerAccountId,
+            bannerUrl: round.bannerUrl,
+            linkedAccountIds: linkedAccountIds(context as LinkedAccountsContext),
           });
           if (result?.activityEventId) {
             await getRuntime().activityEvents.retract(result.activityEventId, "round deleted");
@@ -1241,12 +1246,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const result = await getRuntime().rounds.deleteFeedback(input.feedbackId);
+          // Acts as the author plus the caller's own accounts; the uploaders named in the
+          // body's image URLs are added too, so a manager's removal reaches images the author
+          // uploaded under another linked account (#224).
           await getRuntime().feedbackAssets.deleteForFeedback({
             ...feedback,
-            linkedAccountIds: linkedAccountsActingAs(
-              context as LinkedAccountsContext,
-              feedback.authorAccountId,
-            ),
+            linkedAccountIds: linkedAccountIds(context as LinkedAccountsContext),
           });
           if (result?.activityEventId) {
             await getRuntime().activityEvents.retract(
