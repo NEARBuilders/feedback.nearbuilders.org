@@ -50,6 +50,20 @@ const columnHelper = createColumnHelper<typeof features, RoundDetail>();
 
 export const ROUNDS_PAGE_SIZE = 10;
 
+export function RoundListPrivateMark({ isPrivate }: { isPrivate: boolean }) {
+  if (!isPrivate) return null;
+  return (
+    <span
+      title="Private feedback"
+      data-testid="rounds-table-private-mark"
+      className="mr-1 inline-block align-[-2px]"
+    >
+      <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+      <span className="sr-only">Private feedback</span>
+    </span>
+  );
+}
+
 /** Columns that collapse on narrow screens; the title column is always visible. */
 const COLUMN_VISIBILITY: Record<string, string> = {
   project: "",
@@ -124,14 +138,7 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
               params={roundParams(row.original)}
               className="font-medium text-foreground hover:underline"
             >
-              {row.original.isPrivate && (
-                <Lock
-                  className="mr-1 inline-block h-3.5 w-3.5 align-[-2px] text-muted-foreground"
-                  aria-hidden="true"
-                  title="Private feedback"
-                  data-testid="rounds-table-private-mark"
-                />
-              )}
+              <RoundListPrivateMark isPrivate={row.original.isPrivate} />
               {row.original.legionOnly && (
                 <LegionMark
                   className="mr-1 inline-block align-[-2px]"
