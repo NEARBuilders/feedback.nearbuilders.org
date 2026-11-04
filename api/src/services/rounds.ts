@@ -69,8 +69,6 @@ export type RoundFeedbackStatus = (typeof roundFeedbackStatus)["enumValues"][num
 export interface RoundRecord {
   id: string;
   ownerAccountId: string;
-  /** The organization the round was created under (#223); null on older rounds without one. */
-  organizationId: string | null;
   projectSlug: string;
   /** The projects-table row this round belongs to (#69). */
   projectRecordId: string;
@@ -130,6 +128,11 @@ export interface RoundSettingsInput {
 
 export interface RoundDetailRecord extends RoundRecord {
   participantCount: number;
+}
+
+/** A round in the browse listing, with the organization that owns its project (#223). */
+export interface RoundListItemRecord extends RoundDetailRecord {
+  organizationId: string | null;
 }
 
 export interface RoundDetailWithSurfaceRecord extends RoundDetailRecord {
@@ -306,10 +309,11 @@ export interface RoundsService {
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailWithSurfaceRecord | null>;
   getRoundDetailBySlug(slug: string, number: number): Promise<RoundDetailWithSurfaceRecord | null>;
+  /** `organizationId` filters on the organization that owns the round's project (#223). */
   listRounds(filter?: {
     status?: RoundStatus;
     organizationId?: string;
-  }): Promise<RoundDetailRecord[]>;
+  }): Promise<RoundListItemRecord[]>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   /** The first of `accountIds` that joined the round, or null when none did (#121). */
@@ -333,7 +337,7 @@ export interface RoundsService {
     roundId: string,
     feedbackIds: string[],
     starred: boolean,
-    starredByAccountId: string,
+    starredByAccountId: string | null,
   ): Promise<RoundFeedbackRecord[]>;
   addFeedbackNote(note: NewFeedbackNote): Promise<FeedbackNoteRecord>;
   listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;
@@ -376,7 +380,6 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
   return {
     id: row.id,
     ownerAccountId: row.ownerAccountId,
-    organizationId: row.organizationId,
     projectSlug: row.projectSlug,
     projectRecordId: row.projectRecordId,
     projectRoundNumber: row.projectRoundNumber,
@@ -629,7 +632,6 @@ export const RoundsLive = Layer.effect(
               .insert(roundsTable)
               .values({
                 ownerAccountId: input.ownerAccountId,
-                organizationId: input.ownerOrgId,
                 projectSlug: project.slug,
                 projectRecordId: project.id,
                 projectRoundNumber: counter!.lastNumber,
@@ -780,19 +782,21 @@ export const RoundsLive = Layer.effect(
 
       listRounds: async (filter) => {
         try {
-          const rows = await db
-            .select()
+          const joined = await db
+            .select({ round: roundsTable, organizationId: projectsTable.ownerOrgId })
             .from(roundsTable)
+            .innerJoin(projectsTable, eq(roundsTable.projectRecordId, projectsTable.id))
             .where(
               and(
                 filter?.status ? eq(roundsTable.status, filter.status) : undefined,
                 filter?.organizationId
-                  ? eq(roundsTable.organizationId, filter.organizationId)
+                  ? eq(projectsTable.ownerOrgId, filter.organizationId)
                   : undefined,
               ),
             )
             .orderBy(desc(roundsTable.createdAt));
-          if (rows.length === 0) return [];
+          if (joined.length === 0) return [];
+          const rows = joined.map((entry) => entry.round);
           const countRows = await db
             .select({ roundId: roundParticipantsTable.roundId, value: count() })
             .from(roundParticipantsTable)
@@ -804,9 +808,10 @@ export const RoundsLive = Layer.effect(
             )
             .groupBy(roundParticipantsTable.roundId);
           const counts = new Map(countRows.map((row) => [row.roundId, row.value]));
-          return rows.map((row) => ({
-            ...toRoundRecord(row),
-            participantCount: counts.get(row.id) ?? 0,
+          return joined.map(({ round, organizationId }) => ({
+            ...toRoundRecord(round),
+            participantCount: counts.get(round.id) ?? 0,
+            organizationId,
           }));
         } catch (error) {
           throw toOrpcError(error);

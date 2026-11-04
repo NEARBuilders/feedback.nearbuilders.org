@@ -536,7 +536,7 @@ describe("RoundsService", () => {
     expect(rejected.map((r) => r.id)).toEqual([second.id]);
   });
 
-  it("stores the creating organization on the round and filters by it", async () => {
+  it("filters rounds by the organization that owns their project", async () => {
     const layer = freshLayer();
     const inOrgOne = await runService(layer, (svc) =>
       svc.createRound({ ...baseInput, title: "Org one" }),
@@ -549,13 +549,36 @@ describe("RoundsService", () => {
         title: "Org two",
       }),
     );
-    expect(inOrgOne.organizationId).toBe("org-1");
-    expect(inOrgTwo.organizationId).toBe("org-2");
+
+    const all = await runService(layer, (svc) => svc.listRounds());
+    expect(all.find((r) => r.id === inOrgOne.id)?.organizationId).toBe("org-1");
+    expect(all.find((r) => r.id === inOrgTwo.id)?.organizationId).toBe("org-2");
 
     const orgTwo = await runService(layer, (svc) => svc.listRounds({ organizationId: "org-2" }));
     expect(orgTwo.map((r) => r.id)).toEqual([inOrgTwo.id]);
 
     const none = await runService(layer, (svc) => svc.listRounds({ organizationId: "org-3" }));
     expect(none).toEqual([]);
+  });
+
+  it("stars feedback without a recorded account when the starrer has none", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await approveProjectOf(layer, round);
+    await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
+    const feedback = await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "alice.near",
+        format: "written",
+        body: "Looks good",
+        url: null,
+      }),
+    );
+
+    await runService(layer, (svc) => svc.setFeedbackStarred(round.id, [feedback.id], true, null));
+    const { items } = await runService(layer, (svc) => svc.listFeedback(round.id));
+    expect(items[0]?.starredAt).not.toBeNull();
+    expect(items[0]?.starredByAccountId).toBeNull();
   });
 });

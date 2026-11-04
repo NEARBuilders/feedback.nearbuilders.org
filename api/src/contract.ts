@@ -90,8 +90,6 @@ export type ProjectWithRounds = z.infer<typeof ProjectWithRoundsSchema>;
 export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
-  /** The organization the round was created under (#223); null on older rounds without one. */
-  organizationId: z.string().nullable(),
   projectSlug: z.string(),
   /** The approved-project anchor this round hangs off (#69). */
   projectRecordId: z.string(),
@@ -138,6 +136,11 @@ export const RoundDetailSchema = RoundSchema.extend({
 });
 
 export type RoundDetail = z.infer<typeof RoundDetailSchema>;
+
+/** A round in the browse listing, with the organization that owns its project (#223). */
+export const RoundListItemSchema = RoundDetailSchema.extend({
+  organizationId: z.string().nullable(),
+});
 
 export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 
@@ -624,11 +627,11 @@ export const contract = oc.router({
     .input(
       z.object({
         status: RoundStatusSchema.optional(),
-        /** Only rounds created under this organization (#223). */
+        /** Only rounds whose project is owned by this organization (#223). */
         organizationId: z.string().optional(),
       }),
     )
-    .output(z.array(RoundDetailSchema))
+    .output(z.array(RoundListItemSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   listProjects: oc
