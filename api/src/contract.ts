@@ -884,7 +884,7 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/rounds/{id}/github-issues" })
     .input(z.object({ id: z.string() }))
     .output(RoundGithubIssuesSchema)
-    .errors({ NOT_FOUND, BAD_REQUEST }),
+    .errors({ NOT_FOUND, BAD_REQUEST, FORBIDDEN }),
 
   getCreditCandidates: oc
     .route({ method: "GET", path: "/rounds/{id}/credit-candidates" })

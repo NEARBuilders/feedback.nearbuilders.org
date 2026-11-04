@@ -1,7 +1,49 @@
-import { describe, expect, it } from "vitest";
-import { getPluginClient, nearAuthedContext } from "../setup";
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  adminContext,
+  authListTeamMembers,
+  authListTeams,
+  getPluginClient,
+  nearAuthedContext,
+} from "../setup";
+
+let privateRoundCounter = 0;
+
+async function createPrivateIssuesRound() {
+  const n = ++privateRoundCounter;
+  const orgId = `github-private-org-${n}`;
+  const ownerContext = nearAuthedContext(
+    `github-private-owner-${n}.near`,
+    `github-private-owner-user-${n}`,
+    orgId,
+    "owner",
+  );
+  const owner = await getPluginClient(ownerContext);
+  const round = await owner.createRound({
+    projectSlug: `github-private-project-${n}`,
+    title: `Private GitHub issues ${n}`,
+    description: "Private GitHub issue lookup authorization.",
+    formats: ["issues"],
+    repoUrl: "https://example.com/near/private-feedback",
+    isPrivate: true,
+  });
+
+  if (round.status !== "open") {
+    const admin = await getPluginClient(adminContext());
+    await admin.approveProject({ id: round.projectRecordId });
+  }
+
+  return { orgId, owner, round };
+}
 
 describe("getRoundGithubIssues", () => {
+  beforeEach(() => {
+    authListTeams.mockReset();
+    authListTeamMembers.mockReset();
+    authListTeams.mockResolvedValue([{ id: "github-issues-team" }]);
+    authListTeamMembers.mockResolvedValue([{ userId: "github-team-member" }]);
+  });
+
   it("404s for a round that doesn't exist", async () => {
     const client = await getPluginClient();
     await expect(
@@ -45,5 +87,42 @@ describe("getRoundGithubIssues", () => {
     expect(result.windowStart).toEqual(round.createdAt);
     expect(result.windowEnd).toBeNull();
     expect(result.contributors).toEqual([]);
+  });
+
+  it("restricts private rounds to managers, delegated team members, and admins", async () => {
+    const { orgId, owner, round } = await createPrivateIssuesRound();
+
+    const anon = await getPluginClient();
+    await expect(anon.getRoundGithubIssues({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    const unrelated = await getPluginClient(nearAuthedContext("github-unrelated.near"));
+    await expect(unrelated.getRoundGithubIssues({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    await expect(owner.getRoundGithubIssues({ id: round.id })).resolves.toMatchObject({
+      repoUrl: round.repoUrl,
+      contributors: [],
+    });
+
+    await owner.setProjectManagingTeam({
+      id: round.projectRecordId,
+      teamId: "github-issues-team",
+    });
+    const delegated = await getPluginClient(
+      nearAuthedContext("github-team-member.near", "github-team-member", orgId, "member"),
+    );
+    await expect(delegated.getRoundGithubIssues({ id: round.id })).resolves.toMatchObject({
+      repoUrl: round.repoUrl,
+      contributors: [],
+    });
+
+    const admin = await getPluginClient(adminContext());
+    await expect(admin.getRoundGithubIssues({ id: round.id })).resolves.toMatchObject({
+      repoUrl: round.repoUrl,
+      contributors: [],
+    });
   });
 });

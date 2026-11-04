@@ -1407,31 +1407,37 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return { updated: await getRuntime().notifications.markAllRead(accountIds) };
         }),
 
-      getRoundGithubIssues: builder.getRoundGithubIssues.handler(async ({ input, errors }) => {
-        const round = await getRuntime().rounds.resolveRoundById(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
+      getRoundGithubIssues: builder.getRoundGithubIssues.handler(
+        async ({ input, context, errors }) => {
+          const round = await requireRound(input.id);
+          if (!round.formats.includes("issues") || !round.repoUrl) {
+            throw errors.BAD_REQUEST({
+              message: "This round isn't collecting GitHub issues",
+              data: {},
+            });
+          }
+          if (round.isPrivate) {
+            const detail = await visibleRound(input.id, context);
+            if (!managesRound(detail, context)) {
+              throw new ORPCError("FORBIDDEN", {
+                message:
+                  "Only authorized round managers can view GitHub issues for a private round",
+              });
+            }
+          }
+          const contributors = await getRuntime().githubIssuesLookup.forRound({
+            repoUrl: round.repoUrl,
+            windowStart: round.createdAt,
+            windowEnd: round.closedAt,
           });
-        }
-        if (!round.formats.includes("issues") || !round.repoUrl) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "This round isn't collecting GitHub issues",
-          });
-        }
-        const contributors = await getRuntime().githubIssuesLookup.forRound({
-          repoUrl: round.repoUrl,
-          windowStart: round.createdAt,
-          windowEnd: round.closedAt,
-        });
-        return {
-          repoUrl: round.repoUrl,
-          windowStart: round.createdAt,
-          windowEnd: round.closedAt,
-          contributors: contributors ?? [],
-        };
-      }),
+          return {
+            repoUrl: round.repoUrl,
+            windowStart: round.createdAt,
+            windowEnd: round.closedAt,
+            contributors: contributors ?? [],
+          };
+        },
+      ),
 
       getCreditCandidates: builder.getCreditCandidates
         .use(requireAuthOrApiKey)
