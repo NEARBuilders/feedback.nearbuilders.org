@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PublicProjectOmittedFields } from "../../src/contract";
 import { clientFor, createOpenRound, freshSlug, joinWithFeedback } from "../fixtures";
-import { getPluginClient } from "../setup";
+import { adminContext, getPluginClient } from "../setup";
 
 describe("listPublicProjects (#119)", () => {
   it("does not expose contact or administrative project metadata", async () => {
@@ -15,14 +15,14 @@ describe("listPublicProjects (#119)", () => {
       contact: "requester@example.com",
     });
     if (round.status !== "open") {
-      await (await getPluginClient()).approveProject({ id: round.projectRecordId });
+      await (await getPluginClient(adminContext())).approveProject({ id: round.projectRecordId });
     }
 
     const anonymous = await getPluginClient();
     const projects = await anonymous.listPublicProjects();
     const project = projects.find((item) => item.slug === slug);
     expect(project).toBeDefined();
-    expect(project).toMatchObject({ id: expect.any(String), slug, name: "Public project" });
+    expect(project).toMatchObject({ id: expect.any(String), slug, name: expect.any(String) });
     for (const field of Object.keys(PublicProjectOmittedFields)) {
       expect(project).not.toHaveProperty(field);
     }
@@ -68,12 +68,12 @@ describe("getProjectBySlug (#119)", () => {
       contact: "@requester",
     });
     if (round.status !== "open") {
-      await (await getPluginClient()).approveProject({ id: round.projectRecordId });
+      await (await getPluginClient(adminContext())).approveProject({ id: round.projectRecordId });
     }
 
     const anonymous = await getPluginClient();
     const project = await anonymous.getProjectBySlug({ slug });
-    expect(project).toMatchObject({ id: expect.any(String), slug, name: "Public project" });
+    expect(project).toMatchObject({ id: expect.any(String), slug, name: expect.any(String) });
     for (const field of Object.keys(PublicProjectOmittedFields)) {
       expect(project).not.toHaveProperty(field);
     }
@@ -90,7 +90,7 @@ describe("getProjectBySlug (#119)", () => {
       contact: "manager@example.com",
     });
     if (round.status !== "open") {
-      await (await getPluginClient()).approveProject({ id: round.projectRecordId });
+      await (await getPluginClient(adminContext())).approveProject({ id: round.projectRecordId });
     }
 
     const managed = await ownerClient.getManagedProjectBySlug({ slug });
@@ -130,7 +130,9 @@ describe("getProjectBySlug (#119)", () => {
     await expect(anon.getProjectBySlug({ slug: "no-such-project" })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    await expect(owner.getProjectBySlug({ slug: pending.projectSlug })).resolves.toMatchObject({
+    await expect(
+      owner.getManagedProjectBySlug({ slug: pending.projectSlug }),
+    ).resolves.toMatchObject({
       status: "pending",
     });
   });

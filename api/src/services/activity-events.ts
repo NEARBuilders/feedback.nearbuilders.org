@@ -26,6 +26,7 @@ import {
   type ActivityLeaderboard,
   type JsonValue,
 } from "./activity-client";
+import { redactPrivateEvent } from "./activity-privacy";
 
 export type { ActivityEventType };
 
@@ -64,6 +65,8 @@ export interface FeedbackPostedInput {
   format: string;
   /** Carried instead of the body, which never leaves this app (#101). */
   roundTitle?: string;
+  /** A private round's feedback id stays in this app too (#101). */
+  isPrivate?: boolean;
 }
 
 export interface RoundClosedInput {
@@ -81,6 +84,8 @@ export interface CreditAwardedInput {
   writtenCount: number;
   recordedCount: number;
   summary: string | null;
+  /** A private round's credit summary stays in this app (#101). */
+  isPrivate?: boolean;
 }
 
 export interface LeaderboardInput {
@@ -206,8 +211,8 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
         },
       }),
 
-    emitFeedbackPosted: (feedback) =>
-      submit({
+    emitFeedbackPosted: async (feedback) => {
+      const event: ActivityEventSubmission = {
         eventType: "feedback.posted",
         actor: feedback.authorAccountId,
         idempotencyKey: `feedback.posted:${feedback.id}`,
@@ -217,7 +222,9 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           format: feedback.format,
           ...(feedback.roundTitle ? { roundTitle: feedback.roundTitle } : {}),
         },
-      }),
+      };
+      return submit(feedback.isPrivate ? await redactPrivateEvent(event, feedback.id) : event);
+    },
 
     emitRoundClosed: (round) =>
       submit({
@@ -231,8 +238,8 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
         },
       }),
 
-    emitCreditAwarded: (credit) =>
-      submit({
+    emitCreditAwarded: async (credit) => {
+      const event: ActivityEventSubmission = {
         eventType: "credit.awarded",
         actor: credit.builderAccountId,
         idempotencyKey: `credit.awarded:${credit.roundId}:${credit.builderAccountId}`,
@@ -244,7 +251,9 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
           recordedCount: credit.recordedCount,
           summary: credit.summary,
         },
-      }),
+      };
+      return submit(credit.isPrivate ? await redactPrivateEvent(event) : event);
+    },
 
     retract: async (eventId, reason) => {
       if (!enabled) return;

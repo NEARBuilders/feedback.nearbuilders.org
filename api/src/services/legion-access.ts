@@ -18,6 +18,14 @@ export interface LegionAccess {
     context: Record<string, unknown>,
     nearAccountId: string | null,
   ): Promise<LegionAccessResult>;
+  /**
+   * Access across every account the caller linked (#224): the first holder wins, so the hint
+   * names the account that qualifies. With none, reports the primary (first) account as denied.
+   */
+  getMyAccessAcross(
+    context: Record<string, unknown>,
+    nearAccountIds: string[],
+  ): Promise<LegionAccessResult>;
 }
 
 export const LEGION_MINT_URL = "https://nearlegion.com/mint";
@@ -32,7 +40,7 @@ export function createLegionAccess(
     mintUrl: LEGION_MINT_URL,
   });
 
-  return {
+  const service: LegionAccess = {
     getMyAccess: async (context, nearAccountId) => {
       if (!nearAccountId) return denied(null);
       if (!legion) return denied(nearAccountId);
@@ -54,5 +62,15 @@ export function createLegionAccess(
         return denied(nearAccountId);
       }
     },
+    getMyAccessAcross: async (context, nearAccountIds) => {
+      let first: LegionAccessResult | null = null;
+      for (const accountId of nearAccountIds) {
+        const result = await service.getMyAccess(context, accountId);
+        if (result.hasAccess) return result;
+        first ??= result;
+      }
+      return first ?? denied(null);
+    },
   };
+  return service;
 }

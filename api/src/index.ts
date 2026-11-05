@@ -2,7 +2,12 @@ import { ORPCError } from "@orpc/server";
 import { Context, Effect, Layer } from "effect";
 import { buildScopedContext, createPlugin } from "every-plugin";
 import { z } from "zod";
-import { contract, type ProjectIdentity, PublicProjectWithRoundsSchema } from "./contract";
+import {
+  contract,
+  type ProjectIdentity,
+  PublicProjectOmittedFields,
+  type PublicProjectWithRounds,
+} from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import type { activityOutbox as activityOutboxTable } from "./db/schema";
 import { type AuthContext, createAuthMiddleware } from "./lib/auth";
@@ -26,7 +31,10 @@ import {
   NotificationsTag,
 } from "./services/notifications";
 import { type OrganizationPrincipal, orgKeyOrganizationId } from "./services/org-key";
-import type { ProjectRecord } from "./services/project-records";
+import type {
+  ProjectRecord,
+  ProjectWithRounds as ProjectWithRoundsRecord,
+} from "./services/project-records";
 import {
   ProjectRecordsLive,
   type ProjectRecordsService,
@@ -260,7 +268,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }));
     };
 
-    const toPublicProject = (project: unknown) => PublicProjectWithRoundsSchema.parse(project);
+    const toPublicProject = (project: ProjectWithRoundsRecord): PublicProjectWithRounds =>
+      Object.fromEntries(
+        Object.entries(project).filter(([field]) => !(field in PublicProjectOmittedFields)),
+      ) as PublicProjectWithRounds;
 
     const withRoundIdentity = async <T extends { projectSlug: string }>(round: T) => ({
       ...round,
@@ -948,9 +959,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       getMyLegionAccess: builder.getMyLegionAccess.handler(async ({ context }) => {
-        return await getRuntime().legionAccess.getMyAccess(
+        return await getRuntime().legionAccess.getMyAccessAcross(
           context as unknown as Record<string, unknown>,
-          context.near?.primaryAccountId ?? null,
+          linkedAccountIds(context as LinkedAccountsContext),
         );
       }),
 
@@ -1015,11 +1026,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
             authorAccountId: accountId,
             body,
           });
-          // The activity event never carries the feedback body, so it's safe for private
-          // rounds too (#101).
+          // The activity event never carries the feedback body, and on a private round not
+          // its id either (#101).
           const eventId = await getRuntime().activityEvents.emitFeedbackPosted({
             ...feedback,
             roundTitle: round.title,
+            isPrivate: round.isPrivate,
           });
           if (eventId) await getRuntime().rounds.setFeedbackActivityEventId(feedback.id, eventId);
           // A Nostr comment can't be retracted, so a private round's feedback never goes there.
@@ -1042,27 +1054,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listFeedback: builder.listFeedback.handler(async ({ input, context }) => {
         const round = await visibleRound(input.id, context);
-        const page = await getRuntime().rounds.listFeedback(round.id, input);
-        if (!round.isPrivate) return page;
         // Private round (#101): everything for the managing org/team and admins, otherwise
         // only the caller's own submissions. This one handler backs the HTTP route, the
-        // data table's export and the MCP `listFeedback` tool. The cursor stays derived from
-        // the unfiltered page, so filtering never blocks pagination.
-        const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
-        const canReadAll = canReadAllFeedback(
-          round,
-          project,
-          await resolveActor(project, context),
-          isSiteAdmin(context),
+        // data table's export and the MCP `listFeedback` tool. The author filter goes into
+        // the query, so the cursor only ever points at a row the caller can read.
+        if (!round.isPrivate || managesRound(round, context)) {
+          return getRuntime().rounds.listFeedback(round.id, input);
+        }
+        const authors = linkedAccountIds(context as LinkedAccountsContext).filter(
+          (accountId) => !input.author || accountId === input.author,
         );
-        return {
-          items: filterVisibleFeedback(
-            page.items,
-            canReadAll,
-            linkedAccountIds(context as LinkedAccountsContext),
-          ),
-          nextCursor: page.nextCursor,
-        };
+        if (authors.length === 0) return { items: [], nextCursor: null };
+        return getRuntime().rounds.listFeedback(round.id, {
+          ...input,
+          author: undefined,
+          authors,
+        });
       }),
 
       listMyFeedback: builder.listMyFeedback
@@ -1289,7 +1296,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (viewer.user?.role !== "admin") {
             await assertCanManageRound(round, context, "Only the round owner can star feedback");
           }
-          const starredBy = viewer.near?.primaryAccountId ?? viewer.user?.id ?? "admin";
+          // Feedback data is keyed on NEAR accounts only (#121, #224): an admin with none
+          // stars without a recorded account, never under their auth user id.
+          const starredBy = linkedAccountIds(context as LinkedAccountsContext)[0] ?? null;
           return await getRuntime().rounds.setFeedbackStarred(
             round.id,
             input.feedbackIds,
@@ -1491,7 +1500,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const credits = await getRuntime().rounds.listRoundCredits(round.id);
           for (const credit of credits) {
             if (!credit.contributedMeaningfully) continue;
-            await getRuntime().activityEvents.emitCreditAwarded(credit);
+            await getRuntime().activityEvents.emitCreditAwarded({
+              ...credit,
+              isPrivate: round.isPrivate,
+            });
           }
           return withRoundIdentity(detail);
         }),
@@ -1522,9 +1534,41 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ).map(({ authorAccountId: _author, ...credit }) => credit);
       }),
 
-      getBuilderRounds: builder.getBuilderRounds.handler(async ({ input }) =>
-        getRuntime().rounds.listBuilderRounds(input.accountId),
-      ),
+      getBuilderRounds: builder.getBuilderRounds.handler(async ({ input, context }) => {
+        const rounds = await getRuntime().rounds.listBuilderRounds(input.accountId);
+        // A private round's credit names who posted (#101), so it only shows to the builder,
+        // the round's managers and admins. Someone with no linked account, organization or
+        // org key can't manage any round, so they skip the per-project lookups.
+        const accountIds = linkedAccountIds(context as LinkedAccountsContext);
+        const seesAll = isSiteAdmin(context) || accountIds.includes(input.accountId);
+        const canManageAny =
+          accountIds.length > 0 ||
+          !!context.organization?.activeOrganizationId ||
+          !!orgKeyOrganizationId(context);
+        const access = new Map<
+          string,
+          Promise<{ project: ProjectRecord | null; actor: RoundActor }>
+        >();
+        const accessFor = (projectRecordId: string) => {
+          let entry = access.get(projectRecordId);
+          if (!entry) {
+            entry = getRuntime()
+              .projectRecords.resolveProjectById(projectRecordId)
+              .then(async (project) => ({ project, actor: await resolveActor(project, context) }));
+            access.set(projectRecordId, entry);
+          }
+          return entry;
+        };
+        const visible = await Promise.all(
+          rounds.map(async ({ isPrivate, ownerAccountId, projectRecordId, ...round }) => {
+            if (!isPrivate || seesAll) return round;
+            if (!canManageAny) return null;
+            const { project, actor } = await accessFor(projectRecordId);
+            return canManageRound({ ownerAccountId }, project, actor) ? round : null;
+          }),
+        );
+        return visible.filter((round) => round !== null);
+      }),
 
       getRoundEndorsements: builder.getRoundEndorsements.handler(async ({ input }) => {
         const eventIds = await getRuntime().rounds.listRoundActivityEventIds(input.roundIds);
