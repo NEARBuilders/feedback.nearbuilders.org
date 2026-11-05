@@ -44,6 +44,14 @@ export default App({
   ui: {
     path: "ui",
   },
+  // Auth slot pinned to nearbuilders.org's published auth entry (shared-auth
+  // cutover, #237): nearbuilders.org is the single version authority for the
+  // auth plugin and its migrations. `ui: false` drops the source app's
+  // attached `app.ui` so our own UI stays untouched.
+  auth: {
+    extends: "bos://nearbuilding.near/nearbuilders.org#app.auth",
+    ui: false,
+  },
   // Attached plugins, keyed by registry key. `path` = local workspace, `extends` = published module.
   plugins: {
     legion: {
