@@ -946,9 +946,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       getMyLegionAccess: builder.getMyLegionAccess.handler(async ({ context }) => {
-        return await getRuntime().legionAccess.getMyAccess(
+        return await getRuntime().legionAccess.getMyAccessAcross(
           context as unknown as Record<string, unknown>,
-          context.near?.primaryAccountId ?? null,
+          linkedAccountIds(context as LinkedAccountsContext),
         );
       }),
 
@@ -1283,7 +1283,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
           if (viewer.user?.role !== "admin") {
             await assertCanManageRound(round, context, "Only the round owner can star feedback");
           }
-          const starredBy = viewer.near?.primaryAccountId ?? viewer.user?.id ?? "admin";
+          // Feedback data is keyed on NEAR accounts only (#121, #224): an admin with none
+          // stars without a recorded account, never under their auth user id.
+          const starredBy = linkedAccountIds(context as LinkedAccountsContext)[0] ?? null;
           return await getRuntime().rounds.setFeedbackStarred(
             round.id,
             input.feedbackIds,

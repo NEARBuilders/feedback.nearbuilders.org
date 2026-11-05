@@ -535,4 +535,25 @@ describe("RoundsService", () => {
     const rejected = await runService(layer, (svc) => svc.listRounds("rejected"));
     expect(rejected.map((r) => r.id)).toEqual([second.id]);
   });
+
+  it("stars feedback without a recorded account when the starrer has none", async () => {
+    const layer = freshLayer();
+    const round = await runService(layer, (svc) => svc.createRound(baseInput));
+    await approveProjectOf(layer, round);
+    await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
+    const feedback = await runService(layer, (svc) =>
+      svc.addFeedback({
+        roundId: round.id,
+        authorAccountId: "alice.near",
+        format: "written",
+        body: "Looks good",
+        url: null,
+      }),
+    );
+
+    await runService(layer, (svc) => svc.setFeedbackStarred(round.id, [feedback.id], true, null));
+    const { items } = await runService(layer, (svc) => svc.listFeedback(round.id));
+    expect(items[0]?.starredAt).not.toBeNull();
+    expect(items[0]?.starredByAccountId).toBeNull();
+  });
 });

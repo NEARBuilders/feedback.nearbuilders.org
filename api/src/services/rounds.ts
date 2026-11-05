@@ -328,7 +328,7 @@ export interface RoundsService {
     roundId: string,
     feedbackIds: string[],
     starred: boolean,
-    starredByAccountId: string,
+    starredByAccountId: string | null,
   ): Promise<RoundFeedbackRecord[]>;
   addFeedbackNote(note: NewFeedbackNote): Promise<FeedbackNoteRecord>;
   listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;

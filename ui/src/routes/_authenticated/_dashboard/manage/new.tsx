@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, type SearchSchemaInput, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  isNotFound,
+  Link,
+  type SearchSchemaInput,
+  useNavigate,
+} from "@tanstack/react-router";
 import { Building2, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -54,7 +60,14 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/new")({
   loaderDeps: ({ search }) => ({ project: search.project, from: search.from }),
   loader: async ({ context, deps }) => {
     if (!deps.project) return { project: null, previous: null };
-    const project = await loadProject(context, deps.project);
+    // A project with no rounds yet isn't known here; that is the normal case
+    // for the "Request feedback" deep link, so fall back to the picker with the
+    // slug prefilled instead of a 404.
+    const project = await loadProject(context, deps.project).catch((error) => {
+      if (isNotFound(error)) return null;
+      throw error;
+    });
+    if (!project) return { project: null, previous: null };
     const previous = deps.from
       ? await context.queryClient
           .ensureQueryData(roundBySlugQueryOptions(context.apiClient, deps.project, deps.from))
@@ -83,6 +96,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 
 function NewRoundPage() {
   const { project, previous } = Route.useLoaderData();
+  const { project: requestedSlug } = Route.useSearch();
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const queryClient = useQueryClient();
@@ -105,7 +119,7 @@ function NewRoundPage() {
 
   // The picker's raw text doubles as the slug when the registry has no match,
   // so it lives here rather than inside the picker.
-  const [projectQuery, setProjectQuery] = useState("");
+  const [projectQuery, setProjectQuery] = useState(project ? "" : (requestedSlug ?? ""));
   const [picked, setPicked] = useState<{ id: string; slug: string; title: string } | null>(null);
   const [fields, setFields] = useState(() => nextRoundFields(previous));
 
