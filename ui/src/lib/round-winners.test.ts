@@ -1,35 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { getRoundWinners, getWinnersForPath } from "./round-winners";
+import { parseRoundOverviewPath, parseWinnersInput } from "./round-winners";
 
-describe("getRoundWinners", () => {
-  it("returns the ranked top 10 for the nearly-trade campaign", () => {
-    const winners = getRoundWinners("nearly-trade", 1);
-    expect(winners).toHaveLength(10);
-    expect(winners[0]).toBe("m1halich228.tg");
-    expect(winners[9]).toBe("7178321377-hot.tg");
-    expect(new Set(winners).size).toBe(10);
+describe("parseRoundOverviewPath", () => {
+  it("matches only the round overview page", () => {
+    expect(parseRoundOverviewPath("/projects/nearly-trade/1")).toEqual({
+      slug: "nearly-trade",
+      number: 1,
+    });
+    expect(parseRoundOverviewPath("/projects/nearly-trade/1/")).toEqual({
+      slug: "nearly-trade",
+      number: 1,
+    });
   });
 
-  it("returns nothing for other rounds of the same project", () => {
-    expect(getRoundWinners("nearly-trade", 2)).toEqual([]);
-  });
-
-  it("returns nothing for other projects", () => {
-    expect(getRoundWinners("kinu", 1)).toEqual([]);
+  it("ignores the round's other pages and other routes", () => {
+    expect(parseRoundOverviewPath("/projects/nearly-trade/1/feedback")).toBeNull();
+    expect(parseRoundOverviewPath("/projects/nearly-trade")).toBeNull();
+    expect(parseRoundOverviewPath("/manage/nearly-trade/1")).toBeNull();
+    expect(parseRoundOverviewPath("/")).toBeNull();
   });
 });
 
-describe("getWinnersForPath", () => {
-  it("returns the winners only on the round overview page", () => {
-    expect(getWinnersForPath("/projects/nearly-trade/1")).toHaveLength(10);
-    expect(getWinnersForPath("/projects/nearly-trade/1/")).toHaveLength(10);
+describe("parseWinnersInput", () => {
+  it("keeps the owner's order, trims, and drops blanks and duplicates", () => {
+    expect(parseWinnersInput(" alice.near\n\nbob.tg , alice.near\ncarol.near ")).toEqual([
+      "alice.near",
+      "bob.tg",
+      "carol.near",
+    ]);
   });
 
-  it("returns nothing on the round's other pages and other routes", () => {
-    expect(getWinnersForPath("/projects/nearly-trade/1/feedback")).toEqual([]);
-    expect(getWinnersForPath("/projects/nearly-trade/1/submit")).toEqual([]);
-    expect(getWinnersForPath("/projects/nearly-trade")).toEqual([]);
-    expect(getWinnersForPath("/manage/nearly-trade/1")).toEqual([]);
-    expect(getWinnersForPath("/")).toEqual([]);
+  it("returns an empty list for empty input", () => {
+    expect(parseWinnersInput("  \n ")).toEqual([]);
   });
 });

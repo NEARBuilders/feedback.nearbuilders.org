@@ -585,12 +585,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
           await assertCanManageRound(
             round,
             context,
-            "Only the round owner can change its privacy, Legion gate or expiration",
+            "Only the round owner can change its privacy, Legion gate, expiration or winners",
           );
           return await getRuntime().rounds.updateRoundSettings(round.id, {
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
             endsAt: input.endsAt,
+            winners: input.winners ? [...new Set(input.winners)] : undefined,
           });
         }),
 

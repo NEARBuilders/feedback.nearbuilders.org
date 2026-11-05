@@ -1,29 +1,17 @@
-const ROUND_WINNERS: Record<string, readonly string[]> = {
-  "nearly-trade/1": [
-    "m1halich228.tg",
-    "sergeserge1.tg",
-    "bassoman.tg",
-    "pn193014.tg",
-    "maiye.near",
-    "marian_h1.tg",
-    "danseyka.tg",
-    "gaaraji.near",
-    "oscoi.near",
-    "7178321377-hot.tg",
-  ],
-};
-
-export function getRoundWinners(
-  projectSlug: string,
-  projectRoundNumber: number,
-): readonly string[] {
-  return ROUND_WINNERS[`${projectSlug}/${projectRoundNumber}`] ?? [];
-}
-
 const ROUND_OVERVIEW_PATH = /^\/projects\/([^/]+)\/(\d+)\/?$/;
 
-export function getWinnersForPath(pathname: string): readonly string[] {
+/** The project slug and round number when `pathname` is a round's overview page, else null. */
+export function parseRoundOverviewPath(pathname: string): { slug: string; number: number } | null {
   const match = ROUND_OVERVIEW_PATH.exec(pathname);
-  if (!match) return [];
-  return getRoundWinners(decodeURIComponent(match[1] ?? ""), Number(match[2]));
+  if (!match) return null;
+  return { slug: decodeURIComponent(match[1] ?? ""), number: Number(match[2]) };
+}
+
+/** Splits the owner's pasted list (one account per line, commas also work) into ranked, unique ids. */
+export function parseWinnersInput(text: string): string[] {
+  const ids = text
+    .split(/[\n,]/)
+    .map((id) => id.trim())
+    .filter(Boolean);
+  return [...new Set(ids)];
 }

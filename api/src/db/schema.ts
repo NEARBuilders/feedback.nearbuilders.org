@@ -126,6 +126,8 @@ export const rounds = pgTable(
     // Optional expiration: joining and posting are blocked once this passes, but the
     // owner still closes the round manually (closing writes credits).
     endsAt: timestamp("ends_at", { mode: "date", withTimezone: true }),
+    // Ranked account ids the round owner marked as winners, shown as a banner on the round page.
+    winners: text("winners").array().default([]).notNull(),
     status: roundStatus("status").default("pending").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),

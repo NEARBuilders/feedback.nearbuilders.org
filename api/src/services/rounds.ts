@@ -87,6 +87,8 @@ export interface RoundRecord {
   legionOnly: boolean;
   /** Optional expiration: joining and posting are blocked once this passes. */
   endsAt: string | null;
+  /** Ranked account ids the round owner marked as winners; empty until they do. */
+  winners: string[];
   status: RoundStatus;
   createdAt: string;
   updatedAt: string;
@@ -124,6 +126,8 @@ export interface RoundSettingsInput {
   legionOnly?: boolean;
   /** New expiration, or null to remove it. */
   endsAt?: string | null;
+  /** Replaces the ranked winners list; an empty array clears it. */
+  winners?: string[];
 }
 
 export interface RoundDetailRecord extends RoundRecord {
@@ -383,6 +387,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     isPrivate: row.isPrivate,
     legionOnly: row.legionOnly,
     endsAt: row.endsAt instanceof Date ? row.endsAt.toISOString() : null,
+    winners: row.winners ?? [],
     status: row.status,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
@@ -749,6 +754,7 @@ export const RoundsLive = Layer.effect(
               ...(settings.endsAt !== undefined
                 ? { endsAt: settings.endsAt ? new Date(settings.endsAt) : null }
                 : {}),
+              ...(settings.winners !== undefined ? { winners: settings.winners } : {}),
               updatedAt: new Date(),
             })
             .where(eq(roundsTable.id, roundId))

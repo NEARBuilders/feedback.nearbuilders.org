@@ -4,6 +4,7 @@ import { RoundDangerZone } from "@/components/round-danger-zone";
 import { RoundFormatsForm } from "@/components/round-formats-form";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundSettingsPanel } from "@/components/round-settings-panel";
+import { RoundWinnersForm } from "@/components/round-winners-form";
 import { useRound } from "@/lib/round-route";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n/settings")({
@@ -25,6 +26,7 @@ function SettingsTab() {
           legionOnly={round.legionOnly}
           endsAt={round.endsAt}
         />
+        <RoundWinnersForm key={round.winners.join()} roundId={round.id} winners={round.winners} />
         <RoundDangerZone round={round} />
       </div>
     </div>

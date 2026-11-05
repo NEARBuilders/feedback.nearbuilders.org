@@ -1,7 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Trophy } from "lucide-react";
+import { useApiClient } from "@/app";
 import { isCompact } from "@/lib/app-shell";
-import { getWinnersForPath } from "@/lib/round-winners";
+import { roundBySlugQueryOptions } from "@/lib/queries/rounds";
+import { parseRoundOverviewPath } from "@/lib/round-winners";
 
 function WinnerList({ winners, hidden }: { winners: readonly string[]; hidden?: boolean }) {
   return (
@@ -28,9 +31,16 @@ function WinnerList({ winners, hidden }: { winners: readonly string[]; hidden?: 
 }
 
 export function RoundWinnersBanner() {
-  const winners = useRouterState({
-    select: (s) => (isCompact(s.location.search) ? [] : getWinnersForPath(s.location.pathname)),
+  const apiClient = useApiClient();
+  const target = useRouterState({
+    select: (s) =>
+      isCompact(s.location.search) ? null : parseRoundOverviewPath(s.location.pathname),
   });
+  const { data: round } = useQuery({
+    ...roundBySlugQueryOptions(apiClient, target?.slug ?? "", target?.number ?? 0),
+    enabled: target !== null,
+  });
+  const winners = target ? (round?.winners ?? []) : [];
   if (winners.length === 0) return null;
 
   return (
@@ -40,7 +50,7 @@ export function RoundWinnersBanner() {
     >
       <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-semibold text-foreground">
         <Trophy className="h-4 w-4" />
-        Top {winners.length} testers · reward winners
+        Winners
       </div>
       <div className="min-w-0 flex-1 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_3%,black_97%,transparent)]">
         <div className="flex w-max animate-winners-marquee hover:[animation-play-state:paused] motion-reduce:animate-none">
