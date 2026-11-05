@@ -27,6 +27,14 @@ export function projectQueryOptions(apiClient: ApiClient, slug: string) {
   });
 }
 
+export function managedProjectQueryOptions(apiClient: ApiClient, slug: string) {
+  return queryOptions({
+    queryKey: [...projectKeys.detail(slug), "managed"] as const,
+    queryFn: () => apiClient.getManagedProjectBySlug({ slug }),
+    staleTime: 30 * 1000,
+  });
+}
+
 export function myProjectsQueryOptions(apiClient: ApiClient) {
   return queryOptions({
     queryKey: projectKeys.mine(),

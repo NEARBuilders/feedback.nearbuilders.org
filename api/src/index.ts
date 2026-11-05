@@ -2,7 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { Context, Effect, Layer } from "effect";
 import { buildScopedContext, createPlugin } from "every-plugin";
 import { z } from "zod";
-import { contract, type ProjectIdentity } from "./contract";
+import { contract, type ProjectIdentity, PublicProjectWithRoundsSchema } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import type { activityOutbox as activityOutboxTable } from "./db/schema";
 import { type AuthContext, createAuthMiddleware } from "./lib/auth";
@@ -259,6 +259,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         identity: toIdentity(registry.get(project.slug)),
       }));
     };
+
+    const toPublicProject = (project: unknown) => PublicProjectWithRoundsSchema.parse(project);
 
     const withRoundIdentity = async <T extends { projectSlug: string }>(round: T) => ({
       ...round,
@@ -1570,7 +1572,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listPublicProjects: builder.listPublicProjects.handler(async () => {
         const projects = await getRuntime().projectRecords.listProjects("approved");
         return withIdentities(
-          projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) })),
+          projects.map((project) =>
+            toPublicProject({ ...project, rounds: project.rounds.filter(isPublic) }),
+          ),
         );
       }),
 
@@ -1583,11 +1587,32 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const canSeeAll = managesRound({ canManage }, context);
         if (project.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
         return {
-          ...(await withIdentity(project)),
+          ...(await withIdentity(toPublicProject(project))),
           rounds: canSeeAll ? project.rounds : project.rounds.filter(isPublic),
           canManage,
         };
       }),
+
+      getManagedProjectBySlug: builder.getManagedProjectBySlug
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const record = await getRuntime().projectRecords.resolveProjectBySlug(input.slug);
+          const project =
+            record && (await getRuntime().projectRecords.getProjectWithRounds(record.id));
+          if (!project) throw projectNotFound(input.slug);
+          const canManage = canManageProject(project, await resolveActor(project, context));
+          if (!canManage && !isSiteAdmin(context)) {
+            throw errors.FORBIDDEN({
+              message: "You cannot manage this project",
+              data: {},
+            });
+          }
+          return {
+            ...(await withIdentity(project)),
+            rounds: project.rounds,
+            canManage: canManage || isSiteAdmin(context),
+          };
+        }),
 
       inviteTesters: builder.inviteTesters
         .use(requireAuthOrApiKey)

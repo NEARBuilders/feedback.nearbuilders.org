@@ -20,7 +20,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { RoundFieldsEditor } from "@/components/round-fields";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
-import { loadProject } from "@/lib/project-route";
+import { loadManagedProject } from "@/lib/project-route";
 import { invalidateProjectQueries } from "@/lib/queries/projects";
 import { invalidateRoundQueries, roundBySlugQueryOptions } from "@/lib/queries/rounds";
 import { nextRoundFields, roundFieldsComplete, toCreateRoundInput } from "@/lib/round-fields";
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/new")({
   loaderDeps: ({ search }) => ({ project: search.project, from: search.from }),
   loader: async ({ context, deps }) => {
     if (!deps.project) return { project: null, previous: null };
-    const project = await loadProject(context, deps.project);
+    const project = await loadManagedProject(context, deps.project);
     const previous = deps.from
       ? await context.queryClient
           .ensureQueryData(roundBySlugQueryOptions(context.apiClient, deps.project, deps.from))
