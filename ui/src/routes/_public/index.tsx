@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_public/")({
+  staticData: { appShell: false },
   head: () =>
     pageHead(
       undefined,
