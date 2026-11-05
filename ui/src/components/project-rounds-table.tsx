@@ -68,7 +68,7 @@ export function ProjectRoundsTable({ projects, console, grouped }: ProjectRounds
                     </Link>
                   </TableCell>
                   <TableCell className="text-right">
-                    <RoundStatusBadge status={round.status} />
+                    <RoundStatusBadge status={round.status} endsAt={round.endsAt} />
                   </TableCell>
                 </TableRow>
               ))

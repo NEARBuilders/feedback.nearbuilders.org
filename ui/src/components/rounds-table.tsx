@@ -140,7 +140,9 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
         columnHelper.accessor("status", {
           id: "status",
           header: "Status",
-          cell: ({ row }) => <RoundStatusBadge status={row.original.status} />,
+          cell: ({ row }) => (
+            <RoundStatusBadge status={row.original.status} endsAt={row.original.endsAt} />
+          ),
         }),
         columnHelper.accessor((round) => round.formats.length, {
           id: "formats",

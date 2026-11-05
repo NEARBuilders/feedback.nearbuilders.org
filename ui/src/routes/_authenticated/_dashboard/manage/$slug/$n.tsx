@@ -53,7 +53,7 @@ function ConsoleLayout() {
           description="Review feedback, talk to testers and run the round."
           actions={
             <>
-              <RoundStatusBadge status={round.status} />
+              <RoundStatusBadge status={round.status} endsAt={round.endsAt} />
               <Button asChild variant="outline" size="sm">
                 <Link to="/projects/$slug/$n" params={params}>
                   <Eye className="h-3.5 w-3.5" />

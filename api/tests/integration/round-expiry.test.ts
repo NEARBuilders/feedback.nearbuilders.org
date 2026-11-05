@@ -32,6 +32,22 @@ describe("round expiration (#128)", () => {
     expect(round.endsAt).toBe(endsAt);
   });
 
+  it("keeps expired rounds out of the open list while status stays open", async () => {
+    const { round, owner } = await openRound({
+      endsAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const anon = await getPluginClient();
+    expect((await anon.listRounds({ status: "open" })).map((r) => r.id)).toContain(round.id);
+    await owner.updateRoundSettings({
+      id: round.id,
+      endsAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    const open = await anon.listRounds({ status: "open" });
+    expect(open.map((r) => r.id)).not.toContain(round.id);
+    const listed = (await anon.listRounds({})).find((r) => r.id === round.id);
+    expect(listed).toMatchObject({ id: round.id, status: "open" });
+  });
+
   it("blocks joining and posting once the round has expired", async () => {
     const { round, owner } = await openRound({
       endsAt: new Date(Date.now() + 60_000).toISOString(),

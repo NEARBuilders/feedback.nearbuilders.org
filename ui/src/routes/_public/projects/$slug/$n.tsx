@@ -118,13 +118,13 @@ function RoundLayout() {
           actions={
             compact ? (
               <>
-                <RoundStatusBadge status={round.status} />
+                <RoundStatusBadge status={round.status} endsAt={round.endsAt} />
                 {round.projectVerifiedAt && <VerifiedBadge />}
                 <ProductLink identity={round.identity} />
               </>
             ) : (
               <>
-                <RoundStatusBadge status={round.status} />
+                <RoundStatusBadge status={round.status} endsAt={round.endsAt} />
                 {round.projectVerifiedAt && <VerifiedBadge />}
               </>
             )

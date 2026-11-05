@@ -6,10 +6,12 @@ import {
   desc,
   eq,
   getTableColumns,
+  gt,
   inArray,
   isNotNull,
   isNull,
   ne,
+  or,
   type SQL,
   sql,
 } from "drizzle-orm";
@@ -773,10 +775,23 @@ export const RoundsLive = Layer.effect(
 
       listRounds: async (status) => {
         try {
+          // `open` means still accepting feedback: past endsAt stays status=open in
+          // the DB until the owner closes for credits, but the Open tab must not
+          // list those as live (same rule as owner-summary counts).
+          const openStillLive = and(
+            eq(roundsTable.status, "open"),
+            or(isNull(roundsTable.endsAt), gt(roundsTable.endsAt, new Date())),
+          );
           const rows = await db
             .select()
             .from(roundsTable)
-            .where(status ? eq(roundsTable.status, status) : undefined)
+            .where(
+              status === "open"
+                ? openStillLive
+                : status
+                  ? eq(roundsTable.status, status)
+                  : undefined,
+            )
             .orderBy(desc(roundsTable.createdAt));
           if (rows.length === 0) return [];
           const countRows = await db
