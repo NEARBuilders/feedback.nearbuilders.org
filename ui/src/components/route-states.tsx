@@ -22,7 +22,7 @@ export function RouteError({ error }: ErrorComponentProps) {
       <EmptyState
         icon={AlertTriangle}
         title="Something went wrong."
-        description={error.message}
+        description={error instanceof Error ? error.message : String(error)}
         className="min-h-[30vh]"
         action={
           <Button variant="outline" size="sm" onClick={() => void router.invalidate()}>

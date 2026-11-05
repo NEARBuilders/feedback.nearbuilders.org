@@ -1,3 +1,4 @@
+import { rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -22,6 +23,11 @@ const TEST_CONFIG = {
   ...pluginDevConfig.config,
   secrets: {
     ...pluginDevConfig.config.secrets,
+    // Test files run in parallel fork processes, and PGlite is single-process
+    // per data dir (ADR 0044): sharing the dev `.bos/db` across workers makes
+    // them checkpoint over each other, seen as "Aborted()" from the WASM
+    // during migrations. One dir per fork keeps each worker's instance alone.
+    API_DATABASE_URL: `pglite:.bos/db/test-${process.pid}`,
     NOSTR_SECRET_KEY_HEX: TEST_NOSTR_SECRET_KEY_HEX,
     PROJECTS_API_BASE_URL: "",
     ACTIVITY_API_BASE_URL: "",
@@ -223,4 +229,9 @@ export async function teardown() {
     server = null;
   }
   await runtime.shutdown();
+  try {
+    rmSync(`.bos/db/test-${process.pid}`, { recursive: true, force: true });
+  } catch {
+    // best effort — a leftover dir under .bos/db is harmless
+  }
 }
