@@ -523,17 +523,42 @@ describe("RoundsService", () => {
     expect(all.map((r) => r.id)).toEqual(expect.arrayContaining([first.id, second.id]));
     expect(all).toHaveLength(2);
 
-    const pending = await runService(layer, (svc) => svc.listRounds("pending"));
+    const pending = await runService(layer, (svc) => svc.listRounds({ status: "pending" }));
     expect(pending).toEqual([]);
 
-    const open = await runService(layer, (svc) => svc.listRounds("open"));
+    const open = await runService(layer, (svc) => svc.listRounds({ status: "open" }));
     expect(open.map((r) => r.id)).toEqual([first.id]);
 
-    const closed = await runService(layer, (svc) => svc.listRounds("closed"));
+    const closed = await runService(layer, (svc) => svc.listRounds({ status: "closed" }));
     expect(closed).toEqual([]);
 
-    const rejected = await runService(layer, (svc) => svc.listRounds("rejected"));
+    const rejected = await runService(layer, (svc) => svc.listRounds({ status: "rejected" }));
     expect(rejected.map((r) => r.id)).toEqual([second.id]);
+  });
+
+  it("filters rounds by the organization that owns their project", async () => {
+    const layer = freshLayer();
+    const inOrgOne = await runService(layer, (svc) =>
+      svc.createRound({ ...baseInput, title: "Org one" }),
+    );
+    const inOrgTwo = await runService(layer, (svc) =>
+      svc.createRound({
+        ...baseInput,
+        ownerOrgId: "org-2",
+        projectSlug: "other-project",
+        title: "Org two",
+      }),
+    );
+
+    const all = await runService(layer, (svc) => svc.listRounds());
+    expect(all.find((r) => r.id === inOrgOne.id)?.organizationId).toBe("org-1");
+    expect(all.find((r) => r.id === inOrgTwo.id)?.organizationId).toBe("org-2");
+
+    const orgTwo = await runService(layer, (svc) => svc.listRounds({ organizationId: "org-2" }));
+    expect(orgTwo.map((r) => r.id)).toEqual([inOrgTwo.id]);
+
+    const none = await runService(layer, (svc) => svc.listRounds({ organizationId: "org-3" }));
+    expect(none).toEqual([]);
   });
 
   it("stars feedback without a recorded account when the starrer has none", async () => {
