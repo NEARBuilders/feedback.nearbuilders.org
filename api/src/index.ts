@@ -1409,21 +1409,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getRoundGithubIssues: builder.getRoundGithubIssues.handler(
         async ({ input, context, errors }) => {
-          const round = await requireRound(input.id);
-          if (!round.formats.includes("issues") || !round.repoUrl) {
-            throw errors.BAD_REQUEST({
-              message: "This round isn't collecting GitHub issues",
-              data: {},
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
             });
           }
           if (round.isPrivate) {
             const detail = await visibleRound(input.id, context);
             if (!managesRound(detail, context)) {
-              throw new ORPCError("FORBIDDEN", {
+              throw errors.FORBIDDEN({
                 message:
                   "Only authorized round managers can view GitHub issues for a private round",
+                data: {},
               });
             }
+          }
+          if (!round.formats.includes("issues") || !round.repoUrl) {
+            throw errors.BAD_REQUEST({
+              message: "This round isn't collecting GitHub issues",
+              data: {},
+            });
           }
           const contributors = await getRuntime().githubIssuesLookup.forRound({
             repoUrl: round.repoUrl,

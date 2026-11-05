@@ -89,6 +89,24 @@ describe("getRoundGithubIssues", () => {
     expect(result.contributors).toEqual([]);
   });
 
+  it("checks private-round authorization before the feedback format", async () => {
+    const owner = await getPluginClient(nearAuthedContext("github-private-written-owner.near"));
+    const round = await owner.createRound({
+      projectSlug: "private-written-project",
+      title: "Private written feedback",
+      description: "This round does not collect GitHub issues.",
+      formats: ["written"],
+      isPrivate: true,
+    });
+    const admin = await getPluginClient(adminContext());
+    await admin.approveProject({ id: round.projectRecordId });
+
+    const anon = await getPluginClient();
+    await expect(anon.getRoundGithubIssues({ id: round.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
   it("restricts private rounds to managers, delegated team members, and admins", async () => {
     const { orgId, owner, round } = await createPrivateIssuesRound();
 
