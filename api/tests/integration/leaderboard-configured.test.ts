@@ -13,11 +13,15 @@ let gatewayUrl = "";
 let gatewayStatus = 200;
 let requestedUrls: string[] = [];
 
-async function clientFor(activityBaseUrl: string) {
-  const runtime = createPluginRuntime({
-    registry: { [PLUGIN_ID]: { module: Plugin, description: "leaderboard test runtime" } },
-    secrets: {},
-  });
+// One runtime for the whole file: the db driver refuses a second concurrent
+// PGlite open of the same data dir in one process (ADR 0044), and each runtime
+// opens the plugin's configured `pglite:.bos/db` on boot.
+const runtime = createPluginRuntime({
+  registry: { [PLUGIN_ID]: { module: Plugin, description: "leaderboard test runtime" } },
+  secrets: {},
+});
+
+async function createClient(activityBaseUrl: string) {
   const { router } = await runtime.usePlugin(
     PLUGIN_ID,
     {
@@ -34,6 +38,8 @@ async function clientFor(activityBaseUrl: string) {
   );
   return createRouterClient(router, { context: {} });
 }
+
+let client: Awaited<ReturnType<typeof createClient>>;
 
 beforeAll(async () => {
   gateway = createServer((req, res) => {
@@ -54,17 +60,18 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => gateway.listen(0, "127.0.0.1", resolve));
   gatewayUrl = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  client = await createClient(gatewayUrl);
 });
 
 afterAll(async () => {
   await new Promise<void>((resolve) => gateway.close(() => resolve()));
+  await runtime.shutdown();
 });
 
 describe("getLeaderboard (activity gateway configured, no API key)", () => {
   it("returns standings from the gateway, scoped to this source and every scored type", async () => {
     gatewayStatus = 200;
     requestedUrls = [];
-    const client = await clientFor(gatewayUrl);
 
     const board = await client.getLeaderboard({ period: "monthly", limit: 25 });
 
@@ -89,7 +96,6 @@ describe("getLeaderboard (activity gateway configured, no API key)", () => {
 
   it("reports configured but unavailable when the gateway errors", async () => {
     gatewayStatus = 500;
-    const client = await clientFor(gatewayUrl);
 
     await expect(client.getLeaderboard({ period: "weekly" })).resolves.toEqual({
       period: "weekly",
