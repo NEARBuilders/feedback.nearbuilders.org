@@ -90,6 +90,14 @@ export type ProjectWithRounds = z.infer<typeof ProjectWithRoundsSchema>;
 /** Upper bound on the winners a round owner can mark. */
 export const MAX_ROUND_WINNERS = 50;
 
+/** A winner's account id: lowercase NEAR/Telegram-style id, safe to use as a profile link segment. */
+export const RoundWinnerIdSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/, "Not a valid account id")
+  .max(64);
+
 export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
@@ -618,7 +626,7 @@ export const contract = oc.router({
         /** New expiration, or null to remove it. */
         endsAt: z.iso.datetime().nullable().optional(),
         /** Ranked winners, best first. Replaces the list; an empty array clears it. */
-        winners: z.array(z.string().trim().min(1).max(128)).max(MAX_ROUND_WINNERS).optional(),
+        winners: z.array(RoundWinnerIdSchema).max(MAX_ROUND_WINNERS).optional(),
       }),
     )
     .output(RoundSchema)

@@ -26,7 +26,7 @@ function SettingsTab() {
           legionOnly={round.legionOnly}
           endsAt={round.endsAt}
         />
-        <RoundWinnersForm key={round.winners.join()} roundId={round.id} winners={round.winners} />
+        <RoundWinnersForm key={round.updatedAt} roundId={round.id} winners={round.winners} />
         <RoundDangerZone round={round} />
       </div>
     </div>

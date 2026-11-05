@@ -55,3 +55,25 @@ describe("round winners", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
+
+describe("round winners validation", () => {
+  it("lowercases ids and collapses case-variant duplicates", async () => {
+    const { round, owner } = await openRound();
+    const set = await owner.updateRoundSettings({
+      id: round.id,
+      winners: ["Alice.near", "alice.NEAR", "bob.tg"],
+    });
+    expect(set.winners).toEqual(["alice.near", "bob.tg"]);
+  });
+
+  it("rejects malformed ids and over-long lists", async () => {
+    const { round, owner } = await openRound();
+    for (const bad of ["alice..near", "a/b", "?x", "has space"]) {
+      await expect(
+        owner.updateRoundSettings({ id: round.id, winners: [bad] }),
+      ).rejects.toBeDefined();
+    }
+    const many = Array.from({ length: 51 }, (_, i) => `w${i}.near`);
+    await expect(owner.updateRoundSettings({ id: round.id, winners: many })).rejects.toBeDefined();
+  });
+});

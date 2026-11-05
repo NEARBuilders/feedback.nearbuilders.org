@@ -591,7 +591,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
             endsAt: input.endsAt,
-            winners: input.winners ? [...new Set(input.winners)] : undefined,
+            winners: input.winners,
           });
         }),
 

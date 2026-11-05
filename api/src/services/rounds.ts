@@ -14,6 +14,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
+import { MAX_ROUND_WINNERS } from "../contract";
 import { DatabaseTag } from "../db/layer";
 import {
   activityOutbox as activityOutboxTable,
@@ -370,6 +371,17 @@ function toIssuesUrl(formats: RoundFormat[], repoUrl: string | null): string | n
 export class RoundsTag extends Context.Service<RoundsTag, RoundsService>()("api/Rounds") {}
 
 type RoundRow = typeof roundsTable.$inferSelect;
+
+/** Winners are stored ranked, lowercased and unique, within the cap, whoever the caller is. */
+export function normalizeWinners(winners: readonly string[]): string[] {
+  const unique = [...new Set(winners.map((id) => id.trim().toLowerCase()).filter(Boolean))];
+  if (unique.length > MAX_ROUND_WINNERS) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `A round can have at most ${MAX_ROUND_WINNERS} winners`,
+    });
+  }
+  return unique;
+}
 
 export function toRoundRecord(row: RoundRow): RoundRecord {
   return {
@@ -754,7 +766,9 @@ export const RoundsLive = Layer.effect(
               ...(settings.endsAt !== undefined
                 ? { endsAt: settings.endsAt ? new Date(settings.endsAt) : null }
                 : {}),
-              ...(settings.winners !== undefined ? { winners: settings.winners } : {}),
+              ...(settings.winners !== undefined
+                ? { winners: normalizeWinners(settings.winners) }
+                : {}),
               updatedAt: new Date(),
             })
             .where(eq(roundsTable.id, roundId))
