@@ -86,7 +86,14 @@ export default createPlugin({
           },
         });
       }
-      return next({ context: { uploaderAccountId: context.near.primaryAccountId } });
+      // New uploads are keyed on the primary account; assets uploaded under any other linked
+      // account stay the caller's (#224).
+      const linkedAccountIds = (context.near.linkedAccounts ?? [])
+        .map((account: { accountId?: string | null }) => account.accountId)
+        .filter((id): id is string => Boolean(id));
+      return next({
+        context: { uploaderAccountId: context.near.primaryAccountId, linkedAccountIds },
+      });
     });
 
     return {
@@ -110,6 +117,7 @@ export default createPlugin({
         .handler(async ({ input, context }) => {
           return await getRuntime().storage.confirmUpload({
             uploaderAccountId: context.uploaderAccountId,
+            linkedAccountIds: context.linkedAccountIds,
             key: input.key,
           });
         }),
@@ -119,6 +127,7 @@ export default createPlugin({
         .handler(async ({ input, context }) => {
           return await getRuntime().storage.attachAsset({
             uploaderAccountId: context.uploaderAccountId,
+            linkedAccountIds: context.linkedAccountIds,
             key: input.key,
             ownerId: input.ownerId,
           });
@@ -129,6 +138,7 @@ export default createPlugin({
         .handler(async ({ input, context }) => {
           return await getRuntime().storage.attachByUrls({
             uploaderAccountId: context.uploaderAccountId,
+            linkedAccountIds: context.linkedAccountIds,
             ownerId: input.ownerId,
             urls: input.urls,
           });
@@ -139,6 +149,7 @@ export default createPlugin({
         .handler(async ({ input, context }) => {
           return await getRuntime().storage.deleteByOwner({
             uploaderAccountId: context.uploaderAccountId,
+            linkedAccountIds: context.linkedAccountIds,
             ownerId: input.ownerId,
           });
         }),
@@ -146,6 +157,7 @@ export default createPlugin({
       deleteFile: builder.deleteFile.use(requireNearAccount).handler(async ({ input, context }) => {
         return await getRuntime().storage.deleteFile({
           uploaderAccountId: context.uploaderAccountId,
+          linkedAccountIds: context.linkedAccountIds,
           key: input.key,
         });
       }),

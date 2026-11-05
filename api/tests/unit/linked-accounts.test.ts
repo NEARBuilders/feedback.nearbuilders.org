@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { actingAccountId, linkedAccountIds } from "@/services/linked-accounts";
+import {
+  actingAccountId,
+  linkedAccountIds,
+  linkedAccountsActingAs,
+} from "@/services/linked-accounts";
 import { actorOwnsAccount, canManageRound } from "@/services/round-access";
 
 describe("linkedAccountIds (#121)", () => {
@@ -67,5 +71,20 @@ describe("ownership matches any linked account (#121)", () => {
       false,
     );
     expect(canManageRound(round, { ownerOrgId: null }, {})).toBe(false);
+  });
+});
+
+describe("linkedAccountsActingAs (#224)", () => {
+  const context = {
+    near: { primaryAccountId: "new.near", linkedAccounts: [{ accountId: "old.near" }] },
+  };
+
+  it("returns the caller's accounts when one of them is the account acted on", () => {
+    expect(linkedAccountsActingAs(context, "old.near")).toEqual(["new.near", "old.near"]);
+  });
+
+  it("returns nothing for someone else's account or no account", () => {
+    expect(linkedAccountsActingAs(context, "other.near")).toBeUndefined();
+    expect(linkedAccountsActingAs(context, null)).toBeUndefined();
   });
 });
