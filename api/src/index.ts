@@ -32,6 +32,7 @@ import {
   NotificationsTag,
 } from "./services/notifications";
 import { type OrganizationPrincipal, orgKeyOrganizationId } from "./services/org-key";
+import { projectIdMismatchesRegistry } from "./services/project-id";
 import type {
   ProjectRecord,
   ProjectWithRounds as ProjectWithRoundsRecord,
@@ -534,7 +535,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             const registered = await getRuntime().projectsLookup.resolveBySlug(
               input.projectSlug.trim(),
             );
-            if (registered && registered.id !== input.projectId) {
+            if (projectIdMismatchesRegistry(registered, input.projectId)) {
               throw new ORPCError("BAD_REQUEST", {
                 message: "That project id does not match the project slug",
               });
