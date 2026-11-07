@@ -2,7 +2,12 @@ import { ORPCError } from "@orpc/server";
 import { Context, Effect, Layer } from "effect";
 import { buildScopedContext, createPlugin } from "every-plugin";
 import { z } from "zod";
-import { contract, type ProjectIdentity } from "./contract";
+import {
+  contract,
+  type ProjectIdentity,
+  PublicProjectOmittedFields,
+  type PublicProjectWithRounds,
+} from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import type { activityOutbox as activityOutboxTable } from "./db/schema";
 import { type AuthContext, createAuthMiddleware } from "./lib/auth";
@@ -27,7 +32,10 @@ import {
   NotificationsTag,
 } from "./services/notifications";
 import { type OrganizationPrincipal, orgKeyOrganizationId } from "./services/org-key";
-import type { ProjectRecord } from "./services/project-records";
+import type {
+  ProjectRecord,
+  ProjectWithRounds as ProjectWithRoundsRecord,
+} from "./services/project-records";
 import {
   ProjectRecordsLive,
   type ProjectRecordsService,
@@ -44,6 +52,7 @@ import {
   needsTeamCheck,
   type RoundActor,
 } from "./services/round-access";
+import { isRoundExpired } from "./services/round-liveness";
 import {
   type RoundDetailRecord,
   RoundsLive,
@@ -261,6 +270,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }));
     };
 
+    const toPublicProject = (project: ProjectWithRoundsRecord): PublicProjectWithRounds =>
+      Object.fromEntries(
+        Object.entries(project).filter(([field]) => !(field in PublicProjectOmittedFields)),
+      ) as PublicProjectWithRounds;
+
     const withRoundIdentity = async <T extends { projectSlug: string }>(round: T) => ({
       ...round,
       identity: toIdentity(await getRuntime().projectsLookup.resolveBySlug(round.projectSlug)),
@@ -387,7 +401,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
      * though the round is still status "open" — the owner closes it manually for credits.
      */
     const assertRoundNotExpired = (round: { endsAt: string | null }) => {
-      if (round.endsAt && Date.parse(round.endsAt) <= Date.now()) {
+      if (isRoundExpired(round)) {
         throw new ORPCError("BAD_REQUEST", { message: "This round has expired" });
       }
     };
@@ -1648,7 +1662,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listPublicProjects: builder.listPublicProjects.handler(async () => {
         const projects = await getRuntime().projectRecords.listProjects("approved");
         return withIdentities(
-          projects.map((project) => ({ ...project, rounds: project.rounds.filter(isPublic) })),
+          projects.map((project) =>
+            toPublicProject({ ...project, rounds: project.rounds.filter(isPublic) }),
+          ),
         );
       }),
 
@@ -1661,11 +1677,32 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const canSeeAll = managesRound({ canManage }, context);
         if (project.status !== "approved" && !canSeeAll) throw projectNotFound(input.slug);
         return {
-          ...(await withIdentity(project)),
+          ...(await withIdentity(toPublicProject(project))),
           rounds: canSeeAll ? project.rounds : project.rounds.filter(isPublic),
           canManage,
         };
       }),
+
+      getManagedProjectBySlug: builder.getManagedProjectBySlug
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const record = await getRuntime().projectRecords.resolveProjectBySlug(input.slug);
+          const project =
+            record && (await getRuntime().projectRecords.getProjectWithRounds(record.id));
+          if (!project) throw projectNotFound(input.slug);
+          const canManage = canManageProject(project, await resolveActor(project, context));
+          if (!canManage && !isSiteAdmin(context)) {
+            throw errors.FORBIDDEN({
+              message: "You cannot manage this project",
+              data: {},
+            });
+          }
+          return {
+            ...(await withIdentity(project)),
+            rounds: project.rounds,
+            canManage: canManage || isSiteAdmin(context),
+          };
+        }),
 
       inviteTesters: builder.inviteTesters
         .use(requireAuthOrApiKey)

@@ -87,6 +87,27 @@ export const ProjectWithRoundsSchema = ProjectSchema.extend({
 
 export type ProjectWithRounds = z.infer<typeof ProjectWithRoundsSchema>;
 
+export const PublicProjectOmittedFields = {
+  ownerOrgId: true,
+  managingTeamId: true,
+  nearbuildersProjectId: true,
+  contact: true,
+  status: true,
+  approvedAt: true,
+  rejectedAt: true,
+  rejectionReason: true,
+  verifiedAt: true,
+  verifiedByAccountId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+export const PublicProjectWithRoundsSchema = ProjectWithRoundsSchema.omit(
+  PublicProjectOmittedFields,
+);
+
+export type PublicProjectWithRounds = z.infer<typeof PublicProjectWithRoundsSchema>;
+
 export const RoundSchema = z.object({
   id: z.string(),
   ownerAccountId: z.string(),
@@ -477,6 +498,12 @@ export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
 });
 
 export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;
+
+export const PublicProjectDetailSchema = PublicProjectWithRoundsSchema.extend({
+  canManage: z.boolean(),
+});
+
+export type PublicProjectDetail = z.infer<typeof PublicProjectDetailSchema>;
 
 export const ProjectSearchResultSchema = z.object({
   available: z.boolean(),
@@ -971,13 +998,19 @@ export const contract = oc.router({
 
   listPublicProjects: oc
     .route({ method: "GET", path: "/projects/approved" })
-    .output(z.array(ProjectWithRoundsSchema)),
+    .output(z.array(PublicProjectWithRoundsSchema)),
 
   getProjectBySlug: oc
     .route({ method: "GET", path: "/projects/{slug}/detail" })
     .input(z.object({ slug: z.string().min(1) }))
-    .output(ProjectDetailSchema)
+    .output(PublicProjectDetailSchema)
     .errors({ NOT_FOUND }),
+
+  getManagedProjectBySlug: oc
+    .route({ method: "GET", path: "/projects/{slug}/managed-detail" })
+    .input(z.object({ slug: z.string().min(1) }))
+    .output(ProjectDetailSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   inviteTesters: oc
     .route({ method: "POST", path: "/rounds/{id}/invite" })

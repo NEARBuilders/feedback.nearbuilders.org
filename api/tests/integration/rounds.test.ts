@@ -87,7 +87,7 @@ describe("createRound", () => {
       projectId: "proj_1",
     });
 
-    const project = await client.getProjectBySlug({ slug: round.projectSlug });
+    const project = await client.getManagedProjectBySlug({ slug: round.projectSlug });
     expect(project.nearbuildersProjectId).toBe("proj_1");
   });
 
@@ -95,7 +95,7 @@ describe("createRound", () => {
     const client = await getPluginClient(nearAuthedContext("freetext-owner.near"));
     const round = await client.createRound(fresh());
 
-    const project = await client.getProjectBySlug({ slug: round.projectSlug });
+    const project = await client.getManagedProjectBySlug({ slug: round.projectSlug });
     expect(project.nearbuildersProjectId).toBeNull();
   });
 
