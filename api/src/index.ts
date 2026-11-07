@@ -1654,6 +1654,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
         };
       }),
 
+      getProjectStatus: builder.getProjectStatus.handler(async ({ input }) => {
+        const record = await getRuntime().projectRecords.resolveProjectBySlug(input.slug);
+        const project =
+          record && (await getRuntime().projectRecords.getProjectWithRounds(record.id));
+        if (!project) throw projectNotFound(input.slug);
+        const now = Date.now();
+        return {
+          status: project.status,
+          openRounds: project.rounds.filter(
+            (round) => round.status === "open" && (!round.endsAt || Date.parse(round.endsAt) > now),
+          ).length,
+        };
+      }),
+
       inviteTesters: builder.inviteTesters
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context }) => {
