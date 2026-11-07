@@ -12,7 +12,7 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { type ApiClient, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Badge, Button, LegionMark } from "@/components";
@@ -49,6 +49,20 @@ const features = tableFeatures({
 const columnHelper = createColumnHelper<typeof features, RoundDetail>();
 
 export const ROUNDS_PAGE_SIZE = 10;
+
+export function RoundListPrivateMark({ isPrivate }: { isPrivate: boolean }) {
+  if (!isPrivate) return null;
+  return (
+    <span
+      title="Private feedback"
+      data-testid="rounds-table-private-mark"
+      className="mr-1 inline-block align-[-2px]"
+    >
+      <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+      <span className="sr-only">Private feedback</span>
+    </span>
+  );
+}
 
 /** Columns that collapse on narrow screens; the title column is always visible. */
 const COLUMN_VISIBILITY: Record<string, string> = {
@@ -124,6 +138,7 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
               params={roundParams(row.original)}
               className="font-medium text-foreground hover:underline"
             >
+              <RoundListPrivateMark isPrivate={row.original.isPrivate} />
               {row.original.legionOnly && (
                 <LegionMark
                   className="mr-1 inline-block align-[-2px]"
