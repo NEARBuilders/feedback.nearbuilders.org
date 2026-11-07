@@ -28,6 +28,7 @@ import {
   rounds as roundsTable,
 } from "../db/schema";
 import type { Transaction } from "../db/transaction";
+import { roundIsLiveSql } from "./round-liveness";
 import {
   type ActivityEmitIntent,
   cancelPendingActivity,
@@ -1394,7 +1395,7 @@ export const RoundsLive = Layer.effect(
           // and feedback joins would multiply each other's rows.
           const [row] = await db
             .select({
-              openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundsTable.status} = 'open' and (${roundsTable.endsAt} is null or ${roundsTable.endsAt} > now()))::int`,
+              openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundIsLiveSql})::int`,
               unresolvedFeedback: sql<number>`count(distinct ${roundFeedbackTable.id}) filter (where ${roundFeedbackTable.status} = 'unresolved')::int`,
               pendingProjects: sql<number>`count(distinct ${projectsTable.id}) filter (where ${projectsTable.status} = 'pending')::int`,
             })
