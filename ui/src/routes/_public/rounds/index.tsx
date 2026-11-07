@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { MessageSquare, Search } from "lucide-react";
 import { useMemo } from "react";
-import { useApiClient } from "@/app";
+import { type Organization, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { EmptyState, Input, SegmentedToggle } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -24,6 +24,8 @@ type RoundStatusFilter = (typeof STATUS_FILTERS)[number];
 interface RoundsSearch {
   status: RoundStatusFilter;
   q: string;
+  /** Only rounds created under this organization; empty means all. */
+  org: string;
   page: number;
 }
 
@@ -33,11 +35,12 @@ export function validateRoundsSearch(
   return {
     status: oneOf(search.status, STATUS_FILTERS, "open"),
     q: typeof search.q === "string" ? search.q : "",
+    org: typeof search.org === "string" ? search.org : "",
     page: positiveInt(search.page) ?? 1,
   };
 }
 
-const DEFAULT_SEARCH: RoundsSearch = { status: "open", q: "", page: 1 };
+const DEFAULT_SEARCH: RoundsSearch = { status: "open", q: "", org: "", page: 1 };
 
 function roundsMatchingQuery<
   T extends {
@@ -70,7 +73,7 @@ export const Route = createFileRoute("/_public/rounds/")({
   search: { middlewares: [stripSearchParams(DEFAULT_SEARCH)] },
   beforeLoad: async ({ context, search }) => {
     const rounds = await context.queryClient.ensureQueryData(
-      roundsQueryOptions(context.apiClient, search.status),
+      roundsQueryOptions(context.apiClient, search.status, search.org || undefined),
     );
     const matched = roundsMatchingQuery(rounds, search.q);
     if (matched.length === 0) return;
@@ -82,9 +85,11 @@ export const Route = createFileRoute("/_public/rounds/")({
       replace: true,
     });
   },
-  loaderDeps: ({ search }) => ({ status: search.status }),
+  loaderDeps: ({ search }) => ({ status: search.status, org: search.org }),
   loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(roundsQueryOptions(context.apiClient, deps.status)),
+    context.queryClient.ensureQueryData(
+      roundsQueryOptions(context.apiClient, deps.status, deps.org || undefined),
+    ),
   head: () => pageHead("Rounds", "Products looking for testers. Join a round and report back."),
   pendingComponent: RoutePending,
   errorComponent: RouteError,
@@ -93,12 +98,26 @@ export const Route = createFileRoute("/_public/rounds/")({
 
 function RoundsPage() {
   const apiClient = useApiClient();
-  const { status, q: query, page } = Route.useSearch();
+  const auth = useAuthClient();
+  const { status, q: query, org, page } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const setSearch = (next: Partial<RoundsSearch>) =>
     void navigate({ search: (prev) => ({ ...prev, page: 1, ...next }), replace: true });
 
-  const { data: rounds } = useSuspenseQuery(roundsQueryOptions(apiClient, status));
+  const { data: rounds } = useSuspenseQuery(
+    roundsQueryOptions(apiClient, status, org || undefined),
+  );
+
+  const session = useQuery(sessionQueryOptions(auth));
+  const { data: organizations = [] } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: async () => {
+      const { data } = await auth.organization.list();
+      return (data || []) as Organization[];
+    },
+    staleTime: 30 * 1000,
+    enabled: !!session.data?.user,
+  });
 
   const roundIds = useMemo(() => rounds.map((round) => round.id).slice(0, 100), [rounds]);
   const { data: endorsements } = useQuery(roundEndorsementsQueryOptions(apiClient, roundIds));
@@ -123,6 +142,21 @@ function RoundsPage() {
               options={STATUS_FILTERS.map((value) => ({ value, label: value }))}
               ariaLabel="Round status filter"
             />
+            {organizations.length > 0 && (
+              <select
+                value={org}
+                onChange={(e) => setSearch({ org: e.target.value })}
+                aria-label="Organization filter"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="">all organizations</option>
+                {organizations.map((organization) => (
+                  <option key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="relative max-w-sm flex-1 min-w-[12rem]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -139,7 +173,11 @@ function RoundsPage() {
           <EmptyState
             icon={MessageSquare}
             title={
-              rounds.length === 0 ? `No ${status} rounds yet.` : "No rounds match your search."
+              rounds.length === 0
+                ? org
+                  ? `No ${status} rounds for this organization.`
+                  : `No ${status} rounds yet.`
+                : "No rounds match your search."
             }
             className="min-h-[30vh]"
           />

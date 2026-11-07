@@ -137,6 +137,11 @@ export const RoundDetailSchema = RoundSchema.extend({
 
 export type RoundDetail = z.infer<typeof RoundDetailSchema>;
 
+/** A round in the browse listing, with the organization that owns its project (#223). */
+export const RoundListItemSchema = RoundDetailSchema.extend({
+  organizationId: z.string().nullable(),
+});
+
 export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 
 export const RoundParticipantSchema = z.object({
@@ -619,8 +624,14 @@ export const contract = oc.router({
 
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })
-    .input(z.object({ status: RoundStatusSchema.optional() }))
-    .output(z.array(RoundDetailSchema))
+    .input(
+      z.object({
+        status: RoundStatusSchema.optional(),
+        /** Only rounds whose project is owned by this organization (#223). */
+        organizationId: z.string().optional(),
+      }),
+    )
+    .output(z.array(RoundListItemSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   listProjects: oc

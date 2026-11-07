@@ -132,6 +132,11 @@ export interface RoundDetailRecord extends RoundRecord {
   participantCount: number;
 }
 
+/** A round in the browse listing, with the organization that owns its project (#223). */
+export interface RoundListItemRecord extends RoundDetailRecord {
+  organizationId: string | null;
+}
+
 export interface RoundDetailWithSurfaceRecord extends RoundDetailRecord {
   /** First three participants, for the avatar row on a round's public surface. */
   participantPreview: string[];
@@ -306,7 +311,11 @@ export interface RoundsService {
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailWithSurfaceRecord | null>;
   getRoundDetailBySlug(slug: string, number: number): Promise<RoundDetailWithSurfaceRecord | null>;
-  listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
+  /** `organizationId` filters on the organization that owns the round's project (#223). */
+  listRounds(filter?: {
+    status?: RoundStatus;
+    organizationId?: string;
+  }): Promise<RoundListItemRecord[]>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   /** The first of `accountIds` that joined the round, or null when none did (#121). */
@@ -773,7 +782,7 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      listRounds: async (status) => {
+      listRounds: async (filter) => {
         try {
           // `open` means still accepting feedback: past endsAt stays status=open in
           // the DB until the owner closes for credits, but the Open tab must not
@@ -782,18 +791,25 @@ export const RoundsLive = Layer.effect(
             eq(roundsTable.status, "open"),
             or(isNull(roundsTable.endsAt), gt(roundsTable.endsAt, new Date())),
           );
-          const rows = await db
-            .select()
+          const joined = await db
+            .select({ round: roundsTable, organizationId: projectsTable.ownerOrgId })
             .from(roundsTable)
+            .innerJoin(projectsTable, eq(roundsTable.projectRecordId, projectsTable.id))
             .where(
-              status === "open"
-                ? openStillLive
-                : status
-                  ? eq(roundsTable.status, status)
+              and(
+                filter?.status === "open"
+                  ? openStillLive
+                  : filter?.status
+                    ? eq(roundsTable.status, filter.status)
+                    : undefined,
+                filter?.organizationId
+                  ? eq(projectsTable.ownerOrgId, filter.organizationId)
                   : undefined,
+              ),
             )
             .orderBy(desc(roundsTable.createdAt));
-          if (rows.length === 0) return [];
+          if (joined.length === 0) return [];
+          const rows = joined.map((entry) => entry.round);
           const countRows = await db
             .select({ roundId: roundParticipantsTable.roundId, value: count() })
             .from(roundParticipantsTable)
@@ -805,9 +821,10 @@ export const RoundsLive = Layer.effect(
             )
             .groupBy(roundParticipantsTable.roundId);
           const counts = new Map(countRows.map((row) => [row.roundId, row.value]));
-          return rows.map((row) => ({
-            ...toRoundRecord(row),
-            participantCount: counts.get(row.id) ?? 0,
+          return joined.map(({ round, organizationId }) => ({
+            ...toRoundRecord(round),
+            participantCount: counts.get(round.id) ?? 0,
+            organizationId,
           }));
         } catch (error) {
           throw toOrpcError(error);

@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { type AssetStatus, assetStatus, storageAssets } from "../db/schema";
@@ -45,25 +45,30 @@ export interface StorageService {
     contentType: string;
     sizeBytes: number;
   }): Promise<UploadRequestResult>;
-  confirmUpload(input: { uploaderAccountId: string; key: string }): Promise<AssetRecord>;
-  attachAsset(input: {
-    uploaderAccountId: string;
-    key: string;
-    ownerId: string;
-  }): Promise<AssetRecord>;
-  deleteFile(input: { uploaderAccountId: string; key: string }): Promise<{ success: boolean }>;
+  confirmUpload(input: OwnedInput & { key: string }): Promise<AssetRecord>;
+  attachAsset(input: OwnedInput & { key: string; ownerId: string }): Promise<AssetRecord>;
+  deleteFile(input: OwnedInput & { key: string }): Promise<{ success: boolean }>;
   /** Attaches the uploader's own assets whose public URL is in `urls` to `ownerId`. */
-  attachByUrls(input: {
-    uploaderAccountId: string;
-    ownerId: string;
-    urls: string[];
-  }): Promise<{ attached: number }>;
+  attachByUrls(
+    input: OwnedInput & { ownerId: string; urls: string[] },
+  ): Promise<{ attached: number }>;
   /** Deletes the uploader's own assets attached to `ownerId`; others' assets are never touched. */
-  deleteByOwner(input: {
-    uploaderAccountId: string;
-    ownerId: string;
-  }): Promise<{ deleted: number }>;
+  deleteByOwner(input: OwnedInput & { ownerId: string }): Promise<{ deleted: number }>;
 }
+
+/**
+ * Who is acting on owned assets: the account new uploads are keyed on, plus every other NEAR
+ * account linked to the same user (#224). An asset uploaded under any of them is theirs, so
+ * switching the primary wallet doesn't strand earlier uploads.
+ */
+export type OwnedInput = {
+  uploaderAccountId: string;
+  linkedAccountIds?: readonly string[];
+};
+
+const ownedAccounts = (input: OwnedInput): string[] => [
+  ...new Set([input.uploaderAccountId, ...(input.linkedAccountIds ?? [])]),
+];
 
 export class StorageTag extends Context.Service<StorageTag, StorageService>()("Storage") {}
 
@@ -143,7 +148,7 @@ export const StorageLive = (config: StorageConfig) =>
       }
 
       async function resolveOwnedAsset(
-        uploaderAccountId: string,
+        owner: OwnedInput,
         key: string,
       ): Promise<typeof storageAssets.$inferSelect> {
         const [row] = await db
@@ -157,7 +162,7 @@ export const StorageLive = (config: StorageConfig) =>
             data: { resource: "asset", resourceId: key },
           });
         }
-        if (row.uploaderAccountId !== uploaderAccountId) {
+        if (!ownedAccounts(owner).includes(row.uploaderAccountId)) {
           throw new ORPCError("FORBIDDEN", {
             message: "Only the uploader can modify this asset",
           });
@@ -218,7 +223,7 @@ export const StorageLive = (config: StorageConfig) =>
 
         confirmUpload: async (input) => {
           const client = requireR2();
-          const row = await resolveOwnedAsset(input.uploaderAccountId, input.key);
+          const row = await resolveOwnedAsset(input, input.key);
 
           const head: StoredObjectHead | null = await client.headObject(input.key);
           if (!head) {
@@ -256,7 +261,7 @@ export const StorageLive = (config: StorageConfig) =>
         },
 
         attachAsset: async (input) => {
-          const row = await resolveOwnedAsset(input.uploaderAccountId, input.key);
+          const row = await resolveOwnedAsset(input, input.key);
           const [updated] = await db
             .update(storageAssets)
             .set({ ownerId: input.ownerId })
@@ -271,7 +276,7 @@ export const StorageLive = (config: StorageConfig) =>
         },
 
         deleteFile: async (input) => {
-          const row = await resolveOwnedAsset(input.uploaderAccountId, input.key);
+          const row = await resolveOwnedAsset(input, input.key);
 
           if (r2) await r2.deleteObject(input.key);
           await db.delete(storageAssets).where(eq(storageAssets.id, row.id));
@@ -284,7 +289,7 @@ export const StorageLive = (config: StorageConfig) =>
           const rows = await db
             .select()
             .from(storageAssets)
-            .where(eq(storageAssets.uploaderAccountId, input.uploaderAccountId));
+            .where(inArray(storageAssets.uploaderAccountId, ownedAccounts(input)));
           const matching = rows.filter((row) => wanted.has(`${publicUrlBase}/${row.key}`));
           for (const row of matching) {
             await db
@@ -302,7 +307,7 @@ export const StorageLive = (config: StorageConfig) =>
             .where(
               and(
                 eq(storageAssets.ownerId, input.ownerId),
-                eq(storageAssets.uploaderAccountId, input.uploaderAccountId),
+                inArray(storageAssets.uploaderAccountId, ownedAccounts(input)),
               ),
             );
           for (const row of rows) {

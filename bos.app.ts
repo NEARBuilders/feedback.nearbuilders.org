@@ -19,7 +19,7 @@ export default App({
   repository: "https://github.com/NEARBuilders/feedback.nearbuilders.org",
   // Platform release pin (ADR 0034): fail loudly when the resolved parent
   // platform doesn't match, instead of silently floating.
-  platform: "2.0.0-rc.27",
+  release: "2.0.0-rc.39",
   // CI settings: runtime image name, Railway service.
   ci: {
     railway: {
@@ -43,6 +43,14 @@ export default App({
   // Local UI workspace override.
   ui: {
     path: "ui",
+  },
+  // Auth slot pinned to nearbuilders.org's published auth entry (shared-auth
+  // cutover, #237): nearbuilders.org is the single version authority for the
+  // auth plugin and its migrations. `ui: false` drops the source app's
+  // attached `app.ui` so our own UI stays untouched.
+  auth: {
+    extends: "bos://nearbuilding.near/nearbuilders.org#app.auth",
+    ui: false,
   },
   // Attached plugins, keyed by registry key. `path` = local workspace, `extends` = published module.
   plugins: {
