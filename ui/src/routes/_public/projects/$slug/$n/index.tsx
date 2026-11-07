@@ -55,6 +55,7 @@ function RoundOverviewPage() {
           params={params}
           surface="public"
           viewerAccountId={viewer.accountId}
+          winners={round.winners}
           canReadAll={!round.isPrivate || viewer.canManage || viewer.isAdmin}
         />
       )}
