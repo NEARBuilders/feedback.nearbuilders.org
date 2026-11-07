@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Trophy } from "lucide-react";
+import { ChevronDown, ChevronUp, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Button, Skeleton } from "@/components";
@@ -46,6 +46,14 @@ export function RoundParticipants({
     onSuccess: () => void invalidateRoundQueries(queryClient),
     onError: (err: Error) => toast.error(err.message),
   });
+  const moveWinner = (accountId: string, offset: -1 | 1) => {
+    const from = winners.indexOf(accountId);
+    const to = from + offset;
+    if (from < 0 || to < 0 || to >= winners.length) return;
+    const next = [...winners];
+    next.splice(to, 0, ...next.splice(from, 1));
+    winnerMutation.mutate(next);
+  };
   const toggleWinner = (accountId: string) =>
     winnerMutation.mutate(
       winners.includes(accountId)
@@ -126,6 +134,33 @@ export function RoundParticipants({
                     </div>
                   )}
                 </div>
+                {canMarkWinners && isWinner && (
+                  <div className="mr-1 flex shrink-0 items-center gap-1">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      #{winners.indexOf(participant.accountId) + 1}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Move winner up"
+                      disabled={winnerMutation.isPending || winners[0] === participant.accountId}
+                      onClick={() => moveWinner(participant.accountId, -1)}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Move winner down"
+                      disabled={
+                        winnerMutation.isPending || winners.at(-1) === participant.accountId
+                      }
+                      onClick={() => moveWinner(participant.accountId, 1)}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
                 {canMarkWinners && (
                   <Button
                     variant={isWinner ? "secondary" : "ghost"}
