@@ -52,6 +52,13 @@ export const ProjectSchema = z.object({
 
 export type Project = z.infer<typeof ProjectSchema>;
 
+export const PublicProjectStatusSchema = z.object({
+  status: ProjectStatusSchema,
+  openRounds: z.number().int().nonnegative(),
+});
+
+export type PublicProjectStatus = z.infer<typeof PublicProjectStatusSchema>;
+
 /**
  * Identity resolved from the nearbuilders.org registry, which owns it. Null
  * when the registry has no entry for the slug or is unreachable — this app
@@ -977,6 +984,18 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/projects/{slug}/detail" })
     .input(z.object({ slug: z.string().min(1) }))
     .output(ProjectDetailSchema)
+    .errors({ NOT_FOUND }),
+
+  getProjectStatus: oc
+    .route({
+      method: "GET",
+      path: "/projects/{slug}/status",
+      summary: "Public review status of a project",
+      description:
+        "Readable without sign-in, including while the project is pending review. Returns only the status and how many rounds are open.",
+    })
+    .input(z.object({ slug: z.string().min(1) }))
+    .output(PublicProjectStatusSchema)
     .errors({ NOT_FOUND }),
 
   inviteTesters: oc
