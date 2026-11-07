@@ -513,6 +513,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
               });
             }
           }
+          // The id is stored and later used to look the project up, so it must belong to the
+          // slug. Best effort like the rest of the registry integration: an unreachable
+          // registry or an unknown slug does not block the request.
+          if (input.projectId) {
+            const registered = await getRuntime().projectsLookup.resolveBySlug(
+              input.projectSlug.trim(),
+            );
+            if (registered && registered.id !== input.projectId) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "That project id does not match the project slug",
+              });
+            }
+          }
           const round = await getRuntime().rounds.createRound({
             ownerAccountId,
             ownerOrgId: context.organization.activeOrganizationId,
