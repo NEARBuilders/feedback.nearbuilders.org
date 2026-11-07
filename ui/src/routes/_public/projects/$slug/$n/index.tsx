@@ -10,6 +10,7 @@ import { RoundJoinCta } from "@/components/round-join-cta";
 import { RoundParticipants } from "@/components/round-participants";
 import { RoundReadme } from "@/components/round-readme";
 import { RoundRepoLinks } from "@/components/round-repo-links";
+import { RoundWinnersBanner } from "@/components/round-winners";
 import { type LegionAccessResult, useLegionAccess } from "@/hooks/use-legion-access";
 import { roundEndorsementsQueryOptions, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import { FORMAT_LABELS } from "@/lib/round-fields";
@@ -35,6 +36,7 @@ function RoundOverviewPage() {
 
   return (
     <div className="space-y-8" data-testid="round-overview">
+      <RoundWinnersBanner winners={round.winners} />
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0">
           <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
@@ -53,6 +55,7 @@ function RoundOverviewPage() {
           params={params}
           surface="public"
           viewerAccountId={viewer.accountId}
+          winners={round.winners}
           canReadAll={!round.isPrivate || viewer.canManage || viewer.isAdmin}
         />
       )}

@@ -14,6 +14,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
+import { MAX_ROUND_WINNERS } from "../contract";
 import { DatabaseTag } from "../db/layer";
 import {
   activityOutbox as activityOutboxTable,
@@ -87,6 +88,8 @@ export interface RoundRecord {
   legionOnly: boolean;
   /** Optional expiration: joining and posting are blocked once this passes. */
   endsAt: string | null;
+  /** Ranked account ids the round owner marked as winners; empty until they do. */
+  winners: string[];
   status: RoundStatus;
   createdAt: string;
   updatedAt: string;
@@ -124,6 +127,8 @@ export interface RoundSettingsInput {
   legionOnly?: boolean;
   /** New expiration, or null to remove it. */
   endsAt?: string | null;
+  /** Replaces the ranked winners list; an empty array clears it. */
+  winners?: string[];
 }
 
 export interface RoundDetailRecord extends RoundRecord {
@@ -376,6 +381,17 @@ export class RoundsTag extends Context.Service<RoundsTag, RoundsService>()("api/
 
 type RoundRow = typeof roundsTable.$inferSelect;
 
+/** Winners are stored ranked, lowercased and unique, within the cap, whoever the caller is. */
+export function normalizeWinners(winners: readonly string[]): string[] {
+  const unique = [...new Set(winners.map((id) => id.trim().toLowerCase()).filter(Boolean))];
+  if (unique.length > MAX_ROUND_WINNERS) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: `A round can have at most ${MAX_ROUND_WINNERS} winners`,
+    });
+  }
+  return unique;
+}
+
 export function toRoundRecord(row: RoundRow): RoundRecord {
   return {
     id: row.id,
@@ -392,6 +408,7 @@ export function toRoundRecord(row: RoundRow): RoundRecord {
     isPrivate: row.isPrivate,
     legionOnly: row.legionOnly,
     endsAt: row.endsAt instanceof Date ? row.endsAt.toISOString() : null,
+    winners: row.winners ?? [],
     status: row.status,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
@@ -757,6 +774,9 @@ export const RoundsLive = Layer.effect(
               ...(settings.legionOnly !== undefined ? { legionOnly: settings.legionOnly } : {}),
               ...(settings.endsAt !== undefined
                 ? { endsAt: settings.endsAt ? new Date(settings.endsAt) : null }
+                : {}),
+              ...(settings.winners !== undefined
+                ? { winners: normalizeWinners(settings.winners) }
                 : {}),
               updatedAt: new Date(),
             })
