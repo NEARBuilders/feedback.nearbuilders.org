@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
-import { loadProject, requireProjectManager, useProject } from "@/lib/project-route";
+import { loadManagedProject, requireProjectManager, useManagedProject } from "@/lib/project-route";
 import { orgTeamsQueryOptions } from "@/lib/queries/teams";
 import { describeDelegation } from "@/lib/teams";
 
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/")
     await requireProjectManager(context, params.slug);
   },
   loader: async ({ context, params }) => {
-    const project = await loadProject(context, params.slug);
+    const project = await loadManagedProject(context, params.slug);
     return { name: project.name };
   },
   head: ({ loaderData }) => pageHead(loaderData && `Console · ${loaderData.name}`),
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/")
 
 function ProjectConsolePage() {
   const { slug } = Route.useParams();
-  const project = useProject(slug);
+  const project = useManagedProject(slug);
   const apiClient = useApiClient();
   const teamsQuery = useQuery(orgTeamsQueryOptions(apiClient, project.ownerOrgId ?? ""));
   const latest = project.rounds.at(-1);
