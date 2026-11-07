@@ -28,7 +28,6 @@ import {
   rounds as roundsTable,
 } from "../db/schema";
 import type { Transaction } from "../db/transaction";
-import { roundIsLiveSql } from "./round-liveness";
 import {
   type ActivityEmitIntent,
   cancelPendingActivity,
@@ -37,6 +36,7 @@ import {
 } from "./activity-outbox";
 import { keyForms, redactPrivateEvent } from "./activity-privacy";
 import { ensureProject } from "./project-records";
+import { roundIsLiveSql } from "./round-liveness";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
 export type RoundFormat = "issues" | "written" | "recorded";
