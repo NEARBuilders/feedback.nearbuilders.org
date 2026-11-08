@@ -52,6 +52,13 @@ export const ProjectSchema = z.object({
 
 export type Project = z.infer<typeof ProjectSchema>;
 
+export const PublicProjectStatusSchema = z.object({
+  status: ProjectStatusSchema,
+  openRounds: z.number().int().nonnegative(),
+});
+
+export type PublicProjectStatus = z.infer<typeof PublicProjectStatusSchema>;
+
 /**
  * Identity resolved from the nearbuilders.org registry, which owns it. Null
  * when the registry has no entry for the slug or is unreachable — this app
@@ -97,6 +104,27 @@ export const RoundWinnerIdSchema = z
   .toLowerCase()
   .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/, "Not a valid account id")
   .max(64);
+
+export const PublicProjectOmittedFields = {
+  ownerOrgId: true,
+  managingTeamId: true,
+  nearbuildersProjectId: true,
+  contact: true,
+  status: true,
+  approvedAt: true,
+  rejectedAt: true,
+  rejectionReason: true,
+  verifiedAt: true,
+  verifiedByAccountId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+export const PublicProjectWithRoundsSchema = ProjectWithRoundsSchema.omit(
+  PublicProjectOmittedFields,
+);
+
+export type PublicProjectWithRounds = z.infer<typeof PublicProjectWithRoundsSchema>;
 
 export const RoundSchema = z.object({
   id: z.string(),
@@ -149,6 +177,11 @@ export const RoundDetailSchema = RoundSchema.extend({
 });
 
 export type RoundDetail = z.infer<typeof RoundDetailSchema>;
+
+/** A round in the browse listing, with the organization that owns its project (#223). */
+export const RoundListItemSchema = RoundDetailSchema.extend({
+  organizationId: z.string().nullable(),
+});
 
 export const RoundFeedbackFormatSchema = z.enum(["written", "recorded"]);
 
@@ -486,6 +519,12 @@ export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
 
 export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;
 
+export const PublicProjectDetailSchema = PublicProjectWithRoundsSchema.extend({
+  canManage: z.boolean(),
+});
+
+export type PublicProjectDetail = z.infer<typeof PublicProjectDetailSchema>;
+
 export const ProjectSearchResultSchema = z.object({
   available: z.boolean(),
   results: z.array(NearBuildersProjectSchema),
@@ -634,8 +673,14 @@ export const contract = oc.router({
 
   listRounds: oc
     .route({ method: "GET", path: "/rounds" })
-    .input(z.object({ status: RoundStatusSchema.optional() }))
-    .output(z.array(RoundDetailSchema))
+    .input(
+      z.object({
+        status: RoundStatusSchema.optional(),
+        /** Only rounds whose project is owned by this organization (#223). */
+        organizationId: z.string().optional(),
+      }),
+    )
+    .output(z.array(RoundListItemSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   listProjects: oc
@@ -899,7 +944,7 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/rounds/{id}/github-issues" })
     .input(z.object({ id: z.string() }))
     .output(RoundGithubIssuesSchema)
-    .errors({ NOT_FOUND, BAD_REQUEST }),
+    .errors({ NOT_FOUND, BAD_REQUEST, FORBIDDEN }),
 
   getCreditCandidates: oc
     .route({ method: "GET", path: "/rounds/{id}/credit-candidates" })
@@ -975,13 +1020,31 @@ export const contract = oc.router({
 
   listPublicProjects: oc
     .route({ method: "GET", path: "/projects/approved" })
-    .output(z.array(ProjectWithRoundsSchema)),
+    .output(z.array(PublicProjectWithRoundsSchema)),
 
   getProjectBySlug: oc
     .route({ method: "GET", path: "/projects/{slug}/detail" })
     .input(z.object({ slug: z.string().min(1) }))
-    .output(ProjectDetailSchema)
+    .output(PublicProjectDetailSchema)
     .errors({ NOT_FOUND }),
+
+  getProjectStatus: oc
+    .route({
+      method: "GET",
+      path: "/projects/{slug}/status",
+      summary: "Public review status of a project",
+      description:
+        "Readable without sign-in, including while the project is pending review. Returns only the status and how many rounds are open.",
+    })
+    .input(z.object({ slug: z.string().min(1) }))
+    .output(PublicProjectStatusSchema)
+    .errors({ NOT_FOUND }),
+
+  getManagedProjectBySlug: oc
+    .route({ method: "GET", path: "/projects/{slug}/managed-detail" })
+    .input(z.object({ slug: z.string().min(1) }))
+    .output(ProjectDetailSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   inviteTesters: oc
     .route({ method: "POST", path: "/rounds/{id}/invite" })

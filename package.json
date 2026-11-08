@@ -21,6 +21,8 @@
     "db:studio": "bos db:studio",
     "db:generate": "pnpm --dir api exec drizzle-kit generate",
     "db:migrate": "pnpm --dir api exec drizzle-kit migrate",
+    "auth:check-schema": "pnpm --dir api run auth:check-schema",
+    "auth:cutover": "pnpm --dir api run auth:cutover",
     "test": "pnpm --dir api --if-present run test && pnpm --dir ui --if-present run test && for d in plugins/*; do [ -f \"$d/package.json\" ] && pnpm --dir \"$d\" --if-present run test; done",
     "test:api": "pnpm --dir api --if-present run test",
     "test:integration": "pnpm --dir api --if-present run test tests/integration/",

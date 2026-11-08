@@ -26,7 +26,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { RoundFieldsEditor } from "@/components/round-fields";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
-import { loadProject } from "@/lib/project-route";
+import { loadManagedProject } from "@/lib/project-route";
 import { invalidateProjectQueries } from "@/lib/queries/projects";
 import { invalidateRoundQueries, roundBySlugQueryOptions } from "@/lib/queries/rounds";
 import { nextRoundFields, roundFieldsComplete, toCreateRoundInput } from "@/lib/round-fields";
@@ -63,7 +63,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/new")({
     // A project with no rounds yet isn't known here; that is the normal case
     // for the "Request feedback" deep link, so fall back to the picker with the
     // slug prefilled instead of a 404.
-    const project = await loadProject(context, deps.project).catch((error) => {
+    const project = await loadManagedProject(context, deps.project).catch((error) => {
       if (isNotFound(error)) return null;
       throw error;
     });

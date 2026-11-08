@@ -37,6 +37,7 @@ import {
 } from "./activity-outbox";
 import { keyForms, redactPrivateEvent } from "./activity-privacy";
 import { ensureProject } from "./project-records";
+import { roundIsLiveSql } from "./round-liveness";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
 export type RoundFormat = "issues" | "written" | "recorded";
@@ -133,6 +134,11 @@ export interface RoundSettingsInput {
 
 export interface RoundDetailRecord extends RoundRecord {
   participantCount: number;
+}
+
+/** A round in the browse listing, with the organization that owns its project (#223). */
+export interface RoundListItemRecord extends RoundDetailRecord {
+  organizationId: string | null;
 }
 
 export interface RoundDetailWithSurfaceRecord extends RoundDetailRecord {
@@ -309,7 +315,11 @@ export interface RoundsService {
   resolveRoundById(id: string): Promise<RoundRecord | null>;
   getRoundDetail(id: string): Promise<RoundDetailWithSurfaceRecord | null>;
   getRoundDetailBySlug(slug: string, number: number): Promise<RoundDetailWithSurfaceRecord | null>;
-  listRounds(status?: RoundStatus): Promise<RoundDetailRecord[]>;
+  /** `organizationId` filters on the organization that owns the round's project (#223). */
+  listRounds(filter?: {
+    status?: RoundStatus;
+    organizationId?: string;
+  }): Promise<RoundListItemRecord[]>;
   addParticipant(roundId: string, accountId: string): Promise<void>;
   removeParticipant(roundId: string, accountId: string): Promise<void>;
   /** The first of `accountIds` that joined the round, or null when none did (#121). */
@@ -791,14 +801,23 @@ export const RoundsLive = Layer.effect(
         }
       },
 
-      listRounds: async (status) => {
+      listRounds: async (filter) => {
         try {
-          const rows = await db
-            .select()
+          const joined = await db
+            .select({ round: roundsTable, organizationId: projectsTable.ownerOrgId })
             .from(roundsTable)
-            .where(status ? eq(roundsTable.status, status) : undefined)
+            .innerJoin(projectsTable, eq(roundsTable.projectRecordId, projectsTable.id))
+            .where(
+              and(
+                filter?.status ? eq(roundsTable.status, filter.status) : undefined,
+                filter?.organizationId
+                  ? eq(projectsTable.ownerOrgId, filter.organizationId)
+                  : undefined,
+              ),
+            )
             .orderBy(desc(roundsTable.createdAt));
-          if (rows.length === 0) return [];
+          if (joined.length === 0) return [];
+          const rows = joined.map((entry) => entry.round);
           const countRows = await db
             .select({ roundId: roundParticipantsTable.roundId, value: count() })
             .from(roundParticipantsTable)
@@ -810,9 +829,10 @@ export const RoundsLive = Layer.effect(
             )
             .groupBy(roundParticipantsTable.roundId);
           const counts = new Map(countRows.map((row) => [row.roundId, row.value]));
-          return rows.map((row) => ({
-            ...toRoundRecord(row),
-            participantCount: counts.get(row.id) ?? 0,
+          return joined.map(({ round, organizationId }) => ({
+            ...toRoundRecord(round),
+            participantCount: counts.get(round.id) ?? 0,
+            organizationId,
           }));
         } catch (error) {
           throw toOrpcError(error);
@@ -1395,7 +1415,7 @@ export const RoundsLive = Layer.effect(
           // and feedback joins would multiply each other's rows.
           const [row] = await db
             .select({
-              openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundsTable.status} = 'open' and (${roundsTable.endsAt} is null or ${roundsTable.endsAt} > now()))::int`,
+              openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundIsLiveSql})::int`,
               unresolvedFeedback: sql<number>`count(distinct ${roundFeedbackTable.id}) filter (where ${roundFeedbackTable.status} = 'unresolved')::int`,
               pendingProjects: sql<number>`count(distinct ${projectsTable.id}) filter (where ${projectsTable.status} = 'pending')::int`,
             })

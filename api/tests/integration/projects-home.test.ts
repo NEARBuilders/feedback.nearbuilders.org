@@ -1,8 +1,33 @@
 import { describe, expect, it } from "vitest";
+import { PublicProjectOmittedFields } from "../../src/contract";
 import { clientFor, createOpenRound, freshSlug, joinWithFeedback } from "../fixtures";
-import { getPluginClient } from "../setup";
+import { adminContext, getPluginClient } from "../setup";
 
 describe("listPublicProjects (#119)", () => {
+  it("does not expose contact or administrative project metadata", async () => {
+    const slug = freshSlug("home-public-safe");
+    const ownerClient = await clientFor("home-public-safe-owner.near");
+    const round = await ownerClient.createRound({
+      projectSlug: slug,
+      title: "Public project",
+      description: "Public description",
+      formats: ["written"],
+      contact: "requester@example.com",
+    });
+    if (round.status !== "open") {
+      await (await getPluginClient(adminContext())).approveProject({ id: round.projectRecordId });
+    }
+
+    const anonymous = await getPluginClient();
+    const projects = await anonymous.listPublicProjects();
+    const project = projects.find((item) => item.slug === slug);
+    expect(project).toBeDefined();
+    expect(project).toMatchObject({ id: expect.any(String), slug, name: expect.any(String) });
+    for (const field of Object.keys(PublicProjectOmittedFields)) {
+      expect(project).not.toHaveProperty(field);
+    }
+  });
+
   it("lists approved projects with their public rounds grouped beneath", async () => {
     const slug = freshSlug("home-approved");
     const { round, ownerClient } = await createOpenRound("home-owner1.near", { projectSlug: slug });
@@ -32,6 +57,52 @@ describe("listPublicProjects (#119)", () => {
 });
 
 describe("getProjectBySlug (#119)", () => {
+  it("does not expose contact or administrative project metadata publicly", async () => {
+    const slug = freshSlug("home-detail-safe");
+    const ownerClient = await clientFor("home-detail-safe-owner.near");
+    const round = await ownerClient.createRound({
+      projectSlug: slug,
+      title: "Public project",
+      description: "Public description",
+      formats: ["written"],
+      contact: "@requester",
+    });
+    if (round.status !== "open") {
+      await (await getPluginClient(adminContext())).approveProject({ id: round.projectRecordId });
+    }
+
+    const anonymous = await getPluginClient();
+    const project = await anonymous.getProjectBySlug({ slug });
+    expect(project).toMatchObject({ id: expect.any(String), slug, name: expect.any(String) });
+    for (const field of Object.keys(PublicProjectOmittedFields)) {
+      expect(project).not.toHaveProperty(field);
+    }
+  });
+
+  it("keeps the complete project record on the authorized management route", async () => {
+    const slug = freshSlug("home-managed-detail");
+    const ownerClient = await clientFor("home-managed-detail-owner.near");
+    const round = await ownerClient.createRound({
+      projectSlug: slug,
+      title: "Managed project",
+      description: "Managed description",
+      formats: ["written"],
+      contact: "manager@example.com",
+    });
+    if (round.status !== "open") {
+      await (await getPluginClient(adminContext())).approveProject({ id: round.projectRecordId });
+    }
+
+    const managed = await ownerClient.getManagedProjectBySlug({ slug });
+    expect(managed).toMatchObject({
+      contact: "manager@example.com",
+      canManage: true,
+    });
+    for (const field of Object.keys(PublicProjectOmittedFields)) {
+      expect(managed).toHaveProperty(field);
+    }
+  });
+
   it("returns the project, its rounds and whether the viewer manages it", async () => {
     const slug = freshSlug("home-detail");
     const { ownerClient } = await createOpenRound("home-owner2.near", { projectSlug: slug });
@@ -59,7 +130,9 @@ describe("getProjectBySlug (#119)", () => {
     await expect(anon.getProjectBySlug({ slug: "no-such-project" })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    await expect(owner.getProjectBySlug({ slug: pending.projectSlug })).resolves.toMatchObject({
+    await expect(
+      owner.getManagedProjectBySlug({ slug: pending.projectSlug }),
+    ).resolves.toMatchObject({
       status: "pending",
     });
   });
