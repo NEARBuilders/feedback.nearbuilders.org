@@ -6,12 +6,14 @@ vi.mock("@/app", () => ({}));
 const { Route } = await import("./index");
 
 function beforeLoad(canManage: boolean, isAdmin = false) {
-  const getProjectBySlug = vi.fn().mockResolvedValue({ id: "p1", name: "Wallet", canManage });
+  const getManagedProjectBySlug = vi
+    .fn()
+    .mockResolvedValue({ id: "p1", name: "Wallet", canManage });
   return Promise.resolve(
     Route.options.beforeLoad?.({
       context: {
         queryClient: new QueryClient(),
-        apiClient: { getProjectBySlug },
+        apiClient: { getManagedProjectBySlug },
         auth: { isAdmin },
       },
       params: { slug: "near-wallet" },
