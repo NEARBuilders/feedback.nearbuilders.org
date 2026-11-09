@@ -37,7 +37,9 @@ export function PageHeader({
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
       {description && (
-        <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+        <p className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed">
+          {description}
+        </p>
       )}
     </header>
   );
