@@ -56,6 +56,20 @@ export function CloseRoundPanel({ roundId }: { roundId: string }) {
           </p>
           {candidatesQuery.isLoading ? (
             <Skeleton className="h-12 w-full" />
+          ) : candidatesQuery.isError ? (
+            <div className="flex items-center justify-between gap-3" role="alert">
+              <p className="text-sm text-destructive">
+                Couldn't load who posted feedback. Retry before closing, or contributors won't be
+                credited.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => void candidatesQuery.refetch()}
+                disabled={candidatesQuery.isFetching}
+              >
+                {candidatesQuery.isFetching ? "Retrying..." : "Retry"}
+              </Button>
+            </div>
           ) : candidates.length === 0 ? (
             <p className="text-sm text-muted-foreground">No feedback was posted.</p>
           ) : (
@@ -103,7 +117,10 @@ export function CloseRoundPanel({ roundId }: { roundId: string }) {
             </ul>
           )}
           <div className="flex gap-2">
-            <Button onClick={() => closeMutation.mutate()} disabled={closeMutation.isPending}>
+            <Button
+              onClick={() => closeMutation.mutate()}
+              disabled={closeMutation.isPending || !candidatesQuery.isSuccess}
+            >
               {closeMutation.isPending ? "Closing..." : "Confirm close"}
             </Button>
             <Button
