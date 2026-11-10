@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, Card, Chip, PageHeader } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
+import { QueryError } from "@/components/query-error";
 import { pageHead } from "@/lib/page-title";
 
 type AuthClientType = import("@/app").AuthClient;
@@ -19,10 +20,11 @@ export const Route = createFileRoute("/_authenticated/_dashboard/orgs/")({
     await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),
     );
-    await context.queryClient.ensureQueryData({
+    await context.queryClient.prefetchQuery({
       queryKey: ["organizations"],
       queryFn: async () => {
-        const { data } = await context.authClient.organization.list();
+        const { data, error } = await context.authClient.organization.list();
+        if (error) throw new Error(error.message);
         return (data || []) as Organization[];
       },
       staleTime: 30 * 1000,
@@ -49,14 +51,16 @@ function OrganizationsList() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
-  const { data: organizations, isLoading } = useQuery({
+  const organizationsQuery = useQuery({
     queryKey: ["organizations"],
     queryFn: async () => {
-      const { data } = await auth.organization.list();
+      const { data, error } = await auth.organization.list();
+      if (error) throw new Error(error.message);
       return (data || []) as Organization[];
     },
     staleTime: 30 * 1000,
   });
+  const { data: organizations, isLoading } = organizationsQuery;
 
   const { data: userInvitations = [] } = useQuery({
     queryKey: ["user-invitations"],
@@ -211,6 +215,12 @@ function OrganizationsList() {
               </Card>
             ))}
           </div>
+        ) : organizationsQuery.isError ? (
+          <QueryError
+            message="Couldn't load your organizations."
+            onRetry={() => void organizationsQuery.refetch()}
+            isRetrying={organizationsQuery.isFetching}
+          />
         ) : orgs.length === 0 ? (
           <Card className="p-10 text-center space-y-4 items-center">
             <Building2 className="h-10 w-10 mx-auto text-muted-foreground" />

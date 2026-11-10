@@ -16,6 +16,7 @@ import {
   VerifiedBadge,
 } from "@/components";
 import { AccountAvatar } from "@/components/account-avatar";
+import { QueryError } from "@/components/query-error";
 import { TelegramHandle } from "@/components/tip-tester";
 import { invalidateProjectQueries, projectsQueryOptions } from "@/lib/queries/projects";
 import { invalidateRoundQueries } from "@/lib/queries/rounds";
@@ -59,6 +60,12 @@ function ProjectApprovalsPage() {
       />
       {projectsQuery.isLoading ? (
         <Skeleton className="h-24 w-full" />
+      ) : projectsQuery.isError ? (
+        <QueryError
+          message="Couldn't load projects."
+          onRetry={() => void projectsQuery.refetch()}
+          isRetrying={projectsQuery.isFetching}
+        />
       ) : projects.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {status === "pending"
