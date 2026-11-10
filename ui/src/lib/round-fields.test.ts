@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_ROUND_FIELDS, nextRoundFields, roundFieldsComplete } from "./round-fields";
+import {
+  EMPTY_ROUND_FIELDS,
+  nextRoundFields,
+  roundFieldsComplete,
+  toCreateRoundInput,
+} from "./round-fields";
 
 const complete = {
   title: "Checkout",
@@ -54,6 +59,16 @@ describe("nextRoundFields", () => {
       endsAt: "",
       contact: "",
     });
+  });
+
+  it("defaults new rounds to private", () => {
+    expect(EMPTY_ROUND_FIELDS.isPrivate).toBe(true);
+    expect(nextRoundFields(null).isPrivate).toBe(true);
+  });
+
+  it("sends isPrivate explicitly so an unchecked box is not overridden by the API default", () => {
+    expect(toCreateRoundInput({ ...EMPTY_ROUND_FIELDS, isPrivate: false }).isPrivate).toBe(false);
+    expect(toCreateRoundInput({ ...EMPTY_ROUND_FIELDS, isPrivate: true }).isPrivate).toBe(true);
   });
 
   it("starts with written preselected without a previous round", () => {
