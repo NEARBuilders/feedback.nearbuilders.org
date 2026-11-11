@@ -31,6 +31,7 @@ import {
   type NotificationsService,
   NotificationsTag,
 } from "./services/notifications";
+import { createOrgAccess } from "./services/org-access";
 import { type OrganizationPrincipal, orgKeyOrganizationId } from "./services/org-key";
 import { projectIdMismatchesRegistry } from "./services/project-id";
 import type {
@@ -38,6 +39,7 @@ import type {
   ProjectWithRounds as ProjectWithRoundsRecord,
 } from "./services/project-records";
 import {
+  type ProjectAccessGrant,
   ProjectRecordsLive,
   type ProjectRecordsService,
   ProjectRecordsTag,
@@ -100,6 +102,7 @@ type ApiRuntimeShape = {
   feedbackNostr: ReturnType<typeof createFeedbackNostrEmitter>;
   projectsLookup: ReturnType<typeof createProjectsLookup>;
   teamAccess: ReturnType<typeof createTeamAccess>;
+  orgAccess: ReturnType<typeof createOrgAccess>;
   legionAccess: ReturnType<typeof createLegionAccess>;
   feedbackAssets: ReturnType<typeof createFeedbackAssets>;
   telegramTip: ReturnType<typeof createTelegramTipLookup>;
@@ -185,6 +188,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       const teamAccess = createTeamAccess(plugins.auth);
 
+      const orgAccess = createOrgAccess(plugins.auth);
+
       const legionAccess = createLegionAccess(plugins.legion);
 
       const feedbackAssets = createFeedbackAssets(plugins.storage);
@@ -216,6 +221,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         feedbackNostr,
         projectsLookup,
         teamAccess,
+        orgAccess,
         legionAccess,
         feedbackAssets,
         telegramTip,
@@ -255,18 +261,30 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
         : null;
 
-    const withIdentity = async <T extends { slug: string }>(project: T) => ({
+    /** Org + manage grants reduced to the output shape (#279). */
+    const toPartners = (grants: ProjectAccessGrant[]) =>
+      grants
+        .filter((grant) => grant.principalType === "org" && grant.permission === "manage")
+        .map((grant) => ({ organizationId: grant.principalId, slug: grant.orgSlug }));
+
+    const withIdentity = async <T extends { slug: string; accessGrants?: ProjectAccessGrant[] }>(
+      project: T,
+    ) => ({
       ...project,
+      partners: toPartners(project.accessGrants ?? []),
       identity: toIdentity(await getRuntime().projectsLookup.resolveBySlug(project.slug)),
     });
 
     /** One batch lookup for a list, rather than a request per project. */
-    const withIdentities = async <T extends { slug: string }>(projects: T[]) => {
+    const withIdentities = async <T extends { slug: string; accessGrants?: ProjectAccessGrant[] }>(
+      projects: T[],
+    ) => {
       const registry = await getRuntime().projectsLookup.resolveMany(
         projects.map((project) => project.slug),
       );
       return projects.map((project) => ({
         ...project,
+        partners: toPartners(project.accessGrants ?? []),
         identity: toIdentity(registry.get(project.slug)),
       }));
     };
@@ -824,6 +842,125 @@ export default createPlugin.withPlugins<PluginsClient>()({
             throw errors.NOT_FOUND({
               message: "Project not found",
               data: { resourceId: input.id },
+            });
+          }
+          return withIdentity(updated);
+        }),
+
+      addProjectPartner: builder.addProjectPartner
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const project = await getRuntime().projectRecords.resolveProjectById(input.id);
+          if (!project) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.id },
+            });
+          }
+          const isSiteAdmin = context.user?.role === "admin";
+          const isOrgAdmin =
+            !!project.ownerOrgId &&
+            context.organization?.activeOrganizationId === project.ownerOrgId &&
+            isOrgAdminRole(context.organization?.member?.role);
+          if (!isSiteAdmin && !isOrgAdmin) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the organization's owners and admins can add partners",
+            });
+          }
+          if (!project.ownerOrgId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "This project has no owning organization to partner with",
+            });
+          }
+          const accountId = context.near?.primaryAccountId;
+          if (!accountId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Link a NEAR account before adding a partner",
+            });
+          }
+          const resolution = await getRuntime().orgAccess.resolveBySlug(
+            context as Record<string, unknown>,
+            input.organizationSlug,
+          );
+          if (resolution === "unverifiable") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Couldn't verify that organization right now, try again",
+            });
+          }
+          if (!resolution) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "No organization found with that slug",
+            });
+          }
+          if (resolution.status !== "active") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "That organization hasn't been approved yet",
+            });
+          }
+          if (resolution.organizationId === project.ownerOrgId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "That organization already owns this project",
+            });
+          }
+          await getRuntime().projectRecords.addAccessGrant(
+            project.id,
+            {
+              principalType: "org",
+              principalId: resolution.organizationId,
+              permission: "manage",
+              orgSlug: resolution.slug,
+            },
+            accountId,
+          );
+          const updated = await getRuntime().projectRecords.getProjectWithRounds(project.id);
+          if (!updated) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resourceId: project.id },
+            });
+          }
+          return withIdentity(updated);
+        }),
+
+      removeProjectPartner: builder.removeProjectPartner
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const project = await getRuntime().projectRecords.resolveProjectById(input.id);
+          if (!project) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.id },
+            });
+          }
+          const isSiteAdmin = context.user?.role === "admin";
+          const isOrgAdmin =
+            !!project.ownerOrgId &&
+            context.organization?.activeOrganizationId === project.ownerOrgId &&
+            isOrgAdminRole(context.organization?.member?.role);
+          if (!isSiteAdmin && !isOrgAdmin) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the organization's owners and admins can remove partners",
+            });
+          }
+          // Match on the stored org slug snapshot: removal is a de-escalation, so it
+          // must work even when the org can no longer be resolved from the auth DB.
+          const grant = project.accessGrants.find(
+            (candidate) =>
+              candidate.principalType === "org" &&
+              candidate.permission === "manage" &&
+              candidate.orgSlug === input.organizationSlug,
+          );
+          if (!grant) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "That organization is not a partner on this project",
+            });
+          }
+          await getRuntime().projectRecords.removeAccessGrant(project.id, "org", grant.principalId);
+          const updated = await getRuntime().projectRecords.getProjectWithRounds(project.id);
+          if (!updated) {
+            throw errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resourceId: project.id },
             });
           }
           return withIdentity(updated);
