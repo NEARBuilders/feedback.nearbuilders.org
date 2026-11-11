@@ -50,7 +50,11 @@ function ApiKeysSettings() {
     useQuery({
       queryKey: userApiKeysQueryKey,
       queryFn: async (): Promise<ApiKeyItem[]> => {
-        const { data, error } = await auth.apiKey.list({});
+        // KEEP: the auth plugin has no default key config — every personal-key
+        // call must name the "user-keys" configId, or the plugin refuses.
+        const { data, error } = await auth.apiKey.list({
+          query: { configId: "user-keys" },
+        });
         if (error) throw new Error(error.message);
         return (data?.apiKeys ?? []) as ApiKeyItem[];
       },
@@ -60,6 +64,7 @@ function ApiKeysSettings() {
   const createApiKeyMutation = useMutation({
     mutationFn: async (values: ApiKeyFormValues) => {
       const { data, error } = await auth.apiKey.create({
+        configId: "user-keys",
         name: values.name,
         ...(values.expiresIn !== undefined ? { expiresIn: values.expiresIn } : {}),
       });
