@@ -53,6 +53,7 @@ import {
   filterVisibleFeedback,
   isOrgAdminRole,
   needsTeamCheck,
+  orgRunsRound,
   type RoundActor,
 } from "./services/round-access";
 import { isRoundExpired } from "./services/round-liveness";
@@ -1073,10 +1074,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
         }
         const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
-        if (
-          project?.ownerOrgId &&
-          context.organization?.activeOrganizationId === project.ownerOrgId
-        ) {
+        if (orgRunsRound(project, context.organization?.activeOrganizationId)) {
           throw new ORPCError("BAD_REQUEST", {
             message: "Your organization runs this round, so you can't join it as a tester",
           });
@@ -1867,6 +1865,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
             ...(await withIdentity(project)),
             rounds: project.rounds,
             canManage: canManage || isSiteAdmin(context),
+            canManagePartners:
+              isSiteAdmin(context) ||
+              (!!project.ownerOrgId &&
+                context.organization?.activeOrganizationId === project.ownerOrgId &&
+                isOrgAdminRole(context.organization?.member?.role)),
           };
         }),
 

@@ -7,6 +7,7 @@ import {
   filterVisibleFeedback,
   isOrgAdminRole,
   needsTeamCheck,
+  orgRunsRound,
 } from "@/services/round-access";
 
 const round = { ownerAccountId: "creator.near" };
@@ -201,6 +202,30 @@ describe("needsTeamCheck", () => {
       ),
     ).toBe(false);
     expect(needsTeamCheck(null, { activeOrganizationId: "org-1" })).toBe(false);
+  });
+});
+
+describe("orgRunsRound (#279)", () => {
+  it("is true for the owning org and for granted orgs", () => {
+    expect(orgRunsRound({ ownerOrgId: "org-1" }, "org-1")).toBe(true);
+    expect(orgRunsRound({ ownerOrgId: "org-1", accessGrants: [grant("org-2")] }, "org-2")).toBe(
+      true,
+    );
+  });
+
+  it("is false for everyone else and when there is no active org", () => {
+    expect(orgRunsRound({ ownerOrgId: "org-1", accessGrants: [grant("org-2")] }, "org-3")).toBe(
+      false,
+    );
+    expect(orgRunsRound({ ownerOrgId: "org-1" }, null)).toBe(false);
+    expect(orgRunsRound({ ownerOrgId: "org-1" }, undefined)).toBe(false);
+    expect(orgRunsRound(null, "org-1")).toBe(false);
+  });
+
+  it("ignores read-only grants", () => {
+    expect(
+      orgRunsRound({ ownerOrgId: "org-1", accessGrants: [grant("org-2", "read")] }, "org-2"),
+    ).toBe(false);
   });
 });
 

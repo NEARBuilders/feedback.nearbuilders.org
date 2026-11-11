@@ -110,6 +110,20 @@ function hasManageGrant(
   );
 }
 
+/**
+ * Whether an active organization runs a round through its project: as the
+ * owning org or via a manage grant (#279). Powers the anti-join guard, which
+ * is a membership question — session roles never change the answer.
+ */
+export function orgRunsRound(
+  project: ProjectAccessSubject | null,
+  activeOrganizationId: string | null | undefined,
+): boolean {
+  if (!project || !activeOrganizationId) return false;
+  if (project.ownerOrgId && activeOrganizationId === project.ownerOrgId) return true;
+  return hasManageGrant(project, activeOrganizationId);
+}
+
 export interface FeedbackVisibilitySubject {
   isPrivate: boolean;
 }

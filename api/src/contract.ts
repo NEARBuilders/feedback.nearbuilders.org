@@ -522,6 +522,8 @@ export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
 
 export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
   canManage: z.boolean(),
+  /** Owner-org admins and site admins only (#279): may manage the partner list. */
+  canManagePartners: z.boolean(),
 });
 
 export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;

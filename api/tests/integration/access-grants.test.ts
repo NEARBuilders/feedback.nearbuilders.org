@@ -100,6 +100,22 @@ describe("partner management (#279)", () => {
     expect(await outsider.getRound({ id: round.id })).toMatchObject({ canManage: false });
   });
 
+  it("blocks partner members from joining as testers", async () => {
+    const { owner, round } = await ownedPrivateRound();
+    await owner.addProjectPartner({
+      id: round.projectRecordId,
+      organizationSlug: "nearlytrade",
+    });
+
+    const partnerMember = await getPluginClient(
+      nearAuthedContext("partner.near", "partner-user", PARTNER.id, "member"),
+    );
+    await expect(partnerMember.joinRound({ id: round.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Your organization runs this round, so you can't join it as a tester",
+    });
+  });
+
   it("refuses partner members when they try to manage the partnership", async () => {
     const { owner, round } = await ownedPrivateRound();
     await owner.addProjectPartner({
