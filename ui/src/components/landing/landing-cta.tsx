@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components";
+import { DEFAULT_LEADERBOARD_PERIOD } from "@/lib/leaderboard";
 
 export function LandingCta() {
   return (
@@ -31,7 +32,11 @@ export function LandingCta() {
           For agents
         </Link>
         {" · "}
-        <Link to="/leaderboard" className="underline-offset-4 hover:underline">
+        <Link
+          to="/leaderboard"
+          search={{ period: DEFAULT_LEADERBOARD_PERIOD }}
+          className="underline-offset-4 hover:underline"
+        >
           Leaderboard
         </Link>
       </p>
