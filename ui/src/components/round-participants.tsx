@@ -106,7 +106,7 @@ export function RoundParticipants({
 
             const isWinner = winners.includes(participant.accountId);
             const winnerMark = isWinner ? (
-              <Trophy className="mr-1.5 inline h-3.5 w-3.5 text-amber-500" aria-label="Winner" />
+              <Trophy className="mr-1.5 inline h-3.5 w-3.5 text-brand-accent" aria-label="Winner" />
             ) : null;
 
             return (
