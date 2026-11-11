@@ -55,7 +55,6 @@ describe("postFeedback (nostr plugin composition)", () => {
 
     const owner = await getPluginClient(nearAuthedContext("nostr-owner-2.near"));
     const round = await owner.createRound({
-      isPrivate: false,
       ...baseInput,
       projectSlug: "nostr-project-2",
     });
@@ -83,7 +82,6 @@ describe("deleteFeedback (nostr comments can't be retracted)", () => {
     try {
       const owner = await getPluginClient(nearAuthedContext("nostr-del-owner.near"));
       const round = await owner.createRound({
-        isPrivate: false,
         ...baseInput,
         projectSlug: "nostr-del-project",
       });
@@ -115,7 +113,6 @@ describe("deleteFeedback (nostr comments can't be retracted)", () => {
     try {
       const owner = await getPluginClient(nearAuthedContext("nostr-del-owner-2.near"));
       const round = await owner.createRound({
-        isPrivate: false,
         ...baseInput,
         projectSlug: "nostr-del-project-2",
       });
