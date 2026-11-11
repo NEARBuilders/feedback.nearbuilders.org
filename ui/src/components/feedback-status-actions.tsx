@@ -26,7 +26,7 @@ export function FeedbackStatusActions({ current, onChange, disabled }: FeedbackS
       >
         <Icon className="h-3.5 w-3.5" />
         {label}
-        {hotkey && <kbd className="text-[10px] opacity-60">{hotkey}</kbd>}
+        {hotkey && <kbd className="text-3xs opacity-60">{hotkey}</kbd>}
       </Button>
     ),
   );

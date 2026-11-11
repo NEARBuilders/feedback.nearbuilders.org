@@ -75,7 +75,7 @@ function LeaderboardPage() {
             options={LEADERBOARD_PERIODS}
             ariaLabel="Leaderboard period"
           />
-          <div className="relative min-w-[12rem] max-w-sm flex-1">
+          <div className="relative min-w-48 max-w-sm flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
@@ -97,7 +97,7 @@ function LeaderboardPage() {
           <EmptyState
             icon={Trophy}
             title="Couldn't load the leaderboard."
-            className="min-h-[30vh]"
+            className="min-h-empty"
             action={
               <Button variant="outline" size="sm" onClick={() => void refetch()}>
                 Try again
@@ -109,14 +109,14 @@ function LeaderboardPage() {
             icon={Trophy}
             title="Activity isn't connected."
             description="Standings show up here once the activity gateway is configured."
-            className="min-h-[30vh]"
+            className="min-h-empty"
           />
         ) : state === "unreachable" ? (
           <EmptyState
             icon={Trophy}
             title="The leaderboard is unavailable right now."
             description="The activity service didn't respond. Try again in a moment."
-            className="min-h-[30vh]"
+            className="min-h-empty"
             action={
               <Button
                 variant="outline"
@@ -132,14 +132,10 @@ function LeaderboardPage() {
           <EmptyState
             icon={Trophy}
             title={`No leaderboard activity yet for ${periodLabel(period).toLowerCase()}.`}
-            className="min-h-[30vh]"
+            className="min-h-empty"
           />
         ) : state === "no-match" ? (
-          <EmptyState
-            icon={Trophy}
-            title="No testers match your search."
-            className="min-h-[30vh]"
-          />
+          <EmptyState icon={Trophy} title="No testers match your search." className="min-h-empty" />
         ) : (
           <div className="space-y-3">
             <LeaderboardTable entries={paged.items} currentAccountId={accountId || null} />

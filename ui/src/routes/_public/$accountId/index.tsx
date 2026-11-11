@@ -104,7 +104,7 @@ export function BuilderActivityFeed({ accountId }: { accountId: string }) {
           icon={Activity}
           title="No activity yet"
           description={`No activity from ${accountId} on activity.nearbuilders.org.`}
-          className="min-h-[20vh]"
+          className="min-h-empty-sm"
         />
       ) : (
         <ul className="space-y-2">
@@ -159,7 +159,7 @@ export function BuilderFeedbackRounds({ accountId }: { accountId: string }) {
           icon={MessageSquare}
           title="No feedback rounds yet"
           description={`${accountId} hasn't been credited on a closed feedback round.`}
-          className="min-h-[30vh]"
+          className="min-h-empty"
         />
       ) : (
         <ul className="space-y-3">
@@ -170,7 +170,7 @@ export function BuilderFeedbackRounds({ accountId }: { accountId: string }) {
                 subtitle={<span className="font-mono">{round.projectSlug}</span>}
                 trailing={
                   round.contributedMeaningfully && (
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="text-3xs">
                       credited
                     </Badge>
                   )

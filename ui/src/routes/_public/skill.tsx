@@ -105,7 +105,11 @@ function SkillPage() {
             <Markdown content={skill} />
           </div>
         ) : (
-          <EmptyState icon={FileText} title="Skill prompt unavailable." className="min-h-[20vh]" />
+          <EmptyState
+            icon={FileText}
+            title="Skill prompt unavailable."
+            className="min-h-empty-sm"
+          />
         )}
       </div>
     </PageContainer>

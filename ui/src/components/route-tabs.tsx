@@ -20,7 +20,7 @@ export function RouteTabs({ label, children }: { label: string; children: ReactN
   return (
     <nav
       aria-label={label}
-      className="inline-flex max-w-full overflow-x-auto rounded-none border border-border bg-card p-0.5 [scrollbar-width:none]"
+      className="inline-flex max-w-full overflow-x-auto rounded-none border border-border bg-card p-0.5 no-scrollbar"
     >
       {children}
     </nav>

@@ -70,7 +70,7 @@ function TestingPage() {
           <EmptyState
             icon={ClipboardCheck}
             title="You haven't joined any rounds yet."
-            className="min-h-[30vh]"
+            className="min-h-empty"
             action={
               <Button asChild variant="outline" size="sm">
                 <Link to="/rounds">Browse open rounds</Link>

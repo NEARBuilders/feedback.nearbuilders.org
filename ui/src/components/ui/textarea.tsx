@@ -1,3 +1,4 @@
+/* oxlint-disable shadcn/no-arbitrary-values -- shadcn/ui textarea: transition-[prop] and the standard 3px focus ring */
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";

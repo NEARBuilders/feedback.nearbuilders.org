@@ -33,7 +33,7 @@ export function LeaderboardTable({ entries, currentAccountId }: LeaderboardTable
         {entries.map((entry) => (
           <TableRow key={entry.actor}>
             <TableCell>
-              <Badge variant={entry.rank <= 3 ? "secondary" : "outline"} className="text-[10px]">
+              <Badge variant={entry.rank <= 3 ? "secondary" : "outline"} className="text-3xs">
                 #{entry.rank}
               </Badge>
             </TableCell>
@@ -45,7 +45,7 @@ export function LeaderboardTable({ entries, currentAccountId }: LeaderboardTable
               >
                 {entry.actor}
               </Link>
-              {entry.actor === currentAccountId && <Badge className="ml-2 text-[10px]">you</Badge>}
+              {entry.actor === currentAccountId && <Badge className="ml-2 text-3xs">you</Badge>}
             </TableCell>
             <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
               {contributionsLabel(entry.eventCount)}

@@ -18,7 +18,7 @@ function postsLabel(count: number) {
 }
 
 const rowClassName =
-  "grid min-w-0 grid-cols-1 items-start gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4";
+  "grid min-w-0 grid-cols-1 items-start gap-1 px-4 py-2.5 sm:grid-cols-split-row sm:items-center sm:gap-4";
 
 export function RoundParticipants({
   roundId,

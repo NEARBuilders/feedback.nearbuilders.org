@@ -68,7 +68,7 @@ function InboxLayout() {
     void navigate({ to: "/manage/$slug/$n", params, search: { ...search, ...next } });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+    <div className="grid gap-6 lg:grid-cols-split-2-3">
       <section className={cn("space-y-3", feedbackId && "hidden lg:block")}>
         <div className="flex flex-wrap items-center gap-2">
           <SegmentedToggle
@@ -90,7 +90,7 @@ function InboxLayout() {
             icon={Inbox}
             title={search.status === "unresolved" ? "Inbox zero." : "Nothing here."}
             description="No feedback matches these filters."
-            className="min-h-[30vh]"
+            className="min-h-empty"
           />
         ) : (
           <FeedbackInbox

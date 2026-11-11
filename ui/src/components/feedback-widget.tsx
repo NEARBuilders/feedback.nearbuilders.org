@@ -1,3 +1,4 @@
+/* oxlint-disable shadcn/no-arbitrary-values -- widget panel sizes itself against the viewport with calc()/min() */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { MessageCircle, X } from "lucide-react";

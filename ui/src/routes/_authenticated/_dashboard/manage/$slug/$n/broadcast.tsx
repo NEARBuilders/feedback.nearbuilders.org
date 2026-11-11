@@ -20,7 +20,7 @@ function BroadcastTab() {
       <EmptyState
         icon={Megaphone}
         title="Broadcasts are for open rounds."
-        className="min-h-[30vh]"
+        className="min-h-empty"
       />
     );
   }

@@ -140,7 +140,7 @@ function RoundFeedbackPage() {
             viewerAccountId: viewer.accountId,
             feedbackCount: round.feedbackCount ?? 0,
           })}
-          className="min-h-[20vh]"
+          className="min-h-empty-sm"
         />
       ) : (
         <FeedbackList

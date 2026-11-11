@@ -139,7 +139,7 @@ function OrganizationsList() {
       <div className="space-y-6">
         {pendingInvitations.length > 0 && (
           <section className="space-y-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               Pending Invitations ({pendingInvitations.length})
             </div>
             <div className="grid gap-4 md:grid-cols-2">
