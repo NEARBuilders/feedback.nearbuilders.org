@@ -5,7 +5,7 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const toggleGroupItemVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-foreground data-[state=on]:border data-[state=on]:border-border data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-3 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-foreground data-[state=on]:border data-[state=on]:border-border data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-3 [&_svg]:shrink-0",
 );
 
 function ToggleGroup({
@@ -16,7 +16,7 @@ function ToggleGroup({
     <ToggleGroupPrimitive.Root
       data-slot="toggle-group"
       className={cn(
-        "flex items-center gap-2 p-1 border border-border rounded-lg bg-muted/30",
+        "flex items-center gap-2 p-1 border border-border rounded-none bg-muted/30",
         className,
       )}
       {...props}

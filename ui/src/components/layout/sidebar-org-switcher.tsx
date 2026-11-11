@@ -32,7 +32,7 @@ export function SidebarOrgSwitcher({
               data-testid="org-switcher"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg border border-border bg-card text-foreground shrink-0">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-none border border-border bg-card text-foreground shrink-0">
                 <Building2 className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
@@ -47,7 +47,7 @@ export function SidebarOrgSwitcher({
           <OrgSwitcherMenuContent
             organizations={organizations}
             activeOrgId={activeOrgId}
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-none"
             align="start"
             side="bottom"
             sideOffset={4}

@@ -66,7 +66,7 @@ function UserNavContent({ showConnect = true }: { showConnect?: boolean }) {
           <button
             type="button"
             aria-label={displayName}
-            className="rounded-full! ring-1 ring-border transition-transform duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:scale-105"
+            className="rounded-none! ring-1 ring-border transition-transform duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:scale-105"
             title="account menu"
           >
             <Avatar className="size-8">

@@ -79,7 +79,7 @@ export function CloseRoundPanel({ roundId }: { roundId: string }) {
                 return (
                   <li
                     key={c.accountId}
-                    className="rounded-[10px] border border-border p-3 space-y-2"
+                    className="rounded-none border border-border p-3 space-y-2"
                   >
                     <label
                       className="flex items-center gap-2 text-sm"

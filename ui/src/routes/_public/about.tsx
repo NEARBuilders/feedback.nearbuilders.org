@@ -96,7 +96,7 @@ function About() {
               <Link
                 to="/skill"
                 preload="intent"
-                className="h-9 rounded-[12px] px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-foreground text-background hover:opacity-90"
+                className="h-9 rounded-none px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-foreground text-background hover:opacity-90"
               >
                 <Sparkles size={14} />
                 Skill
@@ -105,7 +105,7 @@ function About() {
                 href="/skill.md"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-9 rounded-[12px] px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-secondary text-foreground hover:bg-border"
+                className="h-9 rounded-none px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-secondary text-foreground hover:bg-border"
               >
                 <FileText size={14} />
                 skill.md
@@ -115,7 +115,7 @@ function About() {
                   href={repository}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-9 rounded-[12px] px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-secondary text-foreground hover:bg-border"
+                  className="h-9 rounded-none px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-secondary text-foreground hover:bg-border"
                 >
                   {isGithubUrl(repository) ? <GithubIcon size={14} /> : <ExternalLink size={14} />}
                   {isGithubUrl(repository) ? "GitHub" : "Repository"}
@@ -125,13 +125,13 @@ function About() {
           }
         />
 
-        <div className="rounded-[12px] border border-border bg-card p-6 space-y-4">
+        <div className="rounded-none border border-border bg-card p-6 space-y-4">
           {description && (
             <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
           )}
 
           {repository && (
-            <div className="rounded-[8px] border border-border bg-muted px-3.5 py-2.5 flex items-center gap-2">
+            <div className="rounded-none border border-border bg-muted px-3.5 py-2.5 flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 min-w-[64px]">
                 repo
               </span>
@@ -146,7 +146,7 @@ function About() {
             </div>
           )}
 
-          <div className="rounded-[8px] border border-border bg-muted px-3.5 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-none border border-border bg-muted px-3.5 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 for agents and builders
@@ -160,7 +160,7 @@ function About() {
               <Link
                 to="/skill"
                 preload="intent"
-                className="h-9 rounded-[12px] px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-card text-foreground border border-border hover:bg-background"
+                className="h-9 rounded-none px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-card text-foreground border border-border hover:bg-background"
                 data-testid="about.open-skill-link"
               >
                 <Sparkles size={14} />
@@ -170,7 +170,7 @@ function About() {
                 href="/skill.md"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-9 rounded-[12px] px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-card text-foreground border border-border hover:bg-background"
+                className="h-9 rounded-none px-4 text-sm font-bold inline-flex items-center gap-2 no-underline transition-colors duration-150 bg-card text-foreground border border-border hover:bg-background"
               >
                 <FileText size={14} />
                 Raw markdown
@@ -180,7 +180,7 @@ function About() {
         </div>
 
         {readme ? (
-          <div className="rounded-[12px] border border-border bg-card p-8">
+          <div className="rounded-none border border-border bg-card p-8">
             <Markdown content={readme} />
           </div>
         ) : (

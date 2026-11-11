@@ -59,7 +59,7 @@ function HowToIntegratePage() {
         <ol className="space-y-6">
           {STEPS.map(({ n, title, body }) => (
             <li key={n} className="flex gap-4">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-foreground text-sm font-bold text-background">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-foreground text-sm font-bold text-background">
                 {n}
               </span>
               <div className="space-y-1">

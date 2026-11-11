@@ -213,7 +213,7 @@
   }
   *::-webkit-scrollbar-thumb {
     background-color: var(--border-strong);
-    border-radius: 999px;
+    border-radius: 0;
     border: 2px solid transparent;
     background-clip: padding-box;
   }

@@ -48,7 +48,7 @@ function popOut() {
 function RoundBanner({ src }: { src: string }) {
   return (
     <div
-      className="overflow-hidden rounded-xl border border-border bg-muted"
+      className="overflow-hidden rounded-none border border-border bg-muted"
       data-testid="round-banner"
     >
       <img

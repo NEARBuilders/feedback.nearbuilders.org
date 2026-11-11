@@ -663,7 +663,7 @@ export function Editor({
       ) => Promise<void> | null
     >(null);
   const tiptapSurfaceClass = cn(
-    "typeset typeset-editor border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 min-h-16 w-full rounded-md border bg-transparent px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] [&_p.is-empty::before]:text-muted-foreground [&_p.is-empty::before]:content-[attr(data-placeholder)] [&_p.is-empty::before]:pointer-events-none [&_p.is-empty::before]:float-left [&_p.is-empty::before]:h-0 [&_td_p.is-empty::before]:content-none [&_th_p.is-empty::before]:content-none [&_img[data-uploading=true]]:opacity-70 [&_img[data-uploading=true]]:animate-pulse [&_img[data-upload-error]]:ring-2 [&_img[data-upload-error]]:ring-destructive [&_img[data-upload-error]]:ring-offset-2 [&_img[data-upload-error]]:ring-offset-background",
+    "typeset typeset-editor border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 min-h-16 w-full rounded-none border bg-transparent px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] [&_p.is-empty::before]:text-muted-foreground [&_p.is-empty::before]:content-[attr(data-placeholder)] [&_p.is-empty::before]:pointer-events-none [&_p.is-empty::before]:float-left [&_p.is-empty::before]:h-0 [&_td_p.is-empty::before]:content-none [&_th_p.is-empty::before]:content-none [&_img[data-uploading=true]]:opacity-70 [&_img[data-uploading=true]]:animate-pulse [&_img[data-upload-error]]:ring-2 [&_img[data-upload-error]]:ring-destructive [&_img[data-upload-error]]:ring-offset-2 [&_img[data-upload-error]]:ring-offset-background",
     editorClassName,
   );
 
@@ -1252,10 +1252,10 @@ export function Editor({
   const removeColumn = () => editor.chain().focus().deleteColumn().run();
 
   const toolbarButtonClass =
-    "inline-flex size-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
+    "inline-flex size-7 items-center justify-center rounded-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
   const toolbarToggleButtonClass = `${toolbarButtonClass} aria-pressed:bg-accent aria-pressed:text-accent-foreground`;
   const toolbarInputClass =
-    "border-input bg-background text-foreground h-7 rounded-md border px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]";
+    "border-input bg-background text-foreground h-7 rounded-none border px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]";
 
   const renderIconButton = ({
     label,
@@ -1304,7 +1304,7 @@ export function Editor({
         }}
       >
         <div className="flex flex-col gap-1">
-          <div className="border-border bg-popover flex flex-nowrap items-center gap-0.5 overflow-x-auto rounded-md border p-1 shadow-sm whitespace-nowrap">
+          <div className="border-border bg-popover flex flex-nowrap items-center gap-0.5 overflow-x-auto rounded-none border p-1 shadow-sm whitespace-nowrap">
             {!isInTable ? (
               <div className="group/native-select relative w-fit">
                 <select
@@ -1313,7 +1313,7 @@ export function Editor({
                   onChange={(event) => setBlockType(event.target.value as BlockType)}
                   disabled={disabled}
                   aria-label="Block style"
-                  className="h-7 w-full appearance-none rounded-md border border-transparent bg-transparent px-2 pr-5.5 text-sm shadow-none outline-none hover:bg-accent focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-7 w-full appearance-none rounded-none border border-transparent bg-transparent px-2 pr-5.5 text-sm shadow-none outline-none hover:bg-accent focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {blockOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1372,7 +1372,7 @@ export function Editor({
           {showLinkInput ? (
             <div
               data-state="open"
-              className="border-border bg-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1 flex flex-nowrap items-center gap-0.5 overflow-x-auto rounded-md border p-1 shadow-sm duration-200 whitespace-nowrap"
+              className="border-border bg-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1 flex flex-nowrap items-center gap-0.5 overflow-x-auto rounded-none border p-1 shadow-sm duration-200 whitespace-nowrap"
             >
               <input
                 id="link-url"
@@ -1409,7 +1409,7 @@ export function Editor({
           {showAltInput && isOnImage ? (
             <div
               data-state="open"
-              className="border-border bg-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1 flex flex-nowrap items-center gap-0.5 overflow-x-auto rounded-md border p-1 shadow-sm duration-200 whitespace-nowrap"
+              className="border-border bg-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1 flex flex-nowrap items-center gap-0.5 overflow-x-auto rounded-none border p-1 shadow-sm duration-200 whitespace-nowrap"
             >
               <input
                 id="image-alt"
@@ -1445,7 +1445,7 @@ export function Editor({
           {showTableActions && isInTable ? (
             <div
               data-state="open"
-              className="border-border bg-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1 inline-flex w-fit flex-nowrap items-center gap-1 overflow-x-auto self-end rounded-md border p-1 shadow-sm duration-200 whitespace-nowrap"
+              className="border-border bg-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1 inline-flex w-fit flex-nowrap items-center gap-1 overflow-x-auto self-end rounded-none border p-1 shadow-sm duration-200 whitespace-nowrap"
             >
               <span className="text-sm ml-1 text-muted-foreground">Rows:</span>
               {renderIconButton({
