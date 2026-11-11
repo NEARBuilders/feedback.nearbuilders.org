@@ -373,7 +373,7 @@ function OrganizationDetail() {
         title={org.name}
       />
 
-      <Card className="p-6 space-y-4 hover:shadow-md">
+      <Card className="p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Chip>organization</Chip>
           {isActive && <Chip accent>active</Chip>}
@@ -438,7 +438,7 @@ function OrganizationDetail() {
       </Card>
 
       {isEditing && isOwner && (
-        <Card className="p-6 space-y-4 hover:shadow-md">
+        <Card className="p-6 space-y-4">
           <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             Edit Organization
           </div>
@@ -523,7 +523,7 @@ function OrganizationDetail() {
 
         <TabsContent value="invitations" className="space-y-6 pt-4">
           {canManageMembers && !isPersonal && (
-            <Card className="p-6 space-y-4 hover:shadow-md">
+            <Card className="p-6 space-y-4">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Invite member
               </div>
@@ -584,7 +584,7 @@ function OrganizationDetail() {
 
         <TabsContent value="apikeys" className="space-y-6 pt-4">
           {canManageMembers && (
-            <Card className="p-6 hover:shadow-md">
+            <Card className="p-6">
               <ApiKeyForm
                 onCreate={(values: ApiKeyFormValues) => createApiKeyMutation.mutate(values)}
                 isPending={createApiKeyMutation.isPending}
@@ -599,7 +599,7 @@ function OrganizationDetail() {
           {apiKeys.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {apiKeys.map((key) => (
-                <Card key={key.id} className="p-5 space-y-3 hover:shadow-md">
+                <Card key={key.id} className="p-5 space-y-3">
                   <div className="space-y-1 min-w-0">
                     <div className="font-medium text-foreground break-all">
                       {key.name ?? "unnamed"}
@@ -676,7 +676,7 @@ function MemberCard({
   const user = member.user;
 
   return (
-    <Card className="hover:shadow-md">
+    <Card>
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -779,7 +779,7 @@ function InvitationCard({
   isCancelling?: boolean;
 }) {
   return (
-    <Card className="hover:shadow-md">
+    <Card>
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1 min-w-0">

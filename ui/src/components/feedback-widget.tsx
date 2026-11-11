@@ -48,7 +48,7 @@ export function FeedbackWidget({ projectSlug }: FeedbackWidgetProps) {
       <Button
         type="button"
         size="icon"
-        className="h-12 w-12 rounded-full shadow-lg"
+        className="h-12 w-12 rounded-full"
         aria-label={open ? "Close feedback" : "Give feedback"}
         aria-expanded={open}
         data-testid="feedback-widget-launcher"
