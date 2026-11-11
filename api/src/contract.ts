@@ -95,6 +95,8 @@ export const ProjectWithRoundsSchema = ProjectSchema.extend({
       status: z.enum(["pending", "open", "closed", "rejected"]),
       projectRoundNumber: z.number().int().positive(),
       endsAt: z.string().nullable(),
+      /** Lets listings mark private rounds; the feedback bodies stay protected separately (#101). */
+      isPrivate: z.boolean(),
     }),
   ),
 });

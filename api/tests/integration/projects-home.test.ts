@@ -28,6 +28,35 @@ describe("listPublicProjects (#119)", () => {
     }
   });
 
+  it("marks private rounds in the project round list so listings do not show them as public", async () => {
+    const slug = freshSlug("home-private-mark");
+    const owner = await clientFor("home-private-owner.near");
+    const priv = await owner.createRound({
+      projectSlug: slug,
+      title: "Private round",
+      description: "Private description",
+      formats: ["written"],
+      isPrivate: true,
+    });
+    if (priv.status !== "open") {
+      await (await getPluginClient(adminContext())).approveProject({ id: priv.projectRecordId });
+    }
+    await owner.createRound({
+      projectSlug: slug,
+      title: "Public round",
+      description: "Public description",
+      formats: ["written"],
+      isPrivate: false,
+    });
+
+    const anonymous = await getPluginClient();
+    const project = (await anonymous.listPublicProjects()).find((item) => item.slug === slug);
+    expect(project?.rounds.map((r) => [r.projectRoundNumber, r.isPrivate])).toEqual([
+      [1, true],
+      [2, false],
+    ]);
+  });
+
   it("lists approved projects with their public rounds grouped beneath", async () => {
     const slug = freshSlug("home-approved");
     const { round, ownerClient } = await createOpenRound("home-owner1.near", { projectSlug: slug });
