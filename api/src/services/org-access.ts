@@ -9,6 +9,7 @@ interface OrgAccessLogger {
 export interface ResolvedOrganization {
   organizationId: string;
   slug: string;
+  name: string;
   status: "active" | "pending" | "rejected";
 }
 
@@ -42,7 +43,12 @@ export function createOrgAccess(
           (organization: { slug: string }) => organization.slug === slug,
         );
         if (!match) return null;
-        return { organizationId: match.id, slug: match.slug, status: match.status };
+        return {
+          organizationId: match.id,
+          slug: match.slug,
+          name: match.name,
+          status: match.status,
+        };
       } catch (error) {
         logger.warn(
           `[orgs] lookup for slug ${slug} failed: ${

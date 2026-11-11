@@ -29,6 +29,13 @@ export default App({
   // Local API workspace override.
   api: {
     path: "api",
+    variables: {
+      // KEEP: organizations offered as partners when creating a round (#280
+      // follow-up). Slugs, not org ids — slugs are stable across auth
+      // environments. NearLegion runs rounds in partnership with other orgs,
+      // so it leads the creation form pre-checked.
+      preferredPartnerSlugs: ["nearlegion"],
+    },
     secrets: [
       "API_DATABASE_URL",
       "PROJECTS_API_BASE_URL",

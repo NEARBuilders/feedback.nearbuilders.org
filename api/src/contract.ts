@@ -594,6 +594,11 @@ const CreateRoundInputSchema = z
     repoUrl: z.string().url("Must be a valid URL").optional(),
     /** Feedback readable only by the managing org/team and admins (#101). */
     isPrivate: z.boolean().optional(),
+    /** Organizations to grant co-management alongside the round's creation (#280 follow-up). */
+    partnerOrganizationSlugs: z
+      .array(z.string().trim().min(1).max(100))
+      .max(5, "At most 5 partners per round")
+      .optional(),
     /** Only Legion SBT holders can join and post (#103). */
     legionOnly: z.boolean().optional(),
     /** ISO datetime after which joining and posting are blocked. */
@@ -742,6 +747,26 @@ export const contract = oc.router({
     .input(z.object({ id: z.string(), organizationSlug: z.string().trim().min(1).max(200) }))
     .output(ProjectWithRoundsSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  listPartnerSuggestions: oc
+    .route({
+      method: "GET",
+      path: "/partners/suggestions",
+      summary: "Organizations offered as partners when creating a round",
+    })
+    .output(
+      z.object({
+        partners: z.array(
+          z.object({
+            slug: z.string(),
+            name: z.string().nullable(),
+            /** False when the org couldn't be resolved or isn't approved yet. */
+            active: z.boolean(),
+          }),
+        ),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
 
   verifyProject: oc
     .route({ method: "POST", path: "/projects/{id}/verify" })

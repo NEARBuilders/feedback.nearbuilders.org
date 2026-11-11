@@ -105,6 +105,7 @@ type ApiRuntimeShape = {
   projectsLookup: ReturnType<typeof createProjectsLookup>;
   teamAccess: ReturnType<typeof createTeamAccess>;
   orgAccess: ReturnType<typeof createOrgAccess>;
+  preferredPartnerSlugs: string[];
   legionAccess: ReturnType<typeof createLegionAccess>;
   feedbackAssets: ReturnType<typeof createFeedbackAssets>;
   telegramTip: ReturnType<typeof createTelegramTipLookup>;
@@ -125,7 +126,10 @@ const getRuntime = (): ApiRuntimeShape => {
 };
 
 export default createPlugin.withPlugins<PluginsClient>()({
-  variables: z.object({}),
+  variables: z.object({
+    /** Organizations offered as partners at round creation (#280 follow-up). */
+    preferredPartnerSlugs: z.array(z.string().trim().min(1)).default([]),
+  }),
 
   secrets: z.object({
     API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
@@ -192,6 +196,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       const orgAccess = createOrgAccess(plugins.auth);
 
+      const preferredPartnerSlugs = config.variables.preferredPartnerSlugs;
+
       const legionAccess = createLegionAccess(plugins.legion);
 
       const feedbackAssets = createFeedbackAssets(plugins.storage);
@@ -224,6 +230,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         projectsLookup,
         teamAccess,
         orgAccess,
+        preferredPartnerSlugs,
         legionAccess,
         feedbackAssets,
         telegramTip,
@@ -561,6 +568,36 @@ export default createPlugin.withPlugins<PluginsClient>()({
               });
             }
           }
+          // Partners are validated before anything is written: a round never
+          // comes into being half-partnered, and a bad slug names itself.
+          const partners: Array<{ principalId: string; orgSlug: string }> = [];
+          for (const slug of new Set(input.partnerOrganizationSlugs ?? [])) {
+            const resolution = await getRuntime().orgAccess.resolveBySlug(
+              context as unknown as Record<string, unknown>,
+              slug,
+            );
+            if (resolution === "unverifiable") {
+              throw new ORPCError("BAD_REQUEST", {
+                message: `Couldn't verify partner @${slug} right now, try again`,
+              });
+            }
+            if (!resolution) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: `No organization found for partner @${slug}`,
+              });
+            }
+            if (resolution.status !== "active") {
+              throw new ORPCError("BAD_REQUEST", {
+                message: `Partner @${slug} hasn't been approved yet`,
+              });
+            }
+            if (resolution.organizationId === context.organization.activeOrganizationId) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "You can't partner with your own organization",
+              });
+            }
+            partners.push({ principalId: resolution.organizationId, orgSlug: resolution.slug });
+          }
           const round = await getRuntime().rounds.createRound({
             ownerAccountId,
             ownerOrgId: context.organization.activeOrganizationId,
@@ -577,6 +614,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             isPrivate: input.isPrivate,
             legionOnly: input.legionOnly,
             endsAt: input.endsAt,
+            partners,
           });
           // Best effort: the banner is already saved on the round, the asset link just
           // lets a later round delete clean it up.
@@ -984,6 +1022,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
           return withIdentity(updated);
         }),
+
+      listPartnerSuggestions: builder.listPartnerSuggestions
+        .use(requireAuth)
+        .handler(async ({ context }) => ({
+          partners: await Promise.all(
+            getRuntime().preferredPartnerSlugs.map(async (slug) => {
+              const resolution = await getRuntime().orgAccess.resolveBySlug(
+                context as unknown as Record<string, unknown>,
+                slug,
+              );
+              // KEEP: a configured slug stays listed even when the org lookup
+              // fails — the creator can still partner by slug; only the display
+              // name is lost, and an unapproved org shows as inactive in the UI.
+              return {
+                slug,
+                name: resolution && resolution !== "unverifiable" ? resolution.name : null,
+                active: resolution !== "unverifiable" && resolution?.status === "active",
+              };
+            }),
+          ),
+        })),
 
       deleteRound: builder.deleteRound
         .use(requireAuthOrApiKey)

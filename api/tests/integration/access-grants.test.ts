@@ -59,7 +59,10 @@ beforeEach(() => {
   authListTeams.mockResolvedValue([{ id: "team-a" }]);
   authListTeamMembers.mockResolvedValue([]);
   authListOrganizations.mockReset();
-  authListOrganizations.mockResolvedValue([PARTNER]);
+  authListOrganizations.mockResolvedValue([
+    { id: "nearlegion-org-1", name: "NearLegion", slug: "nearlegion", status: "active" },
+    PARTNER,
+  ]);
 });
 
 describe("partner management (#279)", () => {
@@ -161,6 +164,95 @@ describe("partner management (#279)", () => {
     await expect(
       key.removeProjectPartner({ id: round.projectRecordId, organizationSlug: "nearlytrade" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("grants requested partners transactionally with the round's creation", async () => {
+    const n = ++counter;
+    const creator = await getPluginClient(
+      nearAuthedContext(
+        `partner-create-${n}.near`,
+        `partner-create-user-${n}`,
+        `partner-create-org-${n}`,
+        "owner",
+      ),
+    );
+    const round = await creator.createRound({
+      projectSlug: `partner-created-${n}`,
+      title: "Created with a partner",
+      description: "NearLegion-style partnership at creation",
+      formats: ["written"],
+      isPrivate: true,
+      partnerOrganizationSlugs: ["nearlytrade"],
+    });
+    const admin = await getPluginClient(adminContext());
+    await admin.approveProject({ id: round.projectRecordId });
+
+    const key = await getPluginClient(orgKeyContext(PARTNER.id));
+    expect((await key.listRounds({})).map((r) => r.id)).toContain(round.id);
+    expect((await key.listFeedback({ id: round.id })).items).toHaveLength(0);
+
+    const tester = await getPluginClient(nearAuthedContext(`partner-creator-tester-${n}.near`));
+    await tester.joinRound({ id: round.id });
+    await tester.postFeedback({
+      id: round.id,
+      format: "written",
+      body: "Partner-visible finding",
+    });
+    expect((await key.listFeedback({ id: round.id })).items.map((f) => f.body)).toEqual([
+      "Partner-visible finding",
+    ]);
+  });
+
+  it("rejects bad partner slugs without creating the round", async () => {
+    const n = ++counter;
+    const slug = `partner-rejected-${n}`;
+    const creator = await getPluginClient(
+      nearAuthedContext(
+        `partner-reject-${n}.near`,
+        `partner-reject-user-${n}`,
+        `partner-reject-org-${n}`,
+        "owner",
+      ),
+    );
+
+    authListOrganizations.mockResolvedValue([]);
+    await expect(
+      creator.createRound({
+        projectSlug: slug,
+        title: "Should not exist",
+        description: "Unknown partner",
+        formats: ["written"],
+        partnerOrganizationSlugs: ["nearlytrade"],
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    authListOrganizations.mockResolvedValue([
+      { ...PARTNER, id: `partner-reject-org-${n}`, slug: "nearlytrade", status: "active" },
+    ]);
+    await expect(
+      creator.createRound({
+        projectSlug: slug,
+        title: "Should not exist",
+        description: "Self partner",
+        formats: ["written"],
+        partnerOrganizationSlugs: ["nearlytrade"],
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    // The slug is reusable: nothing was left behind by the failed attempts.
+    const round = await creator.createRound({
+      projectSlug: slug,
+      title: "Round without partners",
+      description: "Clean retry",
+      formats: ["written"],
+    });
+    expect(round.projectSlug).toBe(slug);
+  });
+
+  it("lists configured partner suggestions with the org's display name", async () => {
+    const viewer = await getPluginClient(nearAuthedContext("suggestion-viewer.near"));
+    const { partners } = await viewer.listPartnerSuggestions();
+    expect(partners).toEqual([{ slug: "nearlegion", name: "NearLegion", active: true }]);
   });
 
   it("refuses partner members when they try to manage the partnership", async () => {

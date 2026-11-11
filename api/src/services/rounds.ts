@@ -37,7 +37,7 @@ import {
   findEmittedEventId,
 } from "./activity-outbox";
 import { keyForms, redactPrivateEvent } from "./activity-privacy";
-import { ensureProject, grantedProjectIds } from "./project-records";
+import { ensureAccessGrants, ensureProject, grantedProjectIds } from "./project-records";
 import { roundIsLiveSql } from "./round-liveness";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
@@ -111,6 +111,8 @@ export interface CreateRoundInput {
   projectId?: string | null;
   /** Contact volunteered for admin diligence, stored on the project. */
   contact?: string | null;
+  /** Orgs granted co-management in the same transaction that creates the round (#280 follow-up). */
+  partners?: Array<{ principalId: string; orgSlug: string }>;
   title: string;
   description: string;
   readme?: string;
@@ -646,6 +648,8 @@ export const RoundsLive = Layer.effect(
                 set: { lastNumber: sql`${projectRoundCountersTable.lastNumber} + 1` },
               })
               .returning({ lastNumber: projectRoundCountersTable.lastNumber });
+
+            await ensureAccessGrants(tx, project.id, input.partners ?? [], input.ownerAccountId);
 
             const [inserted] = await tx
               .insert(roundsTable)

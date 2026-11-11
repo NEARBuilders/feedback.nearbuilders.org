@@ -210,6 +210,45 @@ export interface EnsureProjectInput {
   contact?: string | null;
 }
 
+/** One org manage-grant to write alongside round creation (#280 follow-up). */
+export interface EnsureAccessGrantInput {
+  principalId: string;
+  orgSlug: string;
+}
+
+/**
+ * Inserts org manage-grants inside the create-round transaction, so a round
+ * never exists without the partners its creator requested. Idempotent on
+ * (projectId, principalType, principalId).
+ */
+export async function ensureAccessGrants(
+  tx: Transaction,
+  projectId: string,
+  partners: EnsureAccessGrantInput[],
+  addedByAccountId: string,
+): Promise<void> {
+  if (partners.length === 0) return;
+  await tx
+    .insert(accessGrantsTable)
+    .values(
+      partners.map((partner) => ({
+        projectId,
+        principalType: "org" as const,
+        principalId: partner.principalId,
+        permission: "manage" as const,
+        orgSlug: partner.orgSlug,
+        addedByAccountId,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [
+        accessGrantsTable.projectId,
+        accessGrantsTable.principalType,
+        accessGrantsTable.principalId,
+      ],
+    });
+}
+
 /**
  * Finds the project for `slug`, or creates it as `pending` owned by the
  * requester's org. For an existing project, enforces that the requester's org
