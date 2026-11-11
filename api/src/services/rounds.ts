@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   ne,
+  or,
   type SQL,
   sql,
 } from "drizzle-orm";
@@ -17,6 +18,7 @@ import { Context, Effect, Layer } from "effect";
 import { MAX_ROUND_WINNERS } from "../contract";
 import { DatabaseTag } from "../db/layer";
 import {
+  accessGrants as accessGrantsTable,
   activityOutbox as activityOutboxTable,
   feedbackNotes as feedbackNotesTable,
   projectRoundCounters as projectRoundCountersTable,
@@ -1419,7 +1421,8 @@ export const RoundsLive = Layer.effect(
       getOwnerSummary: async (orgId) => {
         try {
           // One grouped query: without the distinct-filter count, the round
-          // and feedback joins would multiply each other's rows.
+          // and feedback joins would multiply each other's rows. Granted orgs
+          // (#279) see the same overview for projects they co-manage.
           const [row] = await db
             .select({
               openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundIsLiveSql})::int`,
@@ -1429,7 +1432,24 @@ export const RoundsLive = Layer.effect(
             .from(projectsTable)
             .leftJoin(roundsTable, eq(roundsTable.projectRecordId, projectsTable.id))
             .leftJoin(roundFeedbackTable, eq(roundFeedbackTable.roundId, roundsTable.id))
-            .where(eq(projectsTable.ownerOrgId, orgId));
+            .where(
+              or(
+                eq(projectsTable.ownerOrgId, orgId),
+                inArray(
+                  projectsTable.id,
+                  db
+                    .select({ projectId: accessGrantsTable.projectId })
+                    .from(accessGrantsTable)
+                    .where(
+                      and(
+                        eq(accessGrantsTable.principalType, "org"),
+                        eq(accessGrantsTable.principalId, orgId),
+                        eq(accessGrantsTable.permission, "manage"),
+                      ),
+                    ),
+                ),
+              ),
+            );
           return {
             openRounds: row?.openRounds ?? 0,
             unresolvedFeedback: row?.unresolvedFeedback ?? 0,

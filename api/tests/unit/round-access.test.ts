@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type AccessGrantSubject,
   canManageProject,
   canManageRound,
   canReadAllFeedback,
@@ -9,6 +10,15 @@ import {
 } from "@/services/round-access";
 
 const round = { ownerAccountId: "creator.near" };
+
+const grant = (
+  principalId: string,
+  permission: "manage" | "read" = "manage",
+): AccessGrantSubject => ({
+  principalType: "org",
+  principalId,
+  permission,
+});
 
 describe("canManageRound", () => {
   it("allows members of the project's owning org, whoever created the round", () => {
@@ -78,6 +88,74 @@ describe("canManageRound with a managing team", () => {
   it("treats a project with no managing team like any org-owned project", () => {
     expect(canManageRound(round, { ownerOrgId: "org-1", managingTeamId: null }, inOrg)).toBe(true);
     expect(canManageRound(round, { ownerOrgId: "org-1" }, inOrg)).toBe(true);
+  });
+});
+
+describe("canManageRound with access grants (#279)", () => {
+  const partnered = { ownerOrgId: "org-1", accessGrants: [grant("org-2")] };
+
+  it("lets every member of a granted org manage, whatever their role", () => {
+    expect(
+      canManageRound(round, partnered, { activeOrganizationId: "org-2", orgRole: "member" }),
+    ).toBe(true);
+    expect(canManageRound(round, partnered, { activeOrganizationId: "org-2" })).toBe(true);
+    expect(
+      canManageRound(round, partnered, { activeOrganizationId: "org-2", orgRole: "admin" }),
+    ).toBe(true);
+  });
+
+  it("denies orgs without a grant, and callers with no active org", () => {
+    expect(canManageRound(round, partnered, { activeOrganizationId: "org-3" })).toBe(false);
+    expect(canManageRound(round, partnered, { accountId: "creator.near" })).toBe(false);
+    expect(canManageRound(round, { ownerOrgId: "org-1" }, { activeOrganizationId: "org-2" })).toBe(
+      false,
+    );
+  });
+
+  it("ignores read-only grants", () => {
+    const readOnly = { ownerOrgId: "org-1", accessGrants: [grant("org-2", "read")] };
+    expect(canManageRound(round, readOnly, { activeOrganizationId: "org-2" })).toBe(false);
+  });
+
+  it("lets granted orgs bypass team delegation, which still binds the owner org", () => {
+    const delegated = {
+      ownerOrgId: "org-1",
+      managingTeamId: "team-1",
+      accessGrants: [grant("org-2")],
+    };
+    expect(
+      canManageRound(round, delegated, { activeOrganizationId: "org-2", orgRole: "member" }),
+    ).toBe(true);
+    expect(
+      canManageRound(round, delegated, { activeOrganizationId: "org-1", orgRole: "member" }),
+    ).toBe(false);
+    expect(
+      canManageRound(round, delegated, {
+        activeOrganizationId: "org-1",
+        orgRole: "member",
+        inManagingTeam: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("flows into private-feedback reads (#101)", () => {
+    const privateRound = { ownerAccountId: "creator.near", isPrivate: true };
+    expect(
+      canReadAllFeedback(privateRound, partnered, { activeOrganizationId: "org-2" }, false),
+    ).toBe(true);
+    expect(
+      canReadAllFeedback(privateRound, partnered, { activeOrganizationId: "org-3" }, false),
+    ).toBe(false);
+  });
+
+  it("flows into project-level management (#119)", () => {
+    const project = {
+      ownerOrgId: "org-1",
+      accessGrants: [grant("org-2")],
+      rounds: [round],
+    };
+    expect(canManageProject(project, { activeOrganizationId: "org-2" })).toBe(true);
+    expect(canManageProject(project, { activeOrganizationId: "org-3" })).toBe(false);
   });
 });
 

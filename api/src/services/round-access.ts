@@ -6,6 +6,18 @@ export interface ProjectAccessSubject {
   ownerOrgId: string | null;
   /** Team the owning org delegated round management to, if any. */
   managingTeamId?: string | null;
+  /**
+   * Orgs and teams granted management beyond the owner (#279). Data, not a
+   * query: the loaders attach these so this module never touches storage.
+   */
+  accessGrants?: AccessGrantSubject[];
+}
+
+/** One row of the access_grants table, reduced to what the decision consumes. */
+export interface AccessGrantSubject {
+  principalType: "org" | "team";
+  principalId: string;
+  permission: "manage" | "read";
 }
 
 export interface RoundActor {
@@ -48,9 +60,11 @@ export function needsTeamCheck(project: ProjectAccessSubject | null, actor: Roun
 
 /**
  * Who may manage a round (close it, edit its readme, remove feedback, delete it):
- * the project's owning organization (#70). When the org delegated the project to a
- * team (#79), only that team's members and the org's owners and admins may. Rounds on a
- * project backfilled before org ownership existed have no owning org yet, so they fall
+ * the project's owning organization (#70), plus every organization granted
+ * co-management (#279). When the owning org delegated the project to a team
+ * (#79), only that team's members and the org's owners and admins may — team
+ * delegation never constrains or extends granted orgs. Rounds on a project
+ * backfilled before org ownership existed have no owning org yet, so they fall
  * back to the round's creator.
  */
 export function canManageRound(
@@ -71,9 +85,29 @@ export function canManageProject(
 }
 
 function canManageOwnedProject(project: ProjectAccessSubject, actor: RoundActor): boolean {
-  if (actor.activeOrganizationId !== project.ownerOrgId) return false;
-  if (!project.managingTeamId) return true;
-  return isOrgAdminRole(actor.orgRole) || actor.inManagingTeam === true;
+  if (actor.activeOrganizationId === project.ownerOrgId) {
+    if (!project.managingTeamId) return true;
+    return isOrgAdminRole(actor.orgRole) || actor.inManagingTeam === true;
+  }
+  return hasManageGrant(project, actor.activeOrganizationId);
+}
+
+/**
+ * Whether a `manage` grant names the caller's active organization. v1 writes only
+ * org principals; team principals join the decision when the product needs them,
+ * as new rows rather than new columns.
+ */
+function hasManageGrant(
+  project: ProjectAccessSubject,
+  activeOrganizationId: string | null | undefined,
+): boolean {
+  if (!activeOrganizationId) return false;
+  return (project.accessGrants ?? []).some(
+    (grant) =>
+      grant.permission === "manage" &&
+      grant.principalType === "org" &&
+      grant.principalId === activeOrganizationId,
+  );
 }
 
 export interface FeedbackVisibilitySubject {
