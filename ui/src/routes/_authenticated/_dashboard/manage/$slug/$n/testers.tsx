@@ -54,7 +54,7 @@ function TestersTab() {
   const openTester = testers.find((tester) => tester.accountId === search.account);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+    <div className="grid gap-6 lg:grid-cols-split-2-3">
       <section className={cn("space-y-3", openTester && "hidden lg:block")}>
         <div className="flex flex-wrap items-center gap-2">
           <SegmentedToggle
@@ -89,7 +89,7 @@ function TestersTab() {
                 ? "Testers show up here once they post feedback."
                 : "No testers match these filters."
             }
-            className="min-h-[30vh]"
+            className="min-h-empty"
           />
         ) : (
           <FeedbackTesterList

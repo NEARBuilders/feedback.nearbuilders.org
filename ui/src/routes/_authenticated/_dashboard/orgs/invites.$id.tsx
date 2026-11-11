@@ -84,7 +84,7 @@ function AcceptInvitation() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
+      <div className="flex items-center justify-center min-h-empty-lg">
         <p className="text-sm text-muted-foreground">Loading invitation...</p>
       </div>
     );

@@ -1,3 +1,4 @@
+/* oxlint-disable shadcn/no-arbitrary-values -- shadcn/ui scroll-area: rounded-[inherit], transition-[prop] and the standard 3px focus ring */
 "use client";
 
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";

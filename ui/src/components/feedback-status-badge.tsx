@@ -14,7 +14,7 @@ const FEEDBACK_STATUS: Record<
 export function FeedbackStatusBadge({ status }: { status: FeedbackStatus }) {
   const { variant, icon: Icon } = FEEDBACK_STATUS[status];
   return (
-    <Badge variant={variant} className="text-[10px]">
+    <Badge variant={variant} className="text-3xs">
       <Icon />
       {status}
     </Badge>

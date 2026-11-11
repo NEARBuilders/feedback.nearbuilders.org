@@ -16,7 +16,7 @@ export function ListRow({ title, subtitle, trailing, children }: ListRowProps) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
           <div className="truncate text-sm font-medium text-foreground">{title}</div>
-          {subtitle && <div className="text-[11px] text-muted-foreground">{subtitle}</div>}
+          {subtitle && <div className="text-2xs text-muted-foreground">{subtitle}</div>}
         </div>
         {trailing}
       </div>

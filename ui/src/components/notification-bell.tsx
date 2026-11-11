@@ -65,7 +65,7 @@ export function NotificationBell() {
           <Bell className="h-4 w-4" />
           {badge && (
             <span
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-none bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-none bg-primary px-1 text-3xs font-semibold leading-none text-primary-foreground"
               data-testid="notification-unread-count"
             >
               {badge}
@@ -134,7 +134,7 @@ export function NotificationBell() {
                               {item.body}
                             </span>
                           )}
-                          <span className="block text-[11px] text-muted-foreground">
+                          <span className="block text-2xs text-muted-foreground">
                             {formatRelativeTime(item.createdAt)}
                           </span>
                         </span>

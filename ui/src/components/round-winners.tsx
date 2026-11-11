@@ -49,14 +49,14 @@ function WinnerStrip({ winners }: { winners: readonly string[] }) {
       ref={containerRef}
       className={
         overflowing
-          ? "min-w-0 flex-1 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_3%,black_97%,transparent)]"
+          ? "min-w-0 flex-1 overflow-hidden mask-fade-x"
           : "min-w-0 flex-1 overflow-hidden"
       }
     >
       <div
         className={
           overflowing
-            ? "flex w-max animate-winners-marquee hover:[animation-play-state:paused] motion-reduce:animate-none"
+            ? "flex w-max animate-winners-marquee hover:animation-paused motion-reduce:animate-none"
             : "flex w-max"
         }
       >

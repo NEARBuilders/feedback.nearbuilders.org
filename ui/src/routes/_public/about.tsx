@@ -132,7 +132,7 @@ function About() {
 
           {repository && (
             <div className="rounded-none border border-border bg-muted px-3.5 py-2.5 flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 min-w-[64px]">
+              <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground shrink-0 min-w-16">
                 repo
               </span>
               <a
@@ -148,7 +148,7 @@ function About() {
 
           <div className="rounded-none border border-border bg-muted px-3.5 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                 for agents and builders
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -184,7 +184,7 @@ function About() {
             <Markdown content={readme} />
           </div>
         ) : (
-          <EmptyState icon={FileText} title="No README available." className="min-h-[20vh]" />
+          <EmptyState icon={FileText} title="No README available." className="min-h-empty-sm" />
         )}
       </div>
     </PageContainer>

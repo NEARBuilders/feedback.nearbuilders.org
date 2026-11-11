@@ -194,7 +194,7 @@ function ProjectReviewCard({
         <ul className="space-y-1">
           {project.rounds.map((round) => (
             <li key={round.id} className="flex items-center gap-2 text-sm">
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-3xs">
                 {round.status}
               </Badge>
               <Link

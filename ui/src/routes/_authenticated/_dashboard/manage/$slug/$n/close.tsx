@@ -17,7 +17,7 @@ function CloseTab() {
       <EmptyState
         icon={Lock}
         title={round.status === "closed" ? "This round is closed." : "This round isn't open yet."}
-        className="min-h-[20vh]"
+        className="min-h-empty-sm"
       />
       <RoundCredits roundId={round.id} />
     </div>
