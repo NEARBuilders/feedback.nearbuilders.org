@@ -124,6 +124,24 @@ export function orgRunsRound(
   return hasManageGrant(project, activeOrganizationId);
 }
 
+/**
+ * Who may manage a project's partner list (#279): the owning org's owners and
+ * admins, or a platform admin. Partners themselves never can — grants confer
+ * round management, not partnership control.
+ */
+export function canManagePartners(
+  project: { ownerOrgId: string | null } | null,
+  actor: RoundActor,
+  isAdmin: boolean,
+): boolean {
+  if (isAdmin) return true;
+  return (
+    !!project?.ownerOrgId &&
+    actor.activeOrganizationId === project.ownerOrgId &&
+    isOrgAdminRole(actor.orgRole)
+  );
+}
+
 export interface FeedbackVisibilitySubject {
   isPrivate: boolean;
 }

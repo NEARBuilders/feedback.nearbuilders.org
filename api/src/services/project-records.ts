@@ -178,7 +178,7 @@ async function attachGrants<T extends ProjectRecord>(db: Database, records: T[])
 }
 
 /** Grants principal filter shared by the "owned or granted" org queries (#279). */
-function grantedProjectIds(db: Database, orgId: string) {
+export function grantedProjectIds(db: Database, orgId: string) {
   return db
     .select({ projectId: accessGrantsTable.projectId })
     .from(accessGrantsTable)

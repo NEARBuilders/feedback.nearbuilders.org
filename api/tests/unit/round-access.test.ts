@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type AccessGrantSubject,
+  canManagePartners,
   canManageProject,
   canManageRound,
   canReadAllFeedback,
@@ -225,6 +226,34 @@ describe("orgRunsRound (#279)", () => {
   it("ignores read-only grants", () => {
     expect(
       orgRunsRound({ ownerOrgId: "org-1", accessGrants: [grant("org-2", "read")] }, "org-2"),
+    ).toBe(false);
+  });
+});
+
+describe("canManagePartners (#279)", () => {
+  const project = { ownerOrgId: "org-1" };
+
+  it("allows owner-org admins and platform admins only", () => {
+    expect(
+      canManagePartners(project, { activeOrganizationId: "org-1", orgRole: "owner" }, false),
+    ).toBe(true);
+    expect(
+      canManagePartners(project, { activeOrganizationId: "org-1", orgRole: "admin" }, false),
+    ).toBe(true);
+    expect(
+      canManagePartners(project, { activeOrganizationId: "org-1", orgRole: "member" }, false),
+    ).toBe(false);
+    expect(
+      canManagePartners(project, { activeOrganizationId: "org-2", orgRole: "owner" }, false),
+    ).toBe(false);
+    expect(canManagePartners(project, { activeOrganizationId: "org-2" }, true)).toBe(true);
+    expect(canManagePartners(null, { activeOrganizationId: "org-1" }, false)).toBe(false);
+  });
+
+  it("is unaffected by grants — partners cannot manage the partnership", () => {
+    const partnered = { ownerOrgId: "org-1", accessGrants: [grant("org-2")] };
+    expect(
+      canManagePartners(partnered, { activeOrganizationId: "org-2", orgRole: "owner" }, false),
     ).toBe(false);
   });
 });

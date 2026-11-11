@@ -47,6 +47,7 @@ import {
 import { createProjectsLookup } from "./services/projects";
 import type { NearBuildersProject } from "./services/projects-client";
 import {
+  canManagePartners,
   canManageProject,
   canManageRound,
   canReadAllFeedback,
@@ -849,8 +850,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       addProjectPartner: builder.addProjectPartner
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
           const project = await getRuntime().projectRecords.resolveProjectById(input.id);
           if (!project) {
             throw errors.NOT_FOUND({
@@ -858,19 +860,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "project", resourceId: input.id },
             });
           }
-          const isSiteAdmin = context.user?.role === "admin";
-          const isOrgAdmin =
-            !!project.ownerOrgId &&
-            context.organization?.activeOrganizationId === project.ownerOrgId &&
-            isOrgAdminRole(context.organization?.member?.role);
-          if (!isSiteAdmin && !isOrgAdmin) {
-            throw new ORPCError("FORBIDDEN", {
-              message: "Only the organization's owners and admins can add partners",
-            });
-          }
           if (!project.ownerOrgId) {
             throw new ORPCError("BAD_REQUEST", {
               message: "This project has no owning organization to partner with",
+            });
+          }
+          if (
+            !canManagePartners(
+              project,
+              {
+                activeOrganizationId: context.organization?.activeOrganizationId,
+                orgRole: context.organization?.member?.role,
+              },
+              isSiteAdmin(context),
+            )
+          ) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the organization's owners and admins can add partners",
             });
           }
           const accountId = context.near?.primaryAccountId;
@@ -880,7 +886,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const resolution = await getRuntime().orgAccess.resolveBySlug(
-            context as Record<string, unknown>,
+            context as unknown as Record<string, unknown>,
             input.organizationSlug,
           );
           if (resolution === "unverifiable") {
@@ -924,8 +930,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       removeProjectPartner: builder.removeProjectPartner
-        .use(requireAuth)
+        .use(requireAuthOrApiKey)
         .handler(async ({ input, context, errors }) => {
+          assertNotOrgKey(context);
           const project = await getRuntime().projectRecords.resolveProjectById(input.id);
           if (!project) {
             throw errors.NOT_FOUND({
@@ -933,23 +940,34 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: { resource: "project", resourceId: input.id },
             });
           }
-          const isSiteAdmin = context.user?.role === "admin";
-          const isOrgAdmin =
-            !!project.ownerOrgId &&
-            context.organization?.activeOrganizationId === project.ownerOrgId &&
-            isOrgAdminRole(context.organization?.member?.role);
-          if (!isSiteAdmin && !isOrgAdmin) {
+          if (!project.ownerOrgId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "This project has no owning organization to partner with",
+            });
+          }
+          if (
+            !canManagePartners(
+              project,
+              {
+                activeOrganizationId: context.organization?.activeOrganizationId,
+                orgRole: context.organization?.member?.role,
+              },
+              isSiteAdmin(context),
+            )
+          ) {
             throw new ORPCError("FORBIDDEN", {
               message: "Only the organization's owners and admins can remove partners",
             });
           }
-          // Match on the stored org slug snapshot: removal is a de-escalation, so it
+          // KEEP: removal matches the stored org slug snapshot first — de-escalation
           // must work even when the org can no longer be resolved from the auth DB.
+          // The principal-id fallback covers grant rows written without a slug.
           const grant = project.accessGrants.find(
             (candidate) =>
               candidate.principalType === "org" &&
               candidate.permission === "manage" &&
-              candidate.orgSlug === input.organizationSlug,
+              (candidate.orgSlug === input.organizationSlug ||
+                candidate.principalId === input.organizationSlug),
           );
           if (!grant) {
             throw new ORPCError("BAD_REQUEST", {
@@ -1865,11 +1883,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
             ...(await withIdentity(project)),
             rounds: project.rounds,
             canManage: canManage || isSiteAdmin(context),
-            canManagePartners:
-              isSiteAdmin(context) ||
-              (!!project.ownerOrgId &&
-                context.organization?.activeOrganizationId === project.ownerOrgId &&
-                isOrgAdminRole(context.organization?.member?.role)),
+            canManagePartners: canManagePartners(
+              project,
+              {
+                activeOrganizationId: context.organization?.activeOrganizationId,
+                orgRole: context.organization?.member?.role,
+              },
+              isSiteAdmin(context),
+            ),
           };
         }),
 

@@ -18,7 +18,6 @@ import { Context, Effect, Layer } from "effect";
 import { MAX_ROUND_WINNERS } from "../contract";
 import { DatabaseTag } from "../db/layer";
 import {
-  accessGrants as accessGrantsTable,
   activityOutbox as activityOutboxTable,
   feedbackNotes as feedbackNotesTable,
   projectRoundCounters as projectRoundCountersTable,
@@ -38,7 +37,7 @@ import {
   findEmittedEventId,
 } from "./activity-outbox";
 import { keyForms, redactPrivateEvent } from "./activity-privacy";
-import { ensureProject } from "./project-records";
+import { ensureProject, grantedProjectIds } from "./project-records";
 import { roundIsLiveSql } from "./round-liveness";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
@@ -1435,19 +1434,7 @@ export const RoundsLive = Layer.effect(
             .where(
               or(
                 eq(projectsTable.ownerOrgId, orgId),
-                inArray(
-                  projectsTable.id,
-                  db
-                    .select({ projectId: accessGrantsTable.projectId })
-                    .from(accessGrantsTable)
-                    .where(
-                      and(
-                        eq(accessGrantsTable.principalType, "org"),
-                        eq(accessGrantsTable.principalId, orgId),
-                        eq(accessGrantsTable.permission, "manage"),
-                      ),
-                    ),
-                ),
+                inArray(projectsTable.id, grantedProjectIds(db, orgId)),
               ),
             );
           return {
