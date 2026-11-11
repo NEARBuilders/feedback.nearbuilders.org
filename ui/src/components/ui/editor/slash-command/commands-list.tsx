@@ -58,7 +58,7 @@ const CommandsList = forwardRef<CommandsListHandle, CommandsListProps>(
     }));
 
     return (
-      <div className="bg-popover text-popover-foreground border-border z-50 min-w-44 overflow-hidden rounded-md border p-1 shadow-md">
+      <div className="bg-popover text-popover-foreground border-border z-50 min-w-44 overflow-hidden rounded-none border p-1 shadow-md">
         {items.length ? (
           items.map((item, index) => (
             <button
@@ -66,7 +66,7 @@ const CommandsList = forwardRef<CommandsListHandle, CommandsListProps>(
               type="button"
               onClick={() => selectItem(index)}
               data-selected={selectedIndex === index ? "true" : undefined}
-              className="focus:bg-accent focus:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground relative flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none"
+              className="focus:bg-accent focus:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground relative flex w-full cursor-default items-center rounded-none px-2 py-1.5 text-sm outline-none"
             >
               <item.icon className="mr-2 size-4" />
               {item.title}

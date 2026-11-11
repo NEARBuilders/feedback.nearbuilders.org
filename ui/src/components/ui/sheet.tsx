@@ -71,7 +71,7 @@ function SheetContent({
             "inset-x-0 bottom-0",
             // oxlint-disable-next-line shadcn/no-arbitrary-values -- sheet height clamps are viewport-relative (svh); no fixed scale token expresses that
             "max-h-[92svh] min-h-[40svh]",
-            "rounded-t-2xl",
+            "rounded-t-none",
             "border-b-0",
             "data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
           ],
@@ -79,7 +79,7 @@ function SheetContent({
             "inset-x-0 top-0",
             // oxlint-disable-next-line shadcn/no-arbitrary-values -- sheet height clamp is viewport-relative (svh); no fixed scale token expresses that
             "max-h-[85svh]",
-            "rounded-b-2xl",
+            "rounded-b-none",
             "border-t-0",
             "data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top",
           ],
@@ -89,7 +89,7 @@ function SheetContent({
             size === "default" && "max-w-sm",
             size === "wide" && "max-w-none sm:max-w-2xl xl:max-w-3xl",
             "border-r-0",
-            "rounded-l-2xl",
+            "rounded-l-none",
             "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
           ],
           side === "left" && [
@@ -98,7 +98,7 @@ function SheetContent({
             size === "default" && "max-w-sm",
             size === "wide" && "max-w-none sm:max-w-2xl xl:max-w-3xl",
             "border-l-0",
-            "rounded-r-2xl",
+            "rounded-r-none",
             "data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
           ],
           className,
@@ -107,14 +107,14 @@ function SheetContent({
       >
         {side === "bottom" && (
           <div className="flex shrink-0 justify-center pt-3 pb-1">
-            <div className="h-1 w-10 rounded-full bg-border opacity-60" />
+            <div className="h-1 w-10 rounded-none bg-border opacity-60" />
           </div>
         )}
         {children}
         {!hideCloseButton && (
           <SheetPrimitive.Close
             className={cn(
-              "absolute flex h-9 w-9 items-center justify-center rounded-xl",
+              "absolute flex h-9 w-9 items-center justify-center rounded-none",
               "border border-border bg-muted",
               "text-muted-foreground transition-colors hover:text-foreground",
               side === "bottom" ? "right-4 top-3" : "right-4 top-4",

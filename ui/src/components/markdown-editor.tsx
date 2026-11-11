@@ -114,7 +114,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     <ClientOnly
       fallback={
         <div
-          className="min-h-24 w-full animate-pulse rounded-md border border-input bg-transparent"
+          className="min-h-24 w-full animate-pulse rounded-none border border-input bg-transparent"
           aria-hidden="true"
         />
       }

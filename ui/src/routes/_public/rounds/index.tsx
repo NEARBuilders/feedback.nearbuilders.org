@@ -147,7 +147,7 @@ function RoundsPage() {
                 value={org}
                 onChange={(e) => setSearch({ org: e.target.value })}
                 aria-label="Organization filter"
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 rounded-none border border-input bg-transparent px-3 text-sm"
               >
                 <option value="">all organizations</option>
                 {organizations.map((organization) => (

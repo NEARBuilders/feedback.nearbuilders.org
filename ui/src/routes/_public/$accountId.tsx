@@ -57,7 +57,7 @@ function AccountProfileLayout() {
   return (
     <PageContainer variant="default">
       <div className="space-y-6">
-        <div className="overflow-hidden rounded-[12px] border border-border bg-card">
+        <div className="overflow-hidden rounded-none border border-border bg-card">
           <div
             className="h-32 sm:h-44 w-full bg-muted"
             style={
@@ -96,7 +96,7 @@ function AccountProfileLayout() {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-border"
+                    className="inline-flex items-center gap-1.5 rounded-none border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-border"
                   >
                     <Globe className="size-3" />
                     {label}

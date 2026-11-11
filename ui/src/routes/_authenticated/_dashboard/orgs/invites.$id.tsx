@@ -127,7 +127,7 @@ function AcceptInvitation() {
             </p>
           </div>
 
-          <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-2 text-xs font-mono">
+          <div className="rounded-none border border-border bg-muted/10 p-4 space-y-2 text-xs font-mono">
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">organization</span>
               <span className="text-right break-all">

@@ -235,7 +235,7 @@ function TeamCard({
           {teamUserIds.map((userId: string) => (
             <li
               key={userId}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs"
+              className="inline-flex items-center gap-1.5 rounded-none border border-border px-2 py-1 text-xs"
             >
               {labelForUser(orgMembers, userId)}
               {canManage && (
@@ -260,7 +260,7 @@ function TeamCard({
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
             aria-label={`Add a member to ${team.name}`}
-            className="h-9 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+            className="h-9 rounded-none border border-border bg-card px-2 text-sm text-foreground"
           >
             <option value="">Add a member…</option>
             {candidates.map((candidate) => (
@@ -352,7 +352,7 @@ function ProjectDelegation({
                     }
                     disabled={delegateMutation.isPending}
                     aria-label={`Who manages ${project.name}`}
-                    className="h-9 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                    className="h-9 rounded-none border border-border bg-card px-2 text-sm text-foreground"
                   >
                     {delegationOptions(teams, project.managingTeamId).map((option) => (
                       <option key={option.value} value={option.value}>

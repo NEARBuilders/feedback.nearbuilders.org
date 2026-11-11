@@ -75,7 +75,7 @@ export function RoundWinnersBanner({ winners }: { winners: readonly string[] }) 
 
   return (
     <div
-      className="flex items-center gap-4 rounded-xl border border-border bg-muted px-4 py-2.5"
+      className="flex items-center gap-4 rounded-none border border-border bg-muted px-4 py-2.5"
       data-testid="round-winners"
     >
       <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-semibold text-foreground">

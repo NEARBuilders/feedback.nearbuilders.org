@@ -103,7 +103,7 @@ function LoginPage() {
   return (
     <PageContainer variant="narrow" className="flex-1 flex items-center justify-center">
       <div className="w-full max-w-sm flex flex-col items-center gap-5">
-        <div className="w-full rounded-[12px] border border-border bg-card p-6 sm:p-8 space-y-5">
+        <div className="w-full rounded-none border border-border bg-card p-6 sm:p-8 space-y-5">
           <div className="space-y-1 text-center">
             <h1 className="text-xl font-semibold text-foreground" data-testid="login.heading">
               Sign in

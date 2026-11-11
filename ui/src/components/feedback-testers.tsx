@@ -52,7 +52,7 @@ function TesterStateBadge({ tester }: { tester: FeedbackTester }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
+        "inline-flex items-center gap-1 rounded-none border px-2 py-0.5 text-xs",
         done ? "border-border text-muted-foreground" : "border-foreground text-foreground",
       )}
     >
@@ -77,7 +77,7 @@ export function FeedbackTesterList({
 }: FeedbackTesterListProps) {
   return (
     <ul
-      className="divide-y divide-border rounded-lg border border-border"
+      className="divide-y divide-border rounded-none border border-border"
       data-testid="tester-list"
     >
       {testers.map((tester) => (
@@ -212,7 +212,7 @@ export function FeedbackTesterPanel({ roundId, params, tester, filter }: Feedbac
           {entries.map((entry, index) => (
             <li
               key={entry.id}
-              className="space-y-3 rounded-lg border border-border p-4"
+              className="space-y-3 rounded-none border border-border p-4"
               data-testid="tester-feedback"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">

@@ -59,13 +59,13 @@ export function NotificationBell() {
         <button
           type="button"
           aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-          className="relative inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="relative inline-flex h-8 w-8 items-center justify-center rounded-none text-muted-foreground hover:bg-muted hover:text-foreground"
           data-testid="notification-bell"
         >
           <Bell className="h-4 w-4" />
           {badge && (
             <span
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-none bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
               data-testid="notification-unread-count"
             >
               {badge}
@@ -117,7 +117,7 @@ export function NotificationBell() {
                       >
                         <span
                           aria-hidden="true"
-                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-none ${
                             unread ? "bg-primary" : "bg-transparent"
                           }`}
                         />

@@ -12,7 +12,7 @@ export function StatCard({
   mono?: boolean;
 }) {
   return (
-    <div className="space-y-1 rounded-md border border-border bg-card p-4">
+    <div className="space-y-1 rounded-none border border-border bg-card p-4">
       <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>

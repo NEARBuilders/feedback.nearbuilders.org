@@ -51,7 +51,7 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           // oxlint-disable-next-line shadcn/no-arbitrary-values -- max-w clamps to the viewport minus a fixed margin; no scale token expresses "100% minus 2rem"
-          "bg-elevated text-elevated-foreground fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-border rounded-xl p-6 shadow-lg sm:max-w-lg",
+          "bg-elevated text-elevated-foreground fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-border rounded-none p-6 shadow-lg sm:max-w-lg",
           className,
         )}
         {...props}
@@ -60,7 +60,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-md opacity-70 hover:opacity-100 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute top-4 right-4 rounded-none opacity-70 hover:opacity-100 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">Close</span>

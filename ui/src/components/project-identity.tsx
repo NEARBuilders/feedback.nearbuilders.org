@@ -42,7 +42,7 @@ export function ProjectAvatar({ identity, name, className }: ProjectAvatarProps)
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted text-xs font-semibold text-muted-foreground",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-none border bg-muted text-xs font-semibold text-muted-foreground",
         className ?? "h-9 w-9",
       )}
     >

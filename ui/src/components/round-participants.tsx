@@ -81,7 +81,7 @@ export function RoundParticipants({
       ) : participants.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nobody has joined this round yet.</p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+        <ul className="divide-y divide-border overflow-hidden rounded-none border border-border bg-card">
           {participants.map((participant) => {
             const postLink = participantPostLink(
               participant.accountId,
