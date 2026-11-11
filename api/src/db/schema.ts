@@ -118,11 +118,8 @@ export const accessGrants = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     principalType: accessGrantPrincipal("principal_type").notNull(),
-    // KEEP: same auth-plugin keying as projects.owner_org_id — org ids are
-    // environment-specific UUIDs, slugs are stable; never store a bare id by name.
     principalId: text("principal_id").notNull(),
     permission: accessGrantPermission("permission").notNull(),
-    // KEEP: display snapshot so the UI never needs live cross-org lookups.
     orgSlug: text("org_slug"),
     addedByAccountId: text("added_by_account_id").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),

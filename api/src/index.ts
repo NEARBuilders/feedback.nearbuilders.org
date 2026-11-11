@@ -997,9 +997,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Only the organization's owners and admins can remove partners",
             });
           }
-          // KEEP: removal matches the stored org slug snapshot first — de-escalation
-          // must work even when the org can no longer be resolved from the auth DB.
-          // The principal-id fallback covers grant rows written without a slug.
           const grant = project.accessGrants.find(
             (candidate) =>
               candidate.principalType === "org" &&
@@ -1032,9 +1029,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
                 context as unknown as Record<string, unknown>,
                 slug,
               );
-              // KEEP: a configured slug stays listed even when the org lookup
-              // fails — the creator can still partner by slug; only the display
-              // name is lost, and an unapproved org shows as inactive in the UI.
               return {
                 slug,
                 name: resolution && resolution !== "unverifiable" ? resolution.name : null,
