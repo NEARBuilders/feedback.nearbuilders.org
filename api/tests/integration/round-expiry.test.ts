@@ -7,6 +7,7 @@ async function openRound(input: { endsAt?: string } = {}) {
   const n = ++counter;
   const owner = await getPluginClient(nearAuthedContext(`expiry-owner-${n}.near`));
   const round = await owner.createRound({
+    isPrivate: false,
     projectSlug: `expiry-project-${n}`,
     title: `Expiry ${n}`,
     description: "Ends on a timer.",

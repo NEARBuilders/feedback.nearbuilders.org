@@ -659,7 +659,7 @@ export const RoundsLive = Layer.effect(
                 bannerUrl: input.bannerUrl ?? null,
                 formats: input.formats,
                 repoUrl: input.repoUrl ?? null,
-                isPrivate: input.isPrivate ?? false,
+                isPrivate: input.isPrivate ?? true,
                 legionOnly: input.legionOnly ?? false,
                 endsAt: input.endsAt ? new Date(input.endsAt) : null,
                 status: project.status === "approved" ? "open" : "pending",

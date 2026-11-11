@@ -7,6 +7,7 @@ async function openRound() {
   const n = ++counter;
   const owner = await getPluginClient(nearAuthedContext(`winners-owner-${n}.near`));
   const round = await owner.createRound({
+    isPrivate: false,
     projectSlug: `winners-project-${n}`,
     title: `Winners ${n}`,
     description: "Owner marks winners.",

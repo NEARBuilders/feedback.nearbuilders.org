@@ -37,6 +37,7 @@ describe("getRoundBySlug (#114)", () => {
   it("hides a pending round from everyone but its managers", async () => {
     const owner = await getPluginClient(nearAuthedContext("url-owner4.near"));
     const pending = await owner.createRound({
+      isPrivate: false,
       projectSlug: freshSlug("url-pending"),
       title: "Pending",
       description: "Not approved yet",
