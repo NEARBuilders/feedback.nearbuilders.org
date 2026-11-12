@@ -35,7 +35,6 @@ async function createClient(activityBaseUrl: string) {
         ACTIVITY_API_BASE_URL: activityBaseUrl,
         ACTIVITY_API_KEY: "",
         ACTIVITY_SOURCE_ID: "feedback.test",
-        PROJECTS_API_BASE_URL: "",
       },
     },
     { nostr: { client: () => ({ createComment: async () => ({ eventId: "x", statuses: [] }) }) } },

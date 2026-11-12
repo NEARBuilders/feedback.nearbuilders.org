@@ -29,7 +29,6 @@ const TEST_CONFIG = {
     // during migrations. One dir per fork keeps each worker's instance alone.
     API_DATABASE_URL: `pglite:.bos/db/test-${process.pid}`,
     NOSTR_SECRET_KEY_HEX: TEST_NOSTR_SECRET_KEY_HEX,
-    PROJECTS_API_BASE_URL: "",
     ACTIVITY_API_BASE_URL: "",
     ACTIVITY_API_KEY: "",
   },

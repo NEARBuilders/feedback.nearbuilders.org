@@ -44,8 +44,7 @@ import {
   type ProjectRecordsService,
   ProjectRecordsTag,
 } from "./services/project-records";
-import { createProjectsLookup } from "./services/projects";
-import type { NearBuildersProject } from "./services/projects-client";
+import { createProjectsLookup, type NearBuildersProject } from "./services/projects";
 import {
   canManagePartners,
   canManageProject,
@@ -147,7 +146,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
     // project picker against real projects (#23). Read-only, no key required;
     // the picker falls back to free-text entry when unreachable. See
     // services/projects.ts.
-    PROJECTS_API_BASE_URL: z.string().default("https://nearbuilders.org/api"),
     // Optional GitHub PAT used to read issues filed on a round's repo for
     // GitHub-issue credit (#49). Public repos work unauthenticated too, just
     // rate-limited to 60/hr instead of 5000/hr. See services/github-issues.ts.
@@ -189,7 +187,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       });
 
       const projectsLookup = createProjectsLookup({
-        baseUrl: config.secrets.PROJECTS_API_BASE_URL,
+        client: plugins.projects?.client(),
       });
 
       const teamAccess = createTeamAccess(plugins.auth);
@@ -203,7 +201,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const feedbackAssets = createFeedbackAssets(plugins.storage);
 
       const telegramTip = createTelegramTipLookup({
-        baseUrl: config.secrets.PROJECTS_API_BASE_URL,
+        nearbuilders: plugins.nearbuilders?.client(),
         messageTemplate: config.secrets.TIP_MESSAGE_TEMPLATE,
       });
 

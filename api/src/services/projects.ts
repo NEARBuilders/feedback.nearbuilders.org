@@ -5,30 +5,37 @@
  * search real nearbuilders.org projects and resolve a slug to its canonical
  * project id, instead of typing an arbitrary free-text slug.
  *
- * Best-effort like `activity-events.ts`: an unreachable or unconfigured
- * gateway returns null/empty rather than failing round creation, since the
+ * Calls go through the `plugins.projects` contract+proxy attachment (typed
+ * from nearbuilders.org's deployed contract). Responses are still parsed
+ * through `NearBuildersProjectSchema`: the typed client replaces the
+ * transport, not the trust boundary.
+ *
+ * Best-effort like `activity-events.ts`: an unreachable or absent
+ * attachment returns null/empty rather than failing round creation, since the
  * picker degrades to free-text entry when disabled.
  */
 
-import { type NearBuildersProject, ProjectsApiError, ProjectsClient } from "./projects-client";
+import { type NearBuildersProject, NearBuildersProjectSchema } from "../contract";
+import type { PluginsClient } from "../lib/plugins-types.gen";
+
+export type { NearBuildersProject };
+
+export type ProjectsRpcClient = ReturnType<PluginsClient["projects"]["client"]>;
 
 const REQUEST_TIMEOUT_MS = 5000;
-
-type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 interface LookupLogger {
   warn(message: string): void;
 }
 
 export interface ProjectsLookupOptions {
-  /** nearbuilders.org API base URL, e.g. `https://nearbuilders.org/api`. */
-  baseUrl?: string | null;
-  fetch?: FetchLike;
+  /** The `plugins.projects` contract+proxy client for nearbuilders.org; absent disables lookups. */
+  client?: ProjectsRpcClient;
   logger?: LookupLogger;
 }
 
 export interface ProjectsLookup {
-  /** True when a gateway base URL is configured. */
+  /** True when the nearbuilders.org projects attachment is present. */
   readonly enabled: boolean;
   /** Search testable projects by title/slug; null if the gateway is unreachable. */
   search(query: string): Promise<NearBuildersProject[] | null>;
@@ -44,23 +51,25 @@ export interface ProjectsLookup {
 /** Keeps one batch request inside the gateway's page size. */
 const MAX_SLUGS_PER_LOOKUP = 100;
 
-export function createProjectsLookup(options: ProjectsLookupOptions = {}): ProjectsLookup {
-  const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
-  const logger = options.logger ?? console;
-  const enabled = Boolean(baseUrl);
+const callOptions = () => ({ signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
 
-  const client = new ProjectsClient({
-    apiBaseUrl: baseUrl,
-    fetch: options.fetch,
-    timeoutMs: REQUEST_TIMEOUT_MS,
-  });
+const rpcErrorCode = (error: unknown): string | null => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? code : null;
+};
+
+export function createProjectsLookup(options: ProjectsLookupOptions = {}): ProjectsLookup {
+  const client = options.client;
+  const logger = options.logger ?? console;
+  const enabled = client !== undefined;
 
   async function read<T>(label: string, run: () => Promise<T>): Promise<T | null> {
     try {
       return await run();
     } catch (error) {
-      if (error instanceof ProjectsApiError) {
-        logger.warn(`[projects] ${label} rejected: HTTP ${error.status}`);
+      const code = rpcErrorCode(error);
+      if (code) {
+        logger.warn(`[projects] ${label} rejected: ${code}`);
         return null;
       }
       logger.warn(
@@ -70,35 +79,51 @@ export function createProjectsLookup(options: ProjectsLookupOptions = {}): Proje
     }
   }
 
+  async function listProjects(
+    rpc: ProjectsRpcClient,
+    input: Parameters<ProjectsRpcClient["listProjects"]>[0],
+  ): Promise<NearBuildersProject[]> {
+    const { data } = await rpc.listProjects(input, callOptions());
+    return NearBuildersProjectSchema.array().parseAsync(data);
+  }
+
+  async function getProjectBySlug(
+    rpc: ProjectsRpcClient,
+    slug: string,
+  ): Promise<NearBuildersProject | null> {
+    try {
+      const { data } = await rpc.getProjectBySlug({ slug }, callOptions());
+      return await NearBuildersProjectSchema.parseAsync(data);
+    } catch (error) {
+      if (rpcErrorCode(error) === "NOT_FOUND") return null;
+      throw error;
+    }
+  }
+
   return {
     enabled,
 
     search: async (query) => {
-      if (!enabled) return null;
+      if (!client) return null;
       const trimmed = query.trim();
       if (!trimmed) return [];
-      const result = await read("listProjects", () =>
+      return read("listProjects", () =>
         // `kind: project` keeps ideas, scopes and results out of the picker:
         // they are write-ups, not products anyone can be asked to test.
-        // No `limit`: nearbuilders.org's REST layer rejects numeric query
-        // params (no string coercion) until nearbuilders.org#265 lands, so
-        // any limit 400s and the picker degrades. The endpoint's default
-        // page size is plenty for a typeahead.
         // No `visibility`: omitting it lets unlisted projects (owner-named
         // for a feedback round, still not private) appear alongside public
         // ones; private is excluded upstream either way.
-        client.listProjects({ query: trimmed, kind: "project" }),
+        listProjects(client, { query: trimmed, kind: "project" }),
       );
-      return result?.data ?? null;
     },
 
     resolveBySlug: async (slug) => {
-      if (!enabled) return null;
-      return read("getProjectBySlug", () => client.getProjectBySlug(slug));
+      if (!client) return null;
+      return read("getProjectBySlug", () => getProjectBySlug(client, slug));
     },
 
     resolveMany: async (slugs) => {
-      if (!enabled) return new Map();
+      if (!client) return new Map();
       const unique = [...new Set(slugs)];
       const resolved = new Map<string, NearBuildersProject>();
       // One request per batch of slugs, so a long list stays a handful of
@@ -106,9 +131,9 @@ export function createProjectsLookup(options: ProjectsLookupOptions = {}): Proje
       for (let i = 0; i < unique.length; i += MAX_SLUGS_PER_LOOKUP) {
         const batch = unique.slice(i, i + MAX_SLUGS_PER_LOOKUP);
         const result = await read("listProjectsBySlugs", () =>
-          client.listProjects({ slugs: batch.join(","), limit: batch.length }),
+          listProjects(client, { slugs: batch.join(","), limit: batch.length }),
         );
-        for (const project of result?.data ?? []) resolved.set(project.slug, project);
+        for (const project of result ?? []) resolved.set(project.slug, project);
       }
       return resolved;
     },
