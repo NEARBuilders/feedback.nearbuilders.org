@@ -34,7 +34,6 @@ export default App({
     },
     secrets: [
       "API_DATABASE_URL",
-      "PROJECTS_API_BASE_URL",
       "ACTIVITY_API_BASE_URL",
       "ACTIVITY_API_KEY",
       "ACTIVITY_SOURCE_ID",
@@ -81,6 +80,14 @@ export default App({
         "STORAGE_ACCESS_KEY_ID",
         "STORAGE_SECRET_ACCESS_KEY",
       ],
+    },
+    projects: {
+      contract: "bos://nearbuilding.near/nearbuilders.org#plugins.projects",
+      proxy: "https://nearbuilders.org",
+    },
+    nearbuilders: {
+      contract: "bos://nearbuilding.near/nearbuilders.org#app.api",
+      proxy: "https://nearbuilders.org",
     },
   },
 });

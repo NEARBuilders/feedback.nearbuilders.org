@@ -943,7 +943,7 @@ describe("deleteFeedback", () => {
   });
 });
 
-describe("project picker (PROJECTS_API_BASE_URL unset in tests)", () => {
+describe("project picker (no projects attachment in tests)", () => {
   it("searchProjects reports itself unavailable rather than erroring", async () => {
     const client = await getPluginClient();
     await expect(client.searchProjects({ query: "onboarding" })).resolves.toEqual({

@@ -3,12 +3,17 @@
  * the message a round manager sends to the tip bot.
  *
  * Handle sources, in order:
- * 1. the nearbuilders.org builders API (`links.telegram`, a full `https://t.me/...` URL);
+ * 1. nearbuilders.org's `getBuilder` over the `plugins.nearbuilders` contract+proxy attachment
+ *    (`links.telegram`, a full `https://t.me/...` URL);
  * 2. the NEAR Social profile (`linktree.telegram`).
  *
  * Best-effort like `projects.ts`: an unreachable source is skipped and, if nothing resolves,
  * the caller gets "no handle" rather than an error.
  */
+
+import type { PluginsClient } from "../lib/plugins-types.gen";
+
+export type NearBuildersRpcClient = ReturnType<PluginsClient["nearbuilders"]["client"]>;
 
 const REQUEST_TIMEOUT_MS = 5000;
 const HANDLE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -39,8 +44,8 @@ export interface TelegramTip extends TelegramHandleResult {
 }
 
 export interface TelegramTipLookupOptions {
-  /** nearbuilders.org API base URL, e.g. `https://nearbuilders.org/api`. */
-  baseUrl?: string | null;
+  /** The `plugins.nearbuilders` contract+proxy client; absent skips the builders source. */
+  nearbuilders?: NearBuildersRpcClient;
   /** Message template with `{handle}` and `{account}` placeholders. */
   messageTemplate?: string | null;
   fetch?: FetchLike;
@@ -88,7 +93,7 @@ export function telegramShareUrl(message: string): string {
 }
 
 export function createTelegramTipLookup(options: TelegramTipLookupOptions = {}): TelegramTipLookup {
-  const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
+  const nearbuilders = options.nearbuilders;
   const doFetch: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
   const logger = options.logger ?? console;
 
@@ -103,14 +108,17 @@ export function createTelegramTipLookup(options: TelegramTipLookupOptions = {}):
   }
 
   async function fromBuilders(account: string): Promise<string | null> {
-    const body = (await getJson(
-      "builders API",
-      `${baseUrl}/v1/builders/${encodeURIComponent(account)}`,
-    )) as {
-      links?: { telegram?: unknown };
-      data?: { links?: { telegram?: unknown } };
-    } | null;
-    return normalizeTelegramHandle(body?.links?.telegram ?? body?.data?.links?.telegram);
+    if (!nearbuilders) return null;
+    try {
+      const result = await nearbuilders.getBuilder(
+        { nearAccount: account },
+        { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
+      );
+      return normalizeTelegramHandle(result?.data?.links?.telegram);
+    } catch (error) {
+      if ((error as { code?: unknown } | null)?.code === "NOT_FOUND") return null;
+      throw error;
+    }
   }
 
   async function fromNearSocial(account: string): Promise<string | null> {
@@ -138,7 +146,7 @@ export function createTelegramTipLookup(options: TelegramTipLookupOptions = {}):
 
   async function lookupHandle(account: string): Promise<TelegramHandleResult> {
     const sources: Array<[TelegramHandleSource, (account: string) => Promise<string | null>]> = [];
-    if (baseUrl) sources.push(["nearbuilders", fromBuilders]);
+    if (nearbuilders) sources.push(["nearbuilders", fromBuilders]);
     sources.push(["near-social", fromNearSocial]);
 
     let anySucceeded = false;
