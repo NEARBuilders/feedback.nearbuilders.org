@@ -9,6 +9,7 @@ import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { FEEDBACK_TEXT_MAX, feedbackTextLength, hasUnuploadedImage } from "@/lib/feedback-body";
 import { canSaveFeedbackEdit, isOwnFeedback } from "@/lib/feedback-edit";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 
@@ -90,9 +91,9 @@ export function FeedbackList<T extends FeedbackEntry>({
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0 truncate text-xs text-muted-foreground">
                   <span className="font-mono">{entry.authorAccountId}</span>
-                  {isOwn && " (you)"} · {new Date(entry.createdAt).toLocaleDateString()}
+                  {isOwn && " (you)"} · {formatDate(entry.createdAt)}
                   {entry.updatedAt && (
-                    <span title={new Date(entry.updatedAt).toLocaleString()}> · edited</span>
+                    <span title={formatDateTime(entry.updatedAt)}> · edited</span>
                   )}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">

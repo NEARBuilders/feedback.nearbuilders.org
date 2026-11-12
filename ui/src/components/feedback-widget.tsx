@@ -7,6 +7,7 @@ import { useApiClient } from "@/app";
 import { Button, SegmentedToggle, Skeleton, Textarea } from "@/components";
 import { useLegionAccess } from "@/hooks/use-legion-access";
 import { FEEDBACK_TEXT_MAX, feedbackTextLength } from "@/lib/feedback-body";
+import { formatCount, formatDate } from "@/lib/format-date";
 import { invalidateFeedbackQueries, myFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { projectQueryOptions } from "@/lib/queries/projects";
 import { roundBySlugQueryOptions } from "@/lib/queries/rounds";
@@ -330,7 +331,7 @@ function HomeTab({
       />
       <div className="flex items-center justify-between gap-2">
         <span className={cn("text-xs text-muted-foreground", tooLong && "text-destructive")}>
-          {length.toLocaleString()} / {FEEDBACK_TEXT_MAX.toLocaleString()}
+          {formatCount(length)} / {formatCount(FEEDBACK_TEXT_MAX)}
         </span>
         <Button type="submit" size="sm" disabled={!text.trim() || tooLong || post.isPending}>
           {post.isPending ? "Sending…" : "Send"}
@@ -370,7 +371,7 @@ function MessagesTab({ round, signedIn }: { round: RoundDetail; signedIn: boolea
             {plainText(item.body, item.url)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {new Date(item.createdAt).toLocaleDateString()} · {item.status}
+            {formatDate(item.createdAt)} · {item.status}
           </p>
           {item.notes.length > 0 && (
             <ul className="mt-2 flex flex-col gap-2 border-t border-border pt-2">

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Button, Skeleton } from "@/components";
 import { SectionHeader } from "@/components/layout/section-header";
+import { formatDate } from "@/lib/format-date";
 import { invalidateRoundQueries, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import {
   type ParticipantPostsSurface,
@@ -99,7 +100,7 @@ export function RoundParticipants({
                   {postsLabel(participant.feedbackCount)}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Joined {new Date(participant.joinedAt).toLocaleDateString()}
+                  Joined {formatDate(participant.joinedAt)}
                 </span>
               </>
             );

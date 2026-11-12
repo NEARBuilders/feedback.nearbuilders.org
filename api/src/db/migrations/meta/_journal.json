@@ -211,6 +211,13 @@
       "when": 1793904149561,
       "tag": "0029_young_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794418642865,
+      "tag": "0030_bumpy_kinsey_walden",
+      "breakpoints": true
     }
   ]
 }

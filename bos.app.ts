@@ -19,7 +19,7 @@ export default App({
   repository: "https://github.com/NEARBuilders/feedback.nearbuilders.org",
   // Platform release pin (ADR 0034): fail loudly when the resolved parent
   // platform doesn't match, instead of silently floating.
-  release: "2.0.0-rc.42",
+  release: "2.0.0-rc.44",
   // CI settings: runtime image name, Railway service.
   ci: {
     railway: {
@@ -29,6 +29,9 @@ export default App({
   // Local API workspace override.
   api: {
     path: "api",
+    variables: {
+      preferredPartnerSlugs: ["near-legion"],
+    },
     secrets: [
       "API_DATABASE_URL",
       "PROJECTS_API_BASE_URL",

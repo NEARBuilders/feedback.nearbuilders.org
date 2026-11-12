@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   ne,
+  or,
   type SQL,
   sql,
 } from "drizzle-orm";
@@ -36,7 +37,7 @@ import {
   findEmittedEventId,
 } from "./activity-outbox";
 import { keyForms, redactPrivateEvent } from "./activity-privacy";
-import { ensureProject } from "./project-records";
+import { ensureAccessGrants, ensureProject, grantedProjectIds } from "./project-records";
 import { roundIsLiveSql } from "./round-liveness";
 
 export type RoundStatus = (typeof roundStatus)["enumValues"][number];
@@ -110,6 +111,8 @@ export interface CreateRoundInput {
   projectId?: string | null;
   /** Contact volunteered for admin diligence, stored on the project. */
   contact?: string | null;
+  /** Orgs granted co-management in the same transaction that creates the round (#280 follow-up). */
+  partners?: Array<{ principalId: string; orgSlug: string }>;
   title: string;
   description: string;
   readme?: string;
@@ -646,6 +649,8 @@ export const RoundsLive = Layer.effect(
               })
               .returning({ lastNumber: projectRoundCountersTable.lastNumber });
 
+            await ensureAccessGrants(tx, project.id, input.partners ?? [], input.ownerAccountId);
+
             const [inserted] = await tx
               .insert(roundsTable)
               .values({
@@ -659,7 +664,7 @@ export const RoundsLive = Layer.effect(
                 bannerUrl: input.bannerUrl ?? null,
                 formats: input.formats,
                 repoUrl: input.repoUrl ?? null,
-                isPrivate: input.isPrivate ?? false,
+                isPrivate: input.isPrivate ?? true,
                 legionOnly: input.legionOnly ?? false,
                 endsAt: input.endsAt ? new Date(input.endsAt) : null,
                 status: project.status === "approved" ? "open" : "pending",
@@ -1419,7 +1424,8 @@ export const RoundsLive = Layer.effect(
       getOwnerSummary: async (orgId) => {
         try {
           // One grouped query: without the distinct-filter count, the round
-          // and feedback joins would multiply each other's rows.
+          // and feedback joins would multiply each other's rows. Granted orgs
+          // (#279) see the same overview for projects they co-manage.
           const [row] = await db
             .select({
               openRounds: sql<number>`count(distinct ${roundsTable.id}) filter (where ${roundIsLiveSql})::int`,
@@ -1429,7 +1435,12 @@ export const RoundsLive = Layer.effect(
             .from(projectsTable)
             .leftJoin(roundsTable, eq(roundsTable.projectRecordId, projectsTable.id))
             .leftJoin(roundFeedbackTable, eq(roundFeedbackTable.roundId, roundsTable.id))
-            .where(eq(projectsTable.ownerOrgId, orgId));
+            .where(
+              or(
+                eq(projectsTable.ownerOrgId, orgId),
+                inArray(projectsTable.id, grantedProjectIds(db, orgId)),
+              ),
+            );
           return {
             openRounds: row?.openRounds ?? 0,
             unresolvedFeedback: row?.unresolvedFeedback ?? 0,

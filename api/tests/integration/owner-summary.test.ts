@@ -8,6 +8,7 @@ async function openRoundFor(accountId: string) {
   const n = ++counter;
   const owner = await getPluginClient(nearAuthedContext(accountId));
   const round = await owner.createRound({
+    isPrivate: false,
     projectSlug: `owner-summary-${n}`,
     title: `Round ${n}`,
     description: "Summary coverage",
@@ -58,6 +59,7 @@ describe("getOwnerSummary", () => {
     const n = ++counter;
     const owner = await getPluginClient(nearAuthedContext("owner-summary-expired.near"));
     const round = await owner.createRound({
+      isPrivate: false,
       projectSlug: `owner-summary-${n}`,
       title: `Round ${n}`,
       description: "Expired coverage",
@@ -89,6 +91,7 @@ describe("getOwnerSummary", () => {
   it("counts a pending project awaiting admin approval", async () => {
     const owner = await getPluginClient(nearAuthedContext("owner-summary3.near"));
     await owner.createRound({
+      isPrivate: false,
       projectSlug: "owner-summary-pending",
       title: "Not approved yet",
       description: "Still waiting",
@@ -120,12 +123,14 @@ describe("getOwnerSummary", () => {
       nearAuthedContext("owner-summary6.near", "owner-summary6-user", orgId),
     );
     const first = await owner.createRound({
+      isPrivate: false,
       projectSlug: "owner-summary-multi-a",
       title: "First",
       description: "First project",
       formats: ["written"],
     });
     const second = await owner.createRound({
+      isPrivate: false,
       projectSlug: "owner-summary-multi-b",
       title: "Second",
       description: "Second project",

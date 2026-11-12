@@ -7,6 +7,7 @@ const baseInput = {
   title: "Nostr publish check",
   description: "Confirms feedback goes out over the composed nostr plugin.",
   formats: ["written" as const, "recorded" as const],
+  isPrivate: false,
 };
 
 beforeEach(() => {
@@ -53,7 +54,10 @@ describe("postFeedback (nostr plugin composition)", () => {
     nostrCreateComment.mockRejectedValueOnce(new Error("relay unavailable"));
 
     const owner = await getPluginClient(nearAuthedContext("nostr-owner-2.near"));
-    const round = await owner.createRound({ ...baseInput, projectSlug: "nostr-project-2" });
+    const round = await owner.createRound({
+      ...baseInput,
+      projectSlug: "nostr-project-2",
+    });
     await approve(round.projectRecordId);
 
     const builder = await getPluginClient(nearAuthedContext("nostr-builder-2.near"));
@@ -77,7 +81,10 @@ describe("deleteFeedback (nostr comments can't be retracted)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const owner = await getPluginClient(nearAuthedContext("nostr-del-owner.near"));
-      const round = await owner.createRound({ ...baseInput, projectSlug: "nostr-del-project" });
+      const round = await owner.createRound({
+        ...baseInput,
+        projectSlug: "nostr-del-project",
+      });
       await approve(round.projectRecordId);
 
       const builder = await getPluginClient(nearAuthedContext("nostr-del-builder.near"));
@@ -105,7 +112,10 @@ describe("deleteFeedback (nostr comments can't be retracted)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const owner = await getPluginClient(nearAuthedContext("nostr-del-owner-2.near"));
-      const round = await owner.createRound({ ...baseInput, projectSlug: "nostr-del-project-2" });
+      const round = await owner.createRound({
+        ...baseInput,
+        projectSlug: "nostr-del-project-2",
+      });
       await approve(round.projectRecordId);
 
       const builder = await getPluginClient(nearAuthedContext("nostr-del-builder-2.near"));

@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { type ApiClient, useApiClient } from "@/app";
 import { Badge, Button, Textarea } from "@/components";
+import { formatDate } from "@/lib/format-date";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 
 type FeedbackNote = Awaited<ReturnType<ApiClient["addFeedbackNote"]>>;
@@ -19,7 +20,7 @@ export function FeedbackNoteThread({ notes }: { notes: FeedbackNote[] }) {
           <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant={note.role === "owner" ? "secondary" : "outline"}>{note.role}</Badge>
             <span className="font-mono">{note.authorAccountId}</span>
-            <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+            <span>{formatDate(note.createdAt)}</span>
           </p>
           <p className="text-sm text-foreground whitespace-pre-wrap break-words">{note.body}</p>
         </li>

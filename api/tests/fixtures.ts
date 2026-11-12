@@ -24,6 +24,7 @@ export async function clientFor(accountId: string) {
 export async function createOpenRound(owner: string, input: RoundInput = {}) {
   const ownerClient = await clientFor(owner);
   const round = await ownerClient.createRound({
+    isPrivate: false,
     projectSlug: input.projectSlug ?? freshSlug(),
     title: input.title ?? "Try the new onboarding flow",
     description: input.description ?? "Walk through signup and tell us where you got stuck.",

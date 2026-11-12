@@ -76,6 +76,7 @@ const TIMEOUT = 60_000;
 describe("failed requests are not shown as empty data", { timeout: TIMEOUT }, () => {
   beforeEach(() => {
     state.fail = true;
+    authClient.organization.list = () => Promise.resolve({ data: [org], error: null });
   });
   afterEach(cleanup);
 
@@ -112,9 +113,8 @@ describe("failed requests are not shown as empty data", { timeout: TIMEOUT }, ()
     const mod = await import("@/routes/_authenticated/_dashboard/orgs/index");
     mount(routeComponent(mod));
 
-    await screen.findByRole("alert");
+    await screen.findByText("Couldn't load your organizations.");
     expect(screen.queryByText("No organizations yet.")).toBeNull();
-    authClient.organization.list = () => Promise.resolve({ data: [org], error: null });
   });
 
   it("settings/api-keys shows an error, not 'No API keys yet'", async () => {

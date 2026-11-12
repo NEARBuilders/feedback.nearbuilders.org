@@ -23,10 +23,12 @@ import {
 import { OrgSwitcherMenuContent } from "@/components/layout/org-switcher-menu";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { PartnerPicker } from "@/components/partner-picker";
 import { RoundFieldsEditor } from "@/components/round-fields";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
 import { loadManagedProject } from "@/lib/project-route";
+import { partnerSuggestionsQueryOptions } from "@/lib/queries/partners";
 import { invalidateProjectQueries } from "@/lib/queries/projects";
 import { invalidateRoundQueries, roundBySlugQueryOptions } from "@/lib/queries/rounds";
 import { nextRoundFields, roundFieldsComplete, toCreateRoundInput } from "@/lib/round-fields";
@@ -122,6 +124,21 @@ function NewRoundPage() {
   const [projectQuery, setProjectQuery] = useState(project ? "" : (requestedSlug ?? ""));
   const [picked, setPicked] = useState<{ id: string; slug: string; title: string } | null>(null);
   const [fields, setFields] = useState(() => nextRoundFields(previous));
+  const partnersQuery = useQuery(partnerSuggestionsQueryOptions(apiClient));
+  const partnerSuggestions = partnersQuery.data?.partners ?? [];
+  // Suggestions start checked ("preferred"); unchecking is the explicit act.
+  const [uncheckedPartners, setUncheckedPartners] = useState<Set<string>>(new Set());
+  const togglePartner = (slug: string) => {
+    setUncheckedPartners((current) => {
+      const next = new Set(current);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  };
+  const selectedPartnerSlugs = partnerSuggestions
+    .filter((suggestion) => suggestion.active && !uncheckedPartners.has(suggestion.slug))
+    .map((suggestion) => suggestion.slug);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -130,6 +147,7 @@ function NewRoundPage() {
         projectId: picked?.id,
         projectName: project?.name ?? picked?.title,
         ...toCreateRoundInput(fields),
+        partnerOrganizationSlugs: selectedPartnerSlugs,
       }),
     onSuccess: (round) => {
       void invalidateRoundQueries(queryClient);
@@ -225,6 +243,11 @@ function NewRoundPage() {
                 disabled={createMutation.isPending}
               />
             )}
+            <PartnerPicker
+              suggestions={partnerSuggestions}
+              uncheckedSlugs={uncheckedPartners}
+              onToggle={togglePartner}
+            />
             <RoundFieldsEditor
               value={fields}
               onChange={setFields}

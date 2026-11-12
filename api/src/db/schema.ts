@@ -98,6 +98,45 @@ export const projects = pgTable(
   }),
 );
 
+export const accessGrantPrincipal = pgEnum("access_grant_principal", ["org", "team"]);
+
+export const accessGrantPermission = pgEnum("access_grant_permission", ["manage", "read"]);
+
+/**
+ * Who besides the owning organization may act on a project's rounds (#279): one
+ * row per principal. v1 writes only org principals with the "manage" permission —
+ * the partner flow — while the columns stay general (org | team, manage | read),
+ * so narrower grants are new rows, not migrations. The access decision consumes
+ * these as data carried on the project subject; only the project loaders query
+ * this table.
+ */
+export const accessGrants = pgTable(
+  "access_grants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    principalType: accessGrantPrincipal("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    permission: accessGrantPermission("permission").notNull(),
+    orgSlug: text("org_slug"),
+    addedByAccountId: text("added_by_account_id").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    principalIdx: uniqueIndex("access_grants_project_principal_idx").on(
+      table.projectId,
+      table.principalType,
+      table.principalId,
+    ),
+    principalLookupIdx: index("access_grants_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+  }),
+);
+
 export const roundStatus = pgEnum("round_status", ["pending", "open", "closed", "rejected"]);
 
 export const rounds = pgTable(

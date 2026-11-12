@@ -15,6 +15,7 @@ import {
   PageHeader,
 } from "@/components";
 import { QueryError } from "@/components/query-error";
+import { formatDateTime } from "@/lib/format-date";
 import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings/api-keys")({
@@ -50,7 +51,9 @@ function ApiKeysSettings() {
   const apiKeysQuery = useQuery({
     queryKey: userApiKeysQueryKey,
     queryFn: async (): Promise<ApiKeyItem[]> => {
-      const { data, error } = await auth.apiKey.list({});
+      const { data, error } = await auth.apiKey.list({
+        query: { configId: "user-keys" },
+      });
       if (error) throw new Error(error.message);
       return (data?.apiKeys ?? []) as ApiKeyItem[];
     },
@@ -61,6 +64,7 @@ function ApiKeysSettings() {
   const createApiKeyMutation = useMutation({
     mutationFn: async (values: ApiKeyFormValues) => {
       const { data, error } = await auth.apiKey.create({
+        configId: "user-keys",
         name: values.name,
         ...(values.expiresIn !== undefined ? { expiresIn: values.expiresIn } : {}),
       });
@@ -154,8 +158,8 @@ function ApiKeysSettings() {
                 </div>
               </div>
               <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                <div>created {new Date(key.createdAt).toLocaleString()}</div>
-                {key.expiresAt && <div>expires {new Date(key.expiresAt).toLocaleString()}</div>}
+                <div>created {formatDateTime(key.createdAt)}</div>
+                {key.expiresAt && <div>expires {formatDateTime(key.expiresAt)}</div>}
               </div>
               <div className="flex gap-2">
                 <Button

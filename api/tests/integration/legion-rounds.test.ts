@@ -7,6 +7,7 @@ async function legionRound(legionOnly = true) {
   const n = ++counter;
   const owner = await getPluginClient(nearAuthedContext(`legion-owner-${n}.near`));
   const round = await owner.createRound({
+    isPrivate: false,
     projectSlug: `legion-project-${n}`,
     title: `Legion ${n}`,
     description: "Only Legion members.",

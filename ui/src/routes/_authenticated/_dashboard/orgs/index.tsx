@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, Card, Chip, PageHeader } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
-import { QueryError } from "@/components/query-error";
+import { formatDate } from "@/lib/format-date";
 import { pageHead } from "@/lib/page-title";
+import { organizationsQueryOptions } from "@/lib/queries/organizations";
 
 type AuthClientType = import("@/app").AuthClient;
 type UserInvitationsResponse = Awaited<
@@ -20,15 +21,11 @@ export const Route = createFileRoute("/_authenticated/_dashboard/orgs/")({
     await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),
     );
-    await context.queryClient.prefetchQuery({
-      queryKey: ["organizations"],
-      queryFn: async () => {
-        const { data, error } = await context.authClient.organization.list();
-        if (error) throw new Error(error.message);
-        return (data || []) as Organization[];
-      },
-      staleTime: 30 * 1000,
-    });
+    // The SSR auth client carries no cookies, so this fetch would always fail
+    // server-side; let the browser fetch it with the session after hydration.
+    if (typeof window !== "undefined") {
+      await context.queryClient.ensureQueryData(organizationsQueryOptions(context.authClient));
+    }
     await context.queryClient.ensureQueryData({
       queryKey: ["user-invitations"],
       queryFn: async (): Promise<UserInvitationItem[]> => {
@@ -51,16 +48,8 @@ function OrganizationsList() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
-  const organizationsQuery = useQuery({
-    queryKey: ["organizations"],
-    queryFn: async () => {
-      const { data, error } = await auth.organization.list();
-      if (error) throw new Error(error.message);
-      return (data || []) as Organization[];
-    },
-    staleTime: 30 * 1000,
-  });
-  const { data: organizations, isLoading } = organizationsQuery;
+  const organizationsQuery = useQuery(organizationsQueryOptions(auth));
+  const { data: organizations = [] } = organizationsQuery;
 
   const { data: userInvitations = [] } = useQuery({
     queryKey: ["user-invitations"],
@@ -161,7 +150,7 @@ function OrganizationsList() {
                         invited as {invitation.role ?? "member"}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        expires {new Date(invitation.expiresAt).toLocaleDateString()}
+                        expires {formatDate(invitation.expiresAt)}
                       </div>
                     </div>
                   </div>
@@ -196,7 +185,7 @@ function OrganizationsList() {
           </section>
         )}
 
-        {isLoading ? (
+        {organizationsQuery.isPending ? (
           <div className="grid gap-6 md:grid-cols-2">
             {[1, 2].map((n) => (
               <Card key={n} className="p-6 space-y-5">
@@ -216,11 +205,23 @@ function OrganizationsList() {
             ))}
           </div>
         ) : organizationsQuery.isError ? (
-          <QueryError
-            message="Couldn't load your organizations."
-            onRetry={() => void organizationsQuery.refetch()}
-            isRetrying={organizationsQuery.isFetching}
-          />
+          <Card className="p-10 text-center space-y-4 items-center">
+            <Building2 className="h-10 w-10 mx-auto text-muted-foreground" />
+            <p className="text-base font-semibold text-foreground">
+              Couldn't load your organizations.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {organizationsQuery.error instanceof Error
+                ? organizationsQuery.error.message
+                : "Something went wrong. Your session is fine — retry the fetch."}
+            </p>
+            <Button
+              onClick={() => organizationsQuery.refetch()}
+              disabled={organizationsQuery.isFetching}
+            >
+              {organizationsQuery.isFetching ? "retrying..." : "retry"}
+            </Button>
+          </Card>
         ) : orgs.length === 0 ? (
           <Card className="p-10 text-center space-y-4 items-center">
             <Building2 className="h-10 w-10 mx-auto text-muted-foreground" />
@@ -263,9 +264,7 @@ function OrganizationsList() {
                   </div>
 
                   <div className="rounded-[8px] border border-border bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
-                    {org.createdAt
-                      ? `created ${new Date(org.createdAt).toLocaleDateString()}`
-                      : "organization record"}
+                    {org.createdAt ? `created ${formatDate(org.createdAt)}` : "organization record"}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
