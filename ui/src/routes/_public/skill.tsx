@@ -93,19 +93,23 @@ function SkillPage() {
           }
         />
 
-        <div className="rounded-[12px] border border-border bg-card p-6 space-y-4">
-          <div className="rounded-[8px] border border-border bg-muted px-3.5 py-3 text-sm text-muted-foreground">
+        <div className="rounded-none border border-border bg-card p-6 space-y-4">
+          <div className="rounded-none border border-border bg-muted px-3.5 py-3 text-sm text-muted-foreground">
             Best entry points: `npx @tanstack/intent@latest load everything-dev`, `/skill.md`, and
             the registry page above.
           </div>
         </div>
 
         {skill ? (
-          <div className="rounded-[12px] border border-border bg-card p-8">
+          <div className="rounded-none border border-border bg-card p-8">
             <Markdown content={skill} />
           </div>
         ) : (
-          <EmptyState icon={FileText} title="Skill prompt unavailable." className="min-h-[20vh]" />
+          <EmptyState
+            icon={FileText}
+            title="Skill prompt unavailable."
+            className="min-h-empty-sm"
+          />
         )}
       </div>
     </PageContainer>

@@ -77,10 +77,7 @@ export function CloseRoundPanel({ roundId }: { roundId: string }) {
               {candidates.map((c) => {
                 const mark = marks[c.accountId] ?? { meaningful: false, summary: "" };
                 return (
-                  <li
-                    key={c.accountId}
-                    className="rounded-[10px] border border-border p-3 space-y-2"
-                  >
+                  <li key={c.accountId} className="rounded-none border border-border p-3 space-y-2">
                     <label
                       className="flex items-center gap-2 text-sm"
                       htmlFor={`mark-${c.accountId}`}

@@ -33,7 +33,7 @@ function ProjectsPage() {
           description="Products using feedback rounds to find testers."
         />
         {projects.length === 0 ? (
-          <EmptyState icon={FolderKanban} title="No projects yet." className="min-h-[30vh]" />
+          <EmptyState icon={FolderKanban} title="No projects yet." className="min-h-empty" />
         ) : (
           <ProjectDirectory projects={projects} />
         )}

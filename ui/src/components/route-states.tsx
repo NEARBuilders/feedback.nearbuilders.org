@@ -23,7 +23,7 @@ export function RouteError({ error }: ErrorComponentProps) {
         icon={AlertTriangle}
         title="Something went wrong."
         description={error instanceof Error ? error.message : String(error)}
-        className="min-h-[30vh]"
+        className="min-h-empty"
         action={
           <Button variant="outline" size="sm" onClick={() => void router.invalidate()}>
             try again
@@ -40,7 +40,7 @@ export function RouteNotFound({ title, backTo }: { title: string; backTo: string
       <EmptyState
         icon={SearchX}
         title={title}
-        className="min-h-[30vh]"
+        className="min-h-empty"
         action={
           <Button asChild variant="outline" size="sm">
             <Link to={backTo}>Go back</Link>

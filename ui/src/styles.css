@@ -77,6 +77,78 @@
   min-height: calc(100dvh - 4rem);
 }
 
+@utility min-h-compose {
+  min-height: 12vh;
+}
+
+@utility min-h-empty-sm {
+  min-height: 20vh;
+}
+
+@utility min-h-empty {
+  min-height: 30vh;
+}
+
+@utility min-h-empty-lg {
+  min-height: 40vh;
+}
+
+@utility min-h-panel {
+  min-height: 55vh;
+}
+
+@utility grid-cols-split-2-3 {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+}
+
+@utility grid-cols-split-2-1 {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+@utility grid-cols-split-main-aside {
+  grid-template-columns: minmax(0, 1fr) 20rem;
+}
+
+@utility grid-cols-split-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+@utility grid-cols-split-label {
+  grid-template-columns: 100px 1fr;
+}
+
+@utility grid-cols-split-auto {
+  grid-template-columns: 1fr auto;
+}
+
+@utility grid-cols-split-180 {
+  grid-template-columns: 1fr 180px;
+}
+
+@utility aspect-banner {
+  aspect-ratio: 2.75 / 1;
+}
+
+@utility aspect-banner-sm {
+  aspect-ratio: 3 / 1;
+}
+
+@utility aspect-banner-md {
+  aspect-ratio: 7 / 2;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+}
+
+@utility animation-paused {
+  animation-play-state: paused;
+}
+
+@utility mask-fade-x {
+  mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+}
+
 :root {
   color-scheme: light;
   --background: #fafafa;
@@ -219,7 +291,7 @@
   }
   *::-webkit-scrollbar-thumb {
     background-color: var(--border-strong);
-    border-radius: 999px;
+    border-radius: 0;
     border: 2px solid transparent;
     background-clip: padding-box;
   }

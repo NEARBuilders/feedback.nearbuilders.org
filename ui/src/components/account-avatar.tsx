@@ -11,7 +11,7 @@ export function AccountAvatar({ accountId, className }: { accountId: string; cla
   return (
     <Avatar className={cn("h-7 w-7 border-2 border-background", className)} title={accountId}>
       <AvatarImage src={resolveNearImageUrl(profile?.image)} alt="" />
-      <AvatarFallback className="text-[10px]">
+      <AvatarFallback className="text-3xs">
         {getNearInitials(profile?.name || accountId)}
       </AvatarFallback>
     </Avatar>

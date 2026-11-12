@@ -147,7 +147,7 @@ function RoundsPage() {
                 value={org}
                 onChange={(e) => setSearch({ org: e.target.value })}
                 aria-label="Organization filter"
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 rounded-none border border-input bg-transparent px-3 text-sm"
               >
                 <option value="">all organizations</option>
                 {organizations.map((organization) => (
@@ -157,7 +157,7 @@ function RoundsPage() {
                 ))}
               </select>
             )}
-            <div className="relative max-w-sm flex-1 min-w-[12rem]">
+            <div className="relative max-w-sm flex-1 min-w-48">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
@@ -179,7 +179,7 @@ function RoundsPage() {
                   : `No ${status} rounds yet.`
                 : "No rounds match your search."
             }
-            className="min-h-[30vh]"
+            className="min-h-empty"
           />
         ) : (
           <RoundsTable

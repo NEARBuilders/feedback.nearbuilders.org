@@ -98,7 +98,7 @@ function MySubmissions({
         }
       />
       {mine.length === 0 ? (
-        <EmptyState title="Nothing submitted yet." className="min-h-[12vh]" />
+        <EmptyState title="Nothing submitted yet." className="min-h-compose" />
       ) : (
         <FeedbackList
           roundId={round.id}

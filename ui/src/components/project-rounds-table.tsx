@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Fragment } from "react";
 import { RoundListTitle } from "@/components/round-list-title";
 import { RoundStatusBadge } from "@/components/round-status-badge";
+import { RoundListPrivateMark } from "@/components/rounds-table";
 import {
   Table,
   TableBody,
@@ -56,6 +57,7 @@ export function ProjectRoundsTable({ projects, console, grouped }: ProjectRounds
               [...project.rounds].reverse().map((round) => (
                 <TableRow key={round.id}>
                   <TableCell>
+                    <RoundListPrivateMark isPrivate={round.isPrivate} />
                     <Link
                       to={console ? "/manage/$slug/$n" : "/projects/$slug/$n"}
                       params={roundParams({ ...round, projectSlug: project.slug })}

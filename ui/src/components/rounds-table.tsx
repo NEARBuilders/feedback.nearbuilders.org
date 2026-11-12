@@ -56,7 +56,7 @@ export function RoundListPrivateMark({ isPrivate }: { isPrivate: boolean }) {
     <span
       title="Private feedback"
       data-testid="rounds-table-private-mark"
-      className="mr-1 inline-block align-[-2px]"
+      className="mr-1 inline-block align-middle"
     >
       <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
       <span className="sr-only">Private feedback</span>
@@ -141,7 +141,7 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
               <RoundListPrivateMark isPrivate={row.original.isPrivate} />
               {row.original.legionOnly && (
                 <LegionMark
-                  className="mr-1 inline-block align-[-2px]"
+                  className="mr-1 inline-block align-middle"
                   title="Legion members only"
                 />
               )}

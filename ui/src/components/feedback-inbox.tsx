@@ -130,7 +130,7 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
         )}
       </div>
 
-      <ul className="divide-y divide-border rounded-lg border border-border">
+      <ul className="divide-y divide-border rounded-none border border-border">
         {entries.map((entry) => (
           <li
             key={entry.id}

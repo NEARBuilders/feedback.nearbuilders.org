@@ -75,7 +75,7 @@ function SecurityTab({ user }: { user: { email?: string; isAnonymous?: boolean |
     <div className="space-y-4">
       {user.email ? (
         <Card className="p-6 space-y-4">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Change password
           </div>
           <div className="grid gap-4 md:grid-cols-3">

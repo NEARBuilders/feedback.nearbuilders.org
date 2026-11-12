@@ -1,0 +1,7 @@
+{
+  "jsPlugins": ["@shadcn/lint"],
+  "ignorePatterns": ["**/*.gen.ts", "**/*.gen.tsx", "ui/src/components/ui/editor/**"],
+  "rules": {
+    "shadcn/no-arbitrary-values": "error"
+  }
+}

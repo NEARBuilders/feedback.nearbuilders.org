@@ -14,6 +14,7 @@
     "typecheck": "pnpm run types:gen && if [ -d ui ]; then pnpm --dir ui run typecheck; fi && if [ -d api ]; then pnpm --dir api run typecheck; fi && if [ -d plugins ]; then for dir in plugins/*; do if [ -f \"$dir/package.json\" ]; then pnpm --dir \"$dir\" --if-present run typecheck && pnpm --dir \"$dir\" --if-present run typecheck:ui; fi; done; fi",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "lint:shadcn": "oxlint -c .oxlintrc.json ui/src",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "start": "bos start",

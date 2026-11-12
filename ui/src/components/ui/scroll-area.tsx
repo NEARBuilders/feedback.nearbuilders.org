@@ -1,3 +1,4 @@
+/* oxlint-disable shadcn/no-arbitrary-values -- shadcn/ui scroll-area: rounded-[inherit], transition-[prop] and the standard 3px focus ring */
 "use client";
 
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
@@ -47,7 +48,7 @@ function ScrollBar({
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="bg-border relative flex-1 rounded-full"
+        className="bg-border relative flex-1 rounded-none"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   );

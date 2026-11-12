@@ -329,7 +329,7 @@ function OrganizationDetail() {
 
   if (organizationsQuery.isPending || (organizationsQuery.isFetching && !organizationsQuery.data)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh]">
+      <div className="flex flex-col items-center justify-center min-h-empty-lg">
         <p className="text-sm text-muted-foreground">Loading organization...</p>
       </div>
     );
@@ -453,8 +453,8 @@ function OrganizationDetail() {
       </Card>
 
       {isEditing && isOwner && (
-        <Card className="p-6 space-y-4">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        <Card className="p-6 space-y-4 hover:shadow-md">
+          <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Edit Organization
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -538,11 +538,11 @@ function OrganizationDetail() {
 
         <TabsContent value="invitations" className="space-y-6 pt-4">
           {canManageMembers && !isPersonal && (
-            <Card className="p-6 space-y-4">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <Card className="p-6 space-y-4 hover:shadow-md">
+              <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                 Invite member
               </div>
-              <div className="grid gap-4 md:grid-cols-[1fr_180px]">
+              <div className="grid gap-4 md:grid-cols-split-180">
                 <Input
                   type="email"
                   value={inviteEmail}
@@ -552,7 +552,7 @@ function OrganizationDetail() {
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as "admin" | "member")}
-                  className="w-full px-3 py-2 text-sm bg-card text-foreground border border-border rounded-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full px-3 py-2 text-sm bg-card text-foreground border border-border rounded-none outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
@@ -699,10 +699,10 @@ function MemberCard({
               <img
                 src={user.image}
                 alt=""
-                className="w-9 h-9 rounded-full object-cover border border-border"
+                className="w-9 h-9 rounded-none object-cover border border-border"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+              <div className="w-9 h-9 rounded-none bg-muted flex items-center justify-center text-xs font-medium">
                 <User className="h-4 w-4 text-muted-foreground" />
               </div>
             )}

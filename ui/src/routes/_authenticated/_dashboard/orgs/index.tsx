@@ -132,14 +132,14 @@ function OrganizationsList() {
       <div className="space-y-6">
         {pendingInvitations.length > 0 && (
           <section className="space-y-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               Pending Invitations ({pendingInvitations.length})
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {pendingInvitations.map((invitation) => (
                 <Card key={invitation.id} className="p-6 space-y-4">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-[10px] border border-border bg-muted flex items-center justify-center shrink-0">
+                    <div className="w-12 h-12 rounded-none border border-border bg-muted flex items-center justify-center shrink-0">
                       <Mail className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="space-y-1 min-w-0 flex-1">
@@ -190,16 +190,16 @@ function OrganizationsList() {
             {[1, 2].map((n) => (
               <Card key={n} className="p-6 space-y-5">
                 <div className="flex items-start gap-4">
-                  <div className="h-14 w-14 rounded-[10px] animate-pulse bg-muted shrink-0" />
+                  <div className="h-14 w-14 rounded-none animate-pulse bg-muted shrink-0" />
                   <div className="space-y-2 flex-1 pt-1">
-                    <div className="h-5 w-3/4 rounded-[4px] animate-pulse bg-muted" />
-                    <div className="h-4 w-1/2 rounded-[4px] animate-pulse bg-muted" />
+                    <div className="h-5 w-3/4 rounded-none animate-pulse bg-muted" />
+                    <div className="h-4 w-1/2 rounded-none animate-pulse bg-muted" />
                   </div>
                 </div>
-                <div className="h-10 w-full rounded-[8px] animate-pulse bg-muted" />
+                <div className="h-10 w-full rounded-none animate-pulse bg-muted" />
                 <div className="flex gap-2">
-                  <div className="h-10 w-24 rounded-[12px] animate-pulse bg-muted" />
-                  <div className="h-10 w-24 rounded-[12px] animate-pulse bg-muted" />
+                  <div className="h-10 w-24 rounded-none animate-pulse bg-muted" />
+                  <div className="h-10 w-24 rounded-none animate-pulse bg-muted" />
                 </div>
               </Card>
             ))}
@@ -244,10 +244,10 @@ function OrganizationsList() {
                       <img
                         src={org.logo}
                         alt=""
-                        className="w-14 h-14 rounded-[10px] border border-border object-cover shrink-0"
+                        className="w-14 h-14 rounded-none border border-border object-cover shrink-0"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-[10px] border border-border bg-muted flex items-center justify-center text-xl font-bold text-foreground shrink-0">
+                      <div className="w-14 h-14 rounded-none border border-border bg-muted flex items-center justify-center text-xl font-bold text-foreground shrink-0">
                         {org.name.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -263,8 +263,10 @@ function OrganizationsList() {
                     </div>
                   </div>
 
-                  <div className="rounded-[8px] border border-border bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
-                    {org.createdAt ? `created ${formatDate(org.createdAt)}` : "organization record"}
+                  <div className="rounded-none border border-border bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
+                    {org.createdAt
+                      ? `created ${new Date(org.createdAt).toLocaleDateString()}`
+                      : "organization record"}
                   </div>
 
                   <div className="flex flex-wrap gap-2">

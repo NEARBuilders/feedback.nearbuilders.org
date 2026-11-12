@@ -19,7 +19,7 @@ function postsLabel(count: number) {
 }
 
 const rowClassName =
-  "grid min-w-0 grid-cols-1 items-start gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4";
+  "grid min-w-0 grid-cols-1 items-start gap-1 px-4 py-2.5 sm:grid-cols-split-row sm:items-center sm:gap-4";
 
 export function RoundParticipants({
   roundId,
@@ -82,7 +82,7 @@ export function RoundParticipants({
       ) : participants.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nobody has joined this round yet.</p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+        <ul className="divide-y divide-border overflow-hidden rounded-none border border-border bg-card">
           {participants.map((participant) => {
             const postLink = participantPostLink(
               participant.accountId,
@@ -107,7 +107,7 @@ export function RoundParticipants({
 
             const isWinner = winners.includes(participant.accountId);
             const winnerMark = isWinner ? (
-              <Trophy className="mr-1.5 inline h-3.5 w-3.5 text-amber-500" aria-label="Winner" />
+              <Trophy className="mr-1.5 inline h-3.5 w-3.5 text-brand-accent" aria-label="Winner" />
             ) : null;
 
             return (

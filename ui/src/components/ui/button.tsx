@@ -10,21 +10,21 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground rounded-xl hover:opacity-90 active:opacity-80 disabled:opacity-50",
+          "bg-primary text-primary-foreground rounded-none hover:opacity-90 active:opacity-80 disabled:opacity-50",
         destructive:
-          "bg-destructive text-destructive-foreground rounded-xl hover:bg-destructive/90 active:bg-destructive/80 disabled:opacity-50",
+          "bg-destructive text-destructive-foreground rounded-none hover:bg-destructive/90 active:bg-destructive/80 disabled:opacity-50",
         outline:
-          "bg-card text-foreground border border-border rounded-xl hover:bg-secondary hover:border-border-strong active:bg-accent active:border-border-strong disabled:opacity-50",
+          "bg-card text-foreground border border-border rounded-none hover:bg-secondary hover:border-border-strong active:bg-accent active:border-border-strong disabled:opacity-50",
         secondary:
-          "bg-secondary text-secondary-foreground border border-border rounded-xl hover:bg-accent hover:border-border-strong disabled:opacity-50",
+          "bg-secondary text-secondary-foreground border border-border rounded-none hover:bg-accent hover:border-border-strong disabled:opacity-50",
         ghost:
-          "bg-transparent text-foreground rounded-xl hover:bg-secondary active:bg-accent disabled:opacity-50",
+          "bg-transparent text-foreground rounded-none hover:bg-secondary active:bg-accent disabled:opacity-50",
         link: "bg-transparent text-brand-cyan underline-offset-4 hover:underline disabled:opacity-50",
       },
       size: {
         default: "h-10 px-4 py-2 has-[>svg]:px-3",
         sm: "h-8 px-3 py-1.5 has-[>svg]:px-2.5 text-xs",
-        lg: "h-13 px-5 py-3 has-[>svg]:px-4 text-base rounded-2xl",
+        lg: "h-13 px-5 py-3 has-[>svg]:px-4 text-base rounded-none",
         icon: "size-10",
         "icon-sm": "size-8",
         "icon-lg": "size-12",

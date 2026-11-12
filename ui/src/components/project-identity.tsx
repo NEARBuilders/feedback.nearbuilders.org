@@ -42,7 +42,7 @@ export function ProjectAvatar({ identity, name, className }: ProjectAvatarProps)
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted text-xs font-semibold text-muted-foreground",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-none border bg-muted text-xs font-semibold text-muted-foreground",
         className ?? "h-9 w-9",
       )}
     >
@@ -113,7 +113,7 @@ export function ProjectLabel({
   const domain = projectDomainLabel(identity);
   return (
     <span className={cn("flex min-w-0 items-center gap-2", className)}>
-      <ProjectAvatar identity={identity} name={name} className="h-6 w-6 text-[10px]" />
+      <ProjectAvatar identity={identity} name={name} className="h-6 w-6 text-3xs" />
       <span className="min-w-0">
         <span className="block truncate font-medium text-foreground">{name}</span>
         {domain && <span className="block truncate text-xs text-muted-foreground">{domain}</span>}

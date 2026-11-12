@@ -78,7 +78,7 @@ export function BannerUploader({ value, onChange, disabled }: BannerUploaderProp
   if (value) {
     return (
       <div className="space-y-2" data-testid="banner-preview">
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="overflow-hidden rounded-none border border-border">
           <img src={value} alt="Round banner preview" className="h-32 w-full object-cover" />
         </div>
         <div className="flex gap-2">
@@ -124,7 +124,7 @@ export function BannerUploader({ value, onChange, disabled }: BannerUploaderProp
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         className={cn(
-          "flex min-h-24 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-4 py-5 text-center transition-colors hover:border-foreground/30 hover:bg-accent/40",
+          "flex min-h-24 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-none border border-dashed border-border px-4 py-5 text-center transition-colors hover:border-foreground/30 hover:bg-accent/40",
           dragging && "border-foreground/40 bg-accent",
           disabled && "pointer-events-none opacity-60",
         )}

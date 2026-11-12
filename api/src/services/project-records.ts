@@ -57,6 +57,7 @@ export interface ProjectRoundSummary {
   status: (typeof roundStatus)["enumValues"][number];
   projectRoundNumber: number;
   endsAt: string | null;
+  isPrivate: boolean;
 }
 
 export interface ProjectWithRounds extends ProjectRecord {
@@ -343,6 +344,7 @@ async function withRounds(db: Database, rows: ProjectRow[]): Promise<ProjectWith
       status: roundsTable.status,
       projectRoundNumber: roundsTable.projectRoundNumber,
       endsAt: roundsTable.endsAt,
+      isPrivate: roundsTable.isPrivate,
       projectRecordId: roundsTable.projectRecordId,
     })
     .from(roundsTable)

@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n
       icon={MousePointerClick}
       title="Pick a feedback item."
       description="Press j to open the first one."
-      className="hidden min-h-[30vh] rounded-lg border border-dashed border-border lg:flex"
+      className="hidden min-h-empty rounded-none border border-dashed border-border lg:flex"
     />
   ),
 });

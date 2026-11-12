@@ -77,7 +77,7 @@ export function FeedbackList<T extends FeedbackEntry>({
   return (
     <>
       <ul
-        className="divide-y divide-border rounded-lg border border-border bg-card"
+        className="divide-y divide-border rounded-none border border-border bg-card"
         data-testid="feedback-list"
       >
         {entries.map((entry) => {

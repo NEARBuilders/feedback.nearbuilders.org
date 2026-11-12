@@ -13,7 +13,7 @@ export function LegionMark({ className, title }: { className?: string; title?: s
       alt=""
       aria-hidden="true"
       title={title}
-      className={cn("h-3.5 w-3.5 shrink-0 rounded-full", className)}
+      className={cn("h-3.5 w-3.5 shrink-0 rounded-none", className)}
     />
   );
 }

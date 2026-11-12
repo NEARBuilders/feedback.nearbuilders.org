@@ -30,7 +30,7 @@ function AdminDashboard() {
         <SectionHeader title="Manage" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Card className="p-6 space-y-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
+            <div className="flex h-10 w-10 items-center justify-center rounded-none bg-foreground text-background">
               <ClipboardCheck className="h-4 w-4" />
             </div>
             <h3 className="text-base font-semibold text-foreground">Project approvals</h3>
@@ -43,7 +43,7 @@ function AdminDashboard() {
           </Card>
 
           <Card className="p-6 space-y-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
+            <div className="flex h-10 w-10 items-center justify-center rounded-none bg-foreground text-background">
               <Users className="h-4 w-4" />
             </div>
             <h3 className="text-base font-semibold text-foreground">Organizations</h3>
@@ -56,7 +56,7 @@ function AdminDashboard() {
           </Card>
 
           <Card className="p-6 space-y-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
+            <div className="flex h-10 w-10 items-center justify-center rounded-none bg-foreground text-background">
               <Settings className="h-4 w-4" />
             </div>
             <h3 className="text-base font-semibold text-foreground">Settings</h3>

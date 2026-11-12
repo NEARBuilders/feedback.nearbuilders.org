@@ -46,7 +46,7 @@ function ManagePage() {
             icon={FolderKanban}
             title="You don't manage any rounds yet."
             description="Switch to the organization that owns a project, or request a round."
-            className="min-h-[30vh]"
+            className="min-h-empty"
           />
         ) : (
           <ProjectRoundsTable projects={projects} console grouped />

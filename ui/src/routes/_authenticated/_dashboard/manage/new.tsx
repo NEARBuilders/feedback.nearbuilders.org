@@ -328,7 +328,7 @@ function ProjectPicker({ query, onQueryChange, picked, onPick, disabled }: Proje
           disabled={disabled}
         />
         {showResults && results.length > 0 && (
-          <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-popover shadow-md">
+          <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-none border border-border bg-popover shadow-md">
             {results.map((result) => (
               <button
                 key={result.id}

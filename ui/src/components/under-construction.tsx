@@ -94,7 +94,7 @@ export function UnderConstruction({
                 <img
                   src={underConstructionImage}
                   alt={label ? `${label} under construction` : "under construction"}
-                  className="w-full h-auto rounded-xl border border-border object-cover"
+                  className="w-full h-auto rounded-none border border-border object-cover"
                 />
               </motion.div>
             </button>

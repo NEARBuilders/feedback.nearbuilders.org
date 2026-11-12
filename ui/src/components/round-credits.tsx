@@ -20,7 +20,7 @@ export function RoundCredits({ roundId }: { roundId: string }) {
               <div className="flex items-center gap-2">
                 <span className="font-mono text-sm text-foreground">{credit.builderAccountId}</span>
                 {credit.contributedMeaningfully && (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-3xs">
                     meaningful
                   </Badge>
                 )}

@@ -120,7 +120,7 @@ export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
             dismiss
           </Button>
         </div>
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 md:grid-cols-split-auto">
           <Input
             readOnly
             value={apiKey.key}
@@ -145,7 +145,7 @@ export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
 
 function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3 grid gap-1 sm:grid-cols-[100px_1fr] sm:gap-4">
+    <div className="rounded-none border border-border bg-muted/30 p-3 grid gap-1 sm:grid-cols-split-label sm:gap-4">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className={mono ? "text-xs font-mono break-all" : "text-sm break-all"}>{value}</div>
     </div>

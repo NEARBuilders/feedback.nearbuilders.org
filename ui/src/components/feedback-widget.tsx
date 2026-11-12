@@ -1,3 +1,4 @@
+/* oxlint-disable shadcn/no-arbitrary-values -- widget panel sizes itself against the viewport with calc()/min() */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { MessageCircle, X } from "lucide-react";
@@ -41,7 +42,7 @@ export function FeedbackWidget({ projectSlug }: FeedbackWidgetProps) {
         <section
           aria-label="Feedback"
           data-testid="feedback-widget-panel"
-          className="flex max-h-[min(36rem,calc(100dvh-6rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-lg sm:w-96"
+          className="flex max-h-[min(36rem,calc(100dvh-6rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-none border border-border bg-card text-card-foreground shadow-lg sm:w-96"
         >
           <WidgetPanel projectSlug={projectSlug} onClose={() => setOpen(false)} />
         </section>
@@ -49,7 +50,7 @@ export function FeedbackWidget({ projectSlug }: FeedbackWidgetProps) {
       <Button
         type="button"
         size="icon"
-        className="h-12 w-12 rounded-full"
+        className="h-12 w-12 rounded-none"
         aria-label={open ? "Close feedback" : "Give feedback"}
         aria-expanded={open}
         data-testid="feedback-widget-launcher"
@@ -366,7 +367,7 @@ function MessagesTab({ round, signedIn }: { round: RoundDetail; signedIn: boolea
   return (
     <ul className="flex flex-col gap-3" data-testid="feedback-widget-messages">
       {mine.data.map((item) => (
-        <li key={item.id} className="rounded-md border border-border p-3">
+        <li key={item.id} className="rounded-none border border-border p-3">
           <p className="line-clamp-4 whitespace-pre-wrap text-sm">
             {plainText(item.body, item.url)}
           </p>

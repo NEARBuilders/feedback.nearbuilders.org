@@ -47,7 +47,7 @@ export function OrgSwitcherMenuContent({
             onClick={() => handleSwitch(org.id)}
             disabled={switchOrg.isPending}
           >
-            <div className="flex size-6 items-center justify-center rounded-sm border border-border">
+            <div className="flex size-6 items-center justify-center rounded-none border border-border">
               <Building2 className="size-3.5 shrink-0" />
             </div>
             <span className="truncate min-w-0 flex-1">{org.name}</span>
@@ -75,7 +75,7 @@ export function OrgSwitcherMenuContent({
         <Link to="/orgs/new" className="flex items-center gap-2 cursor-pointer">
           {itemVariant === "iconTile" ? (
             <>
-              <div className="flex size-6 items-center justify-center rounded-md border border-border bg-background">
+              <div className="flex size-6 items-center justify-center rounded-none border border-border bg-background">
                 <Plus className="size-4" />
               </div>
               <span className="font-medium text-muted-foreground">new organization</span>

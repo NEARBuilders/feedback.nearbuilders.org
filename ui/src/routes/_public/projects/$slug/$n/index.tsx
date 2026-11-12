@@ -34,7 +34,7 @@ function RoundOverviewPage() {
   return (
     <div className="space-y-8" data-testid="round-overview">
       <RoundWinnersBanner winners={round.winners} />
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid items-start gap-8 lg:grid-cols-split-main-aside">
         <div className="min-w-0">
           <RoundReadme roundId={round.id} readme={round.readme} canEdit={false} />
         </div>
