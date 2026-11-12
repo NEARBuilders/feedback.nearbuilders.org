@@ -524,6 +524,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         data: { resource: "feedback", resourceId },
       });
 
+    const feedbackLocked = () =>
+      new ORPCError("BAD_REQUEST", {
+        message:
+          "The round owner has already reviewed this feedback, so it can no longer be edited",
+      });
+
     return {
       ping: builder.ping.handler(async () => ({
         status: "ok",
@@ -1473,6 +1479,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "This round is closed, so its feedback can no longer be edited",
             });
           }
+          if (feedback.status !== "unresolved" || feedback.starredAt) throw feedbackLocked();
           assertRoundNotExpired(round);
           const body = feedback.format === "written" ? (input.body?.trim() ?? "") : null;
           const url = feedback.format === "recorded" ? (input.url ?? null) : null;
@@ -1490,7 +1497,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
             body,
             url,
           });
-          if (!updated) throw feedbackNotFound(input.feedbackId);
+          if (!updated) {
+            const current = await getRuntime().rounds.getFeedback(round.id, input.feedbackId);
+            throw current ? feedbackLocked() : feedbackNotFound(input.feedbackId);
+          }
           // Link any images added by the edit; ones already linked are re-sent harmlessly.
           await getRuntime().feedbackAssets.attachForFeedback({
             id: updated.id,

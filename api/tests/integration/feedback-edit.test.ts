@@ -75,3 +75,56 @@ describe("editFeedback", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
+
+describe("editFeedback after the owner has acted", () => {
+  type Owner = Awaited<ReturnType<typeof openRound>>["owner"];
+  const actions: Record<
+    string,
+    (owner: Owner, roundId: string, feedbackId: string) => Promise<unknown>
+  > = {
+    resolved: (owner, id, feedbackId) =>
+      owner.setFeedbackStatus({ id, feedbackIds: [feedbackId], status: "resolved" }),
+    dismissed: (owner, id, feedbackId) =>
+      owner.setFeedbackStatus({ id, feedbackIds: [feedbackId], status: "dismissed" }),
+    starred: (owner, id, feedbackId) =>
+      owner.setFeedbackStarred({ id, feedbackIds: [feedbackId], starred: true }),
+  };
+
+  it.each(Object.keys(actions))("refuses edits once the feedback is %s", async (kind) => {
+    const { owner, round } = await openRound();
+    const { client, feedback } = await post(
+      `edit-locked-${kind}.near`,
+      round.id,
+      "original report",
+    );
+    await actions[kind]?.(owner, round.id, feedback.id);
+
+    await expect(
+      client.editFeedback({ id: round.id, feedbackId: feedback.id, body: "totally different" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    const unchanged = await owner.getFeedback({ id: round.id, feedbackId: feedback.id });
+    expect(unchanged.body).toBe("original report");
+    expect(unchanged.updatedAt).toBeNull();
+  });
+
+  it("allows edits again once the owner reopens the feedback and removes the star", async () => {
+    const { owner, round } = await openRound();
+    const { client, feedback } = await post("edit-reopened.near", round.id, "original report");
+    await actions.resolved?.(owner, round.id, feedback.id);
+    await actions.starred?.(owner, round.id, feedback.id);
+    await owner.setFeedbackStatus({
+      id: round.id,
+      feedbackIds: [feedback.id],
+      status: "unresolved",
+    });
+    await owner.setFeedbackStarred({ id: round.id, feedbackIds: [feedback.id], starred: false });
+
+    const edited = await client.editFeedback({
+      id: round.id,
+      feedbackId: feedback.id,
+      body: "reopened edit",
+    });
+    expect(edited.body).toBe("reopened edit");
+  });
+});

@@ -5,6 +5,10 @@ export function roundFeedbackPermissions(status: string, isExpired: boolean) {
   return { canEdit: canDelete && !isExpired, canDelete };
 }
 
+export function isFeedbackLocked(entry: { status: string; starredAt: string | null }): boolean {
+  return entry.status !== "unresolved" || entry.starredAt !== null;
+}
+
 export function isOwnFeedback(authorAccountId: string, currentAccountIds: string[]): boolean {
   return currentAccountIds.includes(authorAccountId);
 }

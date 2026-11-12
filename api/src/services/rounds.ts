@@ -330,7 +330,10 @@ export interface RoundsService {
   addFeedback(input: AddFeedbackInput): Promise<RoundFeedbackRecord>;
   listFeedback(roundId: string, page?: FeedbackPageInput): Promise<FeedbackPage>;
   getFeedback(roundId: string, feedbackId: string): Promise<RoundFeedbackRecord | null>;
-  /** Replaces the body or url of a feedback and stamps `updatedAt`; null when it doesn't exist. */
+  /**
+   * Replaces the body or url of a feedback and stamps `updatedAt`; null when it doesn't exist
+   * or the owner has already resolved, dismissed or starred it.
+   */
   updateFeedbackContent(
     feedbackId: string,
     content: { body: string | null; url: string | null },
@@ -997,7 +1000,13 @@ export const RoundsLive = Layer.effect(
           const [row] = await db
             .update(roundFeedbackTable)
             .set({ body: content.body, url: content.url, updatedAt: new Date() })
-            .where(eq(roundFeedbackTable.id, feedbackId))
+            .where(
+              and(
+                eq(roundFeedbackTable.id, feedbackId),
+                eq(roundFeedbackTable.status, "unresolved"),
+                isNull(roundFeedbackTable.starredAt),
+              ),
+            )
             .returning();
           return row ? toFeedbackRecord(row) : null;
         } catch (error) {
