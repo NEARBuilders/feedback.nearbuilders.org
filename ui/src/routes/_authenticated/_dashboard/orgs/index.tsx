@@ -137,7 +137,7 @@ function OrganizationsList() {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {pendingInvitations.map((invitation) => (
-                <Card key={invitation.id} className="p-6 space-y-4 hover:shadow-md">
+                <Card key={invitation.id} className="p-6 space-y-4">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-[10px] border border-border bg-muted flex items-center justify-center shrink-0">
                       <Mail className="h-5 w-5 text-muted-foreground" />
@@ -238,7 +238,7 @@ function OrganizationsList() {
                 ? org.slug === user.id || org.metadata?.isPersonal === true
                 : false;
               return (
-                <Card key={org.id} className="p-6 space-y-5 hover:shadow-md">
+                <Card key={org.id} className="p-6 space-y-5">
                   <div className="flex items-start gap-4">
                     {org.logo ? (
                       <img
