@@ -37,6 +37,7 @@ import {
 } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
 import { OrgTeams } from "@/components/org-teams";
+import { QueryError } from "@/components/query-error";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { pageHead } from "@/lib/page-title";
 import { organizationsQueryOptions } from "@/lib/queries/organizations";
@@ -96,44 +97,44 @@ function OrganizationDetail() {
   const activeOrgId = session?.session?.activeOrganizationId;
   const isActive = orgId === activeOrgId;
 
-  const members =
-    useQuery({
-      queryKey: orgMembersQueryKey(orgId),
-      queryFn: async (): Promise<MemberItem[]> => {
-        const { data, error } = await auth.organization.listMembers({
-          query: { organizationId: orgId },
-        });
-        if (error) throw new Error(error.message);
-        return (data?.members ?? []) as MemberItem[];
-      },
-      enabled: !!orgId,
-    }).data ?? [];
+  const membersQuery = useQuery({
+    queryKey: orgMembersQueryKey(orgId),
+    queryFn: async (): Promise<MemberItem[]> => {
+      const { data, error } = await auth.organization.listMembers({
+        query: { organizationId: orgId },
+      });
+      if (error) throw new Error(error.message);
+      return (data?.members ?? []) as MemberItem[];
+    },
+    enabled: !!orgId,
+  });
+  const members = membersQuery.data ?? [];
 
-  const invitations =
-    useQuery({
-      queryKey: orgInvitationsQueryKey(orgId),
-      queryFn: async (): Promise<InvitationItem[]> => {
-        const { data, error } = await auth.organization.listInvitations({
-          query: { organizationId: orgId },
-        });
-        if (error) throw new Error(error.message);
-        return (data ?? []) as InvitationItem[];
-      },
-      enabled: !!orgId,
-    }).data ?? [];
+  const invitationsQuery = useQuery({
+    queryKey: orgInvitationsQueryKey(orgId),
+    queryFn: async (): Promise<InvitationItem[]> => {
+      const { data, error } = await auth.organization.listInvitations({
+        query: { organizationId: orgId },
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as InvitationItem[];
+    },
+    enabled: !!orgId,
+  });
+  const invitations = invitationsQuery.data ?? [];
 
-  const apiKeys =
-    useQuery({
-      queryKey: orgApiKeysQueryKey(orgId),
-      queryFn: async (): Promise<ApiKeyItem[]> => {
-        const { data, error } = await auth.apiKey.list({
-          query: { configId: "org-keys", organizationId: orgId },
-        });
-        if (error) throw new Error(error.message);
-        return (data?.apiKeys ?? []) as ApiKeyItem[];
-      },
-      enabled: !!orgId,
-    }).data ?? [];
+  const apiKeysQuery = useQuery({
+    queryKey: orgApiKeysQueryKey(orgId),
+    queryFn: async (): Promise<ApiKeyItem[]> => {
+      const { data, error } = await auth.apiKey.list({
+        query: { configId: "org-keys", organizationId: orgId },
+      });
+      if (error) throw new Error(error.message);
+      return (data?.apiKeys ?? []) as ApiKeyItem[];
+    },
+    enabled: !!orgId,
+  });
+  const apiKeys = apiKeysQuery.data ?? [];
 
   const myMembership = members.find((m) => m.userId === session?.user?.id);
   const canManageMembers = myMembership?.role === "owner" || myMembership?.role === "admin";
@@ -510,7 +511,13 @@ function OrganizationDetail() {
         </TabsList>
 
         <TabsContent value="members" className="space-y-6 pt-4">
-          {members.length > 0 ? (
+          {membersQuery.isError ? (
+            <QueryError
+              message="Couldn't load members."
+              onRetry={() => void membersQuery.refetch()}
+              isRetrying={membersQuery.isFetching}
+            />
+          ) : members.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {members.map((member) => (
                 <MemberCard
@@ -569,6 +576,15 @@ function OrganizationDetail() {
           )}
 
           {(() => {
+            if (invitationsQuery.isError) {
+              return (
+                <QueryError
+                  message="Couldn't load invitations."
+                  onRetry={() => void invitationsQuery.refetch()}
+                  isRetrying={invitationsQuery.isFetching}
+                />
+              );
+            }
             const pendingInvitations = invitations.filter((i) => i.status === "pending");
             return pendingInvitations.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2">
@@ -611,7 +627,13 @@ function OrganizationDetail() {
             <ApiKeyReveal apiKey={createdApiKey} onDismiss={() => setCreatedApiKey(null)} />
           )}
 
-          {apiKeys.length > 0 ? (
+          {apiKeysQuery.isError ? (
+            <QueryError
+              message="Couldn't load API keys."
+              onRetry={() => void apiKeysQuery.refetch()}
+              isRetrying={apiKeysQuery.isFetching}
+            />
+          ) : apiKeys.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {apiKeys.map((key) => (
                 <Card key={key.id} className="p-5 space-y-3 hover:shadow-md">

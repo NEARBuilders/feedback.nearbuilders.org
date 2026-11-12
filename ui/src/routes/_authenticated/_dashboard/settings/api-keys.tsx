@@ -14,6 +14,7 @@ import {
   EmptyState,
   PageHeader,
 } from "@/components";
+import { QueryError } from "@/components/query-error";
 import { formatDateTime } from "@/lib/format-date";
 import { pageHead } from "@/lib/page-title";
 
@@ -47,18 +48,18 @@ function ApiKeysSettings() {
   const user = session?.user;
   const [createdApiKey, setCreatedApiKey] = useState<CreatedApiKey | null>(null);
 
-  const apiKeys =
-    useQuery({
-      queryKey: userApiKeysQueryKey,
-      queryFn: async (): Promise<ApiKeyItem[]> => {
-        const { data, error } = await auth.apiKey.list({
-          query: { configId: "user-keys" },
-        });
-        if (error) throw new Error(error.message);
-        return (data?.apiKeys ?? []) as ApiKeyItem[];
-      },
-      enabled: !!user,
-    }).data ?? [];
+  const apiKeysQuery = useQuery({
+    queryKey: userApiKeysQueryKey,
+    queryFn: async (): Promise<ApiKeyItem[]> => {
+      const { data, error } = await auth.apiKey.list({
+        query: { configId: "user-keys" },
+      });
+      if (error) throw new Error(error.message);
+      return (data?.apiKeys ?? []) as ApiKeyItem[];
+    },
+    enabled: !!user,
+  });
+  const apiKeys = apiKeysQuery.data ?? [];
 
   const createApiKeyMutation = useMutation({
     mutationFn: async (values: ApiKeyFormValues) => {
@@ -140,7 +141,13 @@ function ApiKeysSettings() {
         <ApiKeyReveal apiKey={createdApiKey} onDismiss={() => setCreatedApiKey(null)} />
       )}
 
-      {apiKeys.length > 0 ? (
+      {apiKeysQuery.isError ? (
+        <QueryError
+          message="Couldn't load your API keys."
+          onRetry={() => void apiKeysQuery.refetch()}
+          isRetrying={apiKeysQuery.isFetching}
+        />
+      ) : apiKeys.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
           {apiKeys.map((key) => (
             <Card key={key.id} className="p-5 space-y-3 hover:shadow-md">

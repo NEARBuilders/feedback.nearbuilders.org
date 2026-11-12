@@ -10,6 +10,7 @@ import {
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Button, Card } from "@/components";
 import { PageHeader } from "@/components/layout/page-header";
+import { QueryError } from "@/components/query-error";
 import { StatCard } from "@/components/stat-card";
 import { pageHead } from "@/lib/page-title";
 import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
@@ -68,10 +69,12 @@ function Home() {
 function TestingSummary() {
   const apiClient = useApiClient();
   const { accountId, isDetecting } = useNearAccountStatus();
-  const { data: joined, isLoading } = useQuery({
+  const joinedQuery = useQuery({
     ...joinedRoundsQueryOptions(apiClient),
     enabled: !!accountId,
   });
+  const { data: joined, isLoading } = joinedQuery;
+  const unavailable = isLoading || joinedQuery.isError;
 
   if (!accountId && !isDetecting) {
     return (
@@ -96,10 +99,17 @@ function TestingSummary() {
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           label="Need your feedback"
-          value={isLoading ? "—" : groups.needsFeedback.length}
+          value={unavailable ? "—" : groups.needsFeedback.length}
         />
-        <StatCard label="Rounds joined" value={isLoading ? "—" : (joined?.length ?? 0)} />
+        <StatCard label="Rounds joined" value={unavailable ? "—" : (joined?.length ?? 0)} />
       </div>
+      {joinedQuery.isError && (
+        <QueryError
+          message="Couldn't load your rounds."
+          onRetry={() => void joinedQuery.refetch()}
+          isRetrying={joinedQuery.isFetching}
+        />
+      )}
       <Button asChild variant="outline" size="sm">
         <Link to="/testing">
           go to testing
@@ -112,16 +122,25 @@ function TestingSummary() {
 
 function OwnerSummary({ orgId }: { orgId: string }) {
   const apiClient = useApiClient();
-  const { data, isLoading } = useQuery(ownerSummaryQueryOptions(apiClient, orgId));
+  const summaryQuery = useQuery(ownerSummaryQueryOptions(apiClient, orgId));
+  const { data, isLoading } = summaryQuery;
+  const unavailable = isLoading || summaryQuery.isError;
 
   return (
     <Card className="space-y-4 p-6">
       <SummaryHeader icon={LayoutDashboard} title="Managing" />
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Open rounds" value={isLoading ? "—" : (data?.openRounds ?? 0)} />
-        <StatCard label="Unresolved" value={isLoading ? "—" : (data?.unresolvedFeedback ?? 0)} />
-        <StatCard label="Pending" value={isLoading ? "—" : (data?.pendingProjects ?? 0)} />
+        <StatCard label="Open rounds" value={unavailable ? "—" : (data?.openRounds ?? 0)} />
+        <StatCard label="Unresolved" value={unavailable ? "—" : (data?.unresolvedFeedback ?? 0)} />
+        <StatCard label="Pending" value={unavailable ? "—" : (data?.pendingProjects ?? 0)} />
       </div>
+      {summaryQuery.isError && (
+        <QueryError
+          message="Couldn't load your summary."
+          onRetry={() => void summaryQuery.refetch()}
+          isRetrying={summaryQuery.isFetching}
+        />
+      )}
       <Button asChild variant="outline" size="sm">
         <Link to="/manage">
           go to manage
