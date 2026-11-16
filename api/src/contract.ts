@@ -101,6 +101,12 @@ export const ProjectWithRoundsSchema = ProjectSchema.extend({
 
 export type ProjectWithRounds = z.infer<typeof ProjectWithRoundsSchema>;
 
+/** A link the UI renders as clickable or loads as an image: http(s) only, never `javascript:` or `data:`. */
+export const HttpUrlSchema = z.url({
+  protocol: /^https?$/,
+  error: "Must be a valid http:// or https:// URL",
+});
+
 /** Upper bound on the winners a round owner can mark. */
 export const MAX_ROUND_WINNERS = 50;
 
@@ -556,7 +562,7 @@ const PostFeedbackInputSchema = z
     id: z.string(),
     format: RoundFeedbackFormatSchema,
     body: FeedbackBodySchema.optional(),
-    url: z.string().url("Must be a valid URL").optional(),
+    url: HttpUrlSchema.optional(),
   })
   .refine((v) => v.format !== "written" || !!v.body?.trim(), {
     message: "Written feedback needs a non-empty body",
@@ -571,7 +577,7 @@ const EditFeedbackInputSchema = z.object({
   id: z.string(),
   feedbackId: z.uuid(),
   body: FeedbackBodySchema.optional(),
-  url: z.string().url("Must be a valid URL").optional(),
+  url: HttpUrlSchema.optional(),
 });
 
 const MAX_README_LENGTH = 20000;
@@ -589,9 +595,9 @@ const CreateRoundInputSchema = z
     description: z.string().min(1, "Description is required").max(5000),
     readme: z.string().max(MAX_README_LENGTH).optional(),
     /** Storage-plugin public URL of an uploaded banner image. */
-    bannerUrl: z.string().url().optional(),
+    bannerUrl: HttpUrlSchema.optional(),
     formats: z.array(RoundFormatSchema).min(1, "Select at least one feedback format"),
-    repoUrl: z.string().url("Must be a valid URL").optional(),
+    repoUrl: HttpUrlSchema.optional(),
     /** Feedback readable only by the managing org/team and admins (#101). */
     isPrivate: z.boolean().optional(),
     /** Organizations to grant co-management alongside the round's creation (#280 follow-up). */
@@ -655,7 +661,7 @@ export const contract = oc.router({
         id: z.string(),
         readme: z.string().max(MAX_README_LENGTH).optional(),
         /** New banner URL, or null to remove it. */
-        bannerUrl: z.string().url().nullable().optional(),
+        bannerUrl: HttpUrlSchema.nullable().optional(),
         formats: z
           .array(RoundFormatSchema)
           .min(1, "Select at least one feedback format")
