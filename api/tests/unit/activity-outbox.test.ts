@@ -395,6 +395,94 @@ describe("accepting feedback", () => {
     });
   });
 
+  it("queues retractions for delivered events when a public round turns private", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "flip-private");
+      await rounds.setFeedbackActivityEventId(feedback.id, "posted-event");
+      await db
+        .update(roundFeedback)
+        .set({ acceptedActivityEventId: "accepted-event" })
+        .where(eq(roundFeedback.id, feedback.id));
+      await rounds.setFeedbackNostrEventId(feedback.id, "nostr-event");
+
+      const updated = await rounds.updateRoundSettings(round.id, { isPrivate: true });
+
+      const retracts = (await db.select().from(activityOutbox)).filter(
+        (row) => row.operation === "retract",
+      );
+      expect(retracts.map((row) => row.targetEventId).sort()).toEqual([
+        "accepted-event",
+        "posted-event",
+      ]);
+      expect(retracts.every((row) => row.status === "pending")).toBe(true);
+      expect(updated.isPrivate).toBe(true);
+      expect(updated.privacyNotice).toContain("Nostr");
+    });
+  });
+
+  it("queues nothing and gives no notice when a flipped round has no feedback", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds, projects } = harness;
+      const round = await rounds.createRound({
+        ownerAccountId: "owner.near",
+        ownerOrgId: "org-1",
+        projectSlug: "flip-empty",
+        title: "Try it",
+        description: "Please test",
+        formats: ["written"],
+      });
+      await projects.approveProject(round.projectRecordId);
+
+      const updated = await rounds.updateRoundSettings(round.id, { isPrivate: true });
+
+      expect(await db.select().from(activityOutbox)).toHaveLength(0);
+      expect(updated.privacyNotice).toBeNull();
+    });
+  });
+
+  it("gives no Nostr notice when the retracted feedback never went to Nostr", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "flip-no-nostr");
+      await rounds.setFeedbackActivityEventId(feedback.id, "posted-only");
+
+      const updated = await rounds.updateRoundSettings(round.id, { isPrivate: true });
+
+      expect(await db.select().from(activityOutbox)).toHaveLength(1);
+      expect(updated.privacyNotice).toBeNull();
+    });
+  });
+
+  it("queues nothing when a round turns public, or is already private", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "flip-public", true);
+      await rounds.setFeedbackActivityEventId(feedback.id, "posted-event");
+
+      const opened = await rounds.updateRoundSettings(round.id, { isPrivate: false });
+      const unchanged = await rounds.updateRoundSettings(round.id, { legionOnly: false });
+
+      expect(await db.select().from(activityOutbox)).toHaveLength(0);
+      expect(opened.privacyNotice).toBeNull();
+      expect(unchanged.privacyNotice).toBeNull();
+    });
+  });
+
+  it("does not queue a second retraction when the round is flipped private again", async () => {
+    await withHarness(async (harness) => {
+      const { db, rounds } = harness;
+      const { round, feedback } = await openRoundWithFeedback(harness, "flip-twice");
+      await rounds.setFeedbackActivityEventId(feedback.id, "posted-event");
+
+      await rounds.updateRoundSettings(round.id, { isPrivate: true });
+      await rounds.updateRoundSettings(round.id, { isPrivate: false });
+      await rounds.updateRoundSettings(round.id, { isPrivate: true });
+
+      expect(await db.select().from(activityOutbox)).toHaveLength(1);
+    });
+  });
+
   it("still cancels the queued emit after the round turns private", async () => {
     await withHarness(async (harness) => {
       const { db, rounds } = harness;

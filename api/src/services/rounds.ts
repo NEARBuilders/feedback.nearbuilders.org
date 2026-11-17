@@ -301,7 +301,11 @@ export interface RoundsService {
    */
   createRound(input: CreateRoundInput): Promise<RoundRecord>;
   updateRound(roundId: string, patch: RoundSettingsPatch): Promise<RoundRecord>;
-  updateRoundSettings(roundId: string, settings: RoundSettingsInput): Promise<RoundRecord>;
+  /** `privacyNotice` is set when going private left Nostr comments that can't be retracted. */
+  updateRoundSettings(
+    roundId: string,
+    settings: RoundSettingsInput,
+  ): Promise<RoundRecord & { privacyNotice: string | null }>;
   /**
    * Admin moderation: marks the round `rejected` so it leaves the public listing and
    * 404s for anyone who can't manage it, keeping feedback, credits and participants.
@@ -546,6 +550,39 @@ async function queueAcceptanceEvents(
   }
 }
 
+/**
+ * A round turning private must not leave its earlier feedback readable: queue a
+ * retraction for every delivered activity event. Nostr comments can't be
+ * retracted, so the returned notice tells the owner those copies remain.
+ */
+async function retractPublishedFeedback(tx: Transaction, roundId: string): Promise<string | null> {
+  const rows = await tx
+    .select({
+      activityEventId: roundFeedbackTable.activityEventId,
+      acceptedActivityEventId: roundFeedbackTable.acceptedActivityEventId,
+      nostrEventId: roundFeedbackTable.nostrEventId,
+    })
+    .from(roundFeedbackTable)
+    .where(eq(roundFeedbackTable.roundId, roundId));
+
+  let nostrCopies = 0;
+  for (const row of rows) {
+    if (row.nostrEventId) nostrCopies++;
+    for (const eventId of [row.activityEventId, row.acceptedActivityEventId]) {
+      if (!eventId) continue;
+      await enqueueActivity(tx, {
+        operation: "retract",
+        idempotencyKey: `retract:${eventId}`,
+        targetEventId: eventId,
+        reason: "round made private",
+      });
+    }
+  }
+
+  if (nostrCopies === 0) return null;
+  return `${nostrCopies} feedback comment${nostrCopies === 1 ? "" : "s"} already published to Nostr can't be retracted and will remain on relays.`;
+}
+
 type RoundCreditRow = typeof roundCreditsTable.$inferSelect;
 
 function toNoteRecord(row: typeof feedbackNotesTable.$inferSelect): FeedbackNoteRecord {
@@ -773,25 +810,36 @@ export const RoundsLive = Layer.effect(
 
       updateRoundSettings: async (roundId, settings) => {
         try {
-          const [updated] = await db
-            .update(roundsTable)
-            .set({
-              ...(settings.isPrivate !== undefined ? { isPrivate: settings.isPrivate } : {}),
-              ...(settings.legionOnly !== undefined ? { legionOnly: settings.legionOnly } : {}),
-              ...(settings.endsAt !== undefined
-                ? { endsAt: settings.endsAt ? new Date(settings.endsAt) : null }
-                : {}),
-              ...(settings.winners !== undefined
-                ? { winners: normalizeWinners(settings.winners) }
-                : {}),
-              updatedAt: new Date(),
-            })
-            .where(eq(roundsTable.id, roundId))
-            .returning();
-          if (!updated) {
-            throw new ORPCError("NOT_FOUND", { message: "Round not found" });
-          }
-          return toRoundRecord(updated);
+          return await db.transaction(async (tx) => {
+            const [before] = await tx
+              .select({ isPrivate: roundsTable.isPrivate })
+              .from(roundsTable)
+              .where(eq(roundsTable.id, roundId))
+              .limit(1);
+            const [updated] = await tx
+              .update(roundsTable)
+              .set({
+                ...(settings.isPrivate !== undefined ? { isPrivate: settings.isPrivate } : {}),
+                ...(settings.legionOnly !== undefined ? { legionOnly: settings.legionOnly } : {}),
+                ...(settings.endsAt !== undefined
+                  ? { endsAt: settings.endsAt ? new Date(settings.endsAt) : null }
+                  : {}),
+                ...(settings.winners !== undefined
+                  ? { winners: normalizeWinners(settings.winners) }
+                  : {}),
+                updatedAt: new Date(),
+              })
+              .where(eq(roundsTable.id, roundId))
+              .returning();
+            if (!updated) {
+              throw new ORPCError("NOT_FOUND", { message: "Round not found" });
+            }
+            const privacyNotice =
+              before && !before.isPrivate && updated.isPrivate
+                ? await retractPublishedFeedback(tx, roundId)
+                : null;
+            return { ...toRoundRecord(updated), privacyNotice };
+          });
         } catch (error) {
           throw toOrpcError(error);
         }

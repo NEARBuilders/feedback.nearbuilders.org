@@ -21,9 +21,10 @@ export function RoundSettingsPanel({
   const settingsMutation = useMutation({
     mutationFn: (input: { isPrivate?: boolean; legionOnly?: boolean; endsAt?: string | null }) =>
       apiClient.updateRoundSettings({ id: roundId, ...input }),
-    onSuccess: () => {
+    onSuccess: (updated) => {
       void invalidateRoundQueries(queryClient);
       toast.success("Round settings updated");
+      if (updated?.privacyNotice) toast.warning(updated.privacyNotice);
     },
     onError: (err: Error) => toast.error(err.message),
   });
