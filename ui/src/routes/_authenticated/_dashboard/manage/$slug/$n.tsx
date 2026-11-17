@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet, useMatch } from "@tanstack/react-router";
 import {
+  Bot,
   Eye,
   Inbox,
   LayoutDashboard,
@@ -98,6 +99,10 @@ function ConsoleLayout() {
           <RouteTab to="/manage/$slug/$n/broadcast" params={params}>
             <Megaphone />
             broadcast
+          </RouteTab>
+          <RouteTab to="/manage/$slug/$n/agent" params={params}>
+            <Bot />
+            agent
           </RouteTab>
           <RouteTab to="/manage/$slug/$n/settings" params={params}>
             <Settings />
