@@ -83,7 +83,7 @@ describe("createGithubIssuesLookup", () => {
 
     const result = await lookup.forRound(round);
 
-    expect(result).toEqual([
+    expect(result?.contributors).toEqual([
       {
         login: "alice",
         issues: [
@@ -157,7 +157,9 @@ describe("createGithubIssuesLookup", () => {
 
     const result = await lookup.forRound(round);
 
-    expect(result).toEqual([{ login: "carol", issues: [expect.objectContaining({ number: 5 })] }]);
+    expect(result?.contributors).toEqual([
+      { login: "carol", issues: [expect.objectContaining({ number: 5 })] },
+    ]);
   });
 
   it("excludes issues filed outside the round window", async () => {
@@ -173,7 +175,7 @@ describe("createGithubIssuesLookup", () => {
 
     const result = await lookup.forRound(round);
 
-    expect(result).toEqual([]);
+    expect(result?.contributors).toEqual([]);
   });
 
   it("treats a null windowEnd as still open, up to now", async () => {
@@ -186,7 +188,9 @@ describe("createGithubIssuesLookup", () => {
 
     const result = await lookup.forRound({ ...round, windowEnd: null });
 
-    expect(result).toEqual([{ login: "alice", issues: [expect.objectContaining({ number: 8 })] }]);
+    expect(result?.contributors).toEqual([
+      { login: "alice", issues: [expect.objectContaining({ number: 8 })] },
+    ]);
   });
 
   it("paginates until a page comes back short", async () => {
@@ -206,7 +210,111 @@ describe("createGithubIssuesLookup", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result?.[0]?.issues).toHaveLength(101);
+    expect(result?.contributors[0]?.issues).toHaveLength(101);
+  });
+
+  it("flags truncation when the page cap is hit with a full last page", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => rawIssue({ number: i + 1 }));
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse(fullPage));
+    const lookup = createGithubIssuesLookup({ fetch: fetchMock, logger: { warn } });
+
+    const result = await lookup.forRound(round);
+
+    expect(fetchMock).toHaveBeenCalledTimes(10);
+    expect(result?.truncated).toBe(true);
+  });
+
+  it("does not flag truncation when pagination finishes under the cap", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([rawIssue()]));
+    const lookup = createGithubIssuesLookup({ fetch: fetchMock, logger: { warn } });
+
+    expect((await lookup.forRound(round))?.truncated).toBe(false);
+  });
+
+  describe("caching", () => {
+    it("serves a closed round from cache for hours without refetching", async () => {
+      let clock = 1_000_000;
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([rawIssue()]));
+      const lookup = createGithubIssuesLookup({
+        fetch: fetchMock,
+        logger: { warn },
+        now: () => clock,
+      });
+
+      await lookup.forRound(round);
+      await Promise.resolve();
+      clock += 5 * 60 * 60 * 1000;
+      await lookup.forRound(round);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      clock += 2 * 60 * 60 * 1000;
+      await lookup.forRound(round);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("refreshes an open round after a short TTL", async () => {
+      let clock = 1_000_000;
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([rawIssue()]));
+      const lookup = createGithubIssuesLookup({
+        fetch: fetchMock,
+        logger: { warn },
+        now: () => clock,
+      });
+      const open = { ...round, windowEnd: null };
+
+      await lookup.forRound(open);
+      await Promise.resolve();
+      clock += 60 * 1000;
+      await lookup.forRound(open);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      clock += 2 * 60 * 1000;
+      await lookup.forRound(open);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("shares one upstream fetch between concurrent callers", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([rawIssue()]));
+      const lookup = createGithubIssuesLookup({ fetch: fetchMock, logger: { warn } });
+
+      await Promise.all([lookup.forRound(round), lookup.forRound(round), lookup.forRound(round)]);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("caches failures briefly so errors don't hammer GitHub, then retries", async () => {
+      let clock = 1_000_000;
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ message: "rate limited" }, 403))
+        .mockResolvedValue(jsonResponse([rawIssue()]));
+      const lookup = createGithubIssuesLookup({
+        fetch: fetchMock,
+        logger: { warn },
+        now: () => clock,
+      });
+
+      expect(await lookup.forRound(round)).toBeNull();
+      await Promise.resolve();
+      clock += 10 * 1000;
+      expect(await lookup.forRound(round)).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      clock += 30 * 1000;
+      expect((await lookup.forRound(round))?.contributors).toHaveLength(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("keys the cache by repo and window", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const lookup = createGithubIssuesLookup({ fetch: fetchMock, logger: { warn } });
+
+      await lookup.forRound(round);
+      await lookup.forRound({ ...round, repoUrl: "https://github.com/near/other" });
+      await lookup.forRound({ ...round, windowEnd: null });
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
   });
 
   it("returns null and logs when the GitHub API rejects the request", async () => {

@@ -72,8 +72,9 @@ export class GithubClient {
     owner: string;
     repo: string;
     since?: string;
-  }): Promise<GithubIssue[]> {
+  }): Promise<{ issues: GithubIssue[]; truncated: boolean }> {
     const issues: GithubIssue[] = [];
+    let truncated = false;
     for (let page = 1; page <= MAX_PAGES; page++) {
       const query = new URLSearchParams({
         state: "all",
@@ -98,8 +99,9 @@ export class GithubClient {
         });
       }
       if (batch.length < DEFAULT_PER_PAGE) break;
+      if (page === MAX_PAGES) truncated = true;
     }
-    return issues;
+    return { issues, truncated };
   }
 
   async #json<T>(path: string, init?: RequestInit): Promise<T> {

@@ -23,7 +23,13 @@ export interface GithubIssuesLookupOptions {
   token?: string | null;
   fetch?: FetchLike;
   logger?: LookupLogger;
+  now?: () => number;
 }
+
+const CLOSED_ROUND_TTL_MS = 6 * 60 * 60 * 1000;
+const OPEN_ROUND_TTL_MS = 2 * 60 * 1000;
+const FAILURE_TTL_MS = 30 * 1000;
+const MAX_CACHE_ENTRIES = 500;
 
 export interface RoundGithubIssuesInput {
   repoUrl: string;
@@ -45,8 +51,14 @@ export interface GithubIssueContributor {
   issues: GithubIssueSummary[];
 }
 
+export interface GithubIssuesResult {
+  contributors: GithubIssueContributor[];
+  /** True when the repo had more issues than the lookup is willing to page through. */
+  truncated: boolean;
+}
+
 export interface GithubIssuesLookup {
-  forRound(input: RoundGithubIssuesInput): Promise<GithubIssueContributor[] | null>;
+  forRound(input: RoundGithubIssuesInput): Promise<GithubIssuesResult | null>;
 }
 
 export function parseGithubRepo(repoUrl: string): { owner: string; repo: string } | null {
@@ -68,58 +80,91 @@ export function createGithubIssuesLookup(
   options: GithubIssuesLookupOptions = {},
 ): GithubIssuesLookup {
   const logger = options.logger ?? console;
+  const now = options.now ?? Date.now;
+  const cache = new Map<string, { expiresAt: number; value: Promise<GithubIssuesResult | null> }>();
   const client = new GithubClient({
     token: options.token || undefined,
     fetch: options.fetch,
     timeoutMs: REQUEST_TIMEOUT_MS,
   });
 
+  const compute = async ({
+    repoUrl,
+    windowStart,
+    windowEnd,
+  }: RoundGithubIssuesInput): Promise<GithubIssuesResult | null> => {
+    const parsed = parseGithubRepo(repoUrl);
+    if (!parsed) {
+      logger.warn(`[github-issues] repoUrl is not a github.com repo: ${repoUrl}`);
+      return null;
+    }
+
+    let issues: GithubIssue[];
+    let truncated: boolean;
+    try {
+      ({ issues, truncated } = await client.listRepoIssues({
+        owner: parsed.owner,
+        repo: parsed.repo,
+        since: windowStart,
+      }));
+    } catch (error) {
+      if (error instanceof GithubApiError) {
+        logger.warn(`[github-issues] listRepoIssues rejected: HTTP ${error.status}`);
+      } else {
+        logger.warn(
+          `[github-issues] listRepoIssues failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      return null;
+    }
+
+    const start = new Date(windowStart).getTime();
+    const end = windowEnd ? new Date(windowEnd).getTime() : now();
+    const byContributor = new Map<string, GithubIssueContributor>();
+
+    for (const issue of issues) {
+      if (!issue.login) continue;
+      const createdAt = new Date(issue.createdAt).getTime();
+      if (createdAt < start || createdAt > end) continue;
+
+      const entry = byContributor.get(issue.login) ?? { login: issue.login, issues: [] };
+      entry.issues.push({
+        number: issue.number,
+        title: issue.title,
+        url: issue.htmlUrl,
+        createdAt: issue.createdAt,
+      });
+      byContributor.set(issue.login, entry);
+    }
+
+    return {
+      contributors: [...byContributor.values()].sort((a, b) => a.login.localeCompare(b.login)),
+      truncated,
+    };
+  };
+
   return {
-    forRound: async ({ repoUrl, windowStart, windowEnd }) => {
-      const parsed = parseGithubRepo(repoUrl);
-      if (!parsed) {
-        logger.warn(`[github-issues] repoUrl is not a github.com repo: ${repoUrl}`);
-        return null;
-      }
+    forRound: (input) => {
+      const key = `${input.repoUrl}|${input.windowStart}|${input.windowEnd ?? ""}`;
+      const current = now();
+      const hit = cache.get(key);
+      if (hit && hit.expiresAt > current) return hit.value;
 
-      let issues: GithubIssue[];
-      try {
-        issues = await client.listRepoIssues({
-          owner: parsed.owner,
-          repo: parsed.repo,
-          since: windowStart,
-        });
-      } catch (error) {
-        if (error instanceof GithubApiError) {
-          logger.warn(`[github-issues] listRepoIssues rejected: HTTP ${error.status}`);
-        } else {
-          logger.warn(
-            `[github-issues] listRepoIssues failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
+      const value = compute(input);
+      const entry = { expiresAt: current + FAILURE_TTL_MS, value };
+      cache.delete(key);
+      cache.set(key, entry);
+      while (cache.size > MAX_CACHE_ENTRIES) {
+        const oldest = cache.keys().next().value;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
+      }
+      void value.then((result) => {
+        if (result) {
+          entry.expiresAt = now() + (input.windowEnd ? CLOSED_ROUND_TTL_MS : OPEN_ROUND_TTL_MS);
         }
-        return null;
-      }
-
-      const start = new Date(windowStart).getTime();
-      const end = windowEnd ? new Date(windowEnd).getTime() : Date.now();
-      const byContributor = new Map<string, GithubIssueContributor>();
-
-      for (const issue of issues) {
-        if (!issue.login) continue;
-        const createdAt = new Date(issue.createdAt).getTime();
-        if (createdAt < start || createdAt > end) continue;
-
-        const entry = byContributor.get(issue.login) ?? { login: issue.login, issues: [] };
-        entry.issues.push({
-          number: issue.number,
-          title: issue.title,
-          url: issue.htmlUrl,
-          createdAt: issue.createdAt,
-        });
-        byContributor.set(issue.login, entry);
-      }
-
-      return [...byContributor.values()].sort((a, b) => a.login.localeCompare(b.login));
+      });
+      return value;
     },
   };
 }
