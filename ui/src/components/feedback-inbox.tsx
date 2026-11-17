@@ -5,6 +5,7 @@ import { Button, Checkbox, ConfirmDialog } from "@/components";
 import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
+import { FeedbackSuggestionsPanel } from "@/components/feedback-suggestions-panel";
 import { exportFeedback, feedbackText } from "@/lib/feedback-export";
 import { inboxKeyAction, isTypingTarget } from "@/lib/inbox-keys";
 import type { FeedbackEntry, FeedbackStatus } from "@/lib/queries/feedback";
@@ -70,6 +71,7 @@ export function FeedbackInbox({ roundId, params, entries, openId, footer }: Feed
 
   return (
     <div className="space-y-3" data-testid="feedback-inbox">
+      <FeedbackSuggestionsPanel roundId={roundId} entries={entries} />
       <div className="flex min-h-9 flex-wrap items-center gap-2">
         <Checkbox
           aria-label="Select all loaded feedback"

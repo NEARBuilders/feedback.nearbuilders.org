@@ -246,6 +246,35 @@ export const roundFeedback = pgTable(
   }),
 );
 
+/**
+ * What an organization API key suggests doing with a feedback item (#296). Org keys are
+ * read-only, so an agent can only leave a suggestion here; a signed-in member accepts it
+ * (which runs the normal resolve, dismiss or star path) or rejects it. One live suggestion per
+ * item: a new one replaces the old.
+ */
+export const feedbackSuggestions = pgTable(
+  "feedback_suggestions",
+  {
+    feedbackId: uuid("feedback_id")
+      .primaryKey()
+      .references(() => roundFeedback.id, { onDelete: "cascade" }),
+    roundId: uuid("round_id")
+      .notNull()
+      .references(() => rounds.id, { onDelete: "cascade" }),
+    // Only "resolved" or "dismissed": the API never stores "unresolved" as a suggestion.
+    status: roundFeedbackStatus("status"),
+    star: boolean("star").default(false).notNull(),
+    note: text("note"),
+    // Audit trail: which key and organization made the suggestion.
+    suggestedByKeyId: text("suggested_by_key_id"),
+    organizationId: text("organization_id"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    roundIdx: index("feedback_suggestions_round_idx").on(table.roundId),
+  }),
+);
+
 export const feedbackNoteRole = pgEnum("feedback_note_role", ["owner", "tester"]);
 
 export const feedbackNotes = pgTable(
