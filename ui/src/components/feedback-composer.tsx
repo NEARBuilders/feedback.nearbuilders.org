@@ -7,6 +7,7 @@ import { useApiClient } from "@/app";
 import {
   Button,
   Card,
+  Checkbox,
   Field,
   FieldLabel,
   Input,
@@ -15,6 +16,12 @@ import {
 } from "@/components";
 import { useClientValue } from "@/hooks";
 import { FEEDBACK_TEXT_MAX, feedbackTextLength, hasUnuploadedImage } from "@/lib/feedback-body";
+import {
+  appendContext,
+  type FeedbackContext,
+  hasContext,
+  withBrowser,
+} from "@/lib/feedback-context";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
 import { myFeedbackHref, roundParams } from "@/lib/round-links";
@@ -41,15 +48,18 @@ function writableFormats(formats: string[]): FeedbackFormat[] {
 interface FeedbackComposerProps {
   round: RoundDetail;
   accountId: string | null;
+  /** Page details passed in by the embed launcher; the tester can switch them off (#299). */
+  context?: FeedbackContext;
 }
 
-export function FeedbackComposer({ round, accountId }: FeedbackComposerProps) {
+export function FeedbackComposer({ round, accountId, context }: FeedbackComposerProps) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const writable = writableFormats(round.formats);
   const [format, setFormat] = useState<FeedbackFormat>(writable[0] ?? "written");
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
   const [pendingUploads, setPendingUploads] = useState(0);
+  const [attach, setAttach] = useState(true);
   const [posted, setPosted] = useState(false);
   const [draftSaveFailed, setDraftSaveFailed] = useState(false);
   const canShare = useClientValue(() => typeof navigator.share === "function", false);
@@ -89,7 +99,10 @@ export function FeedbackComposer({ round, accountId }: FeedbackComposerProps) {
       apiClient.postFeedback({
         id: round.id,
         format,
-        body: format === "written" ? draft.body.trim() : undefined,
+        body:
+          format === "written"
+            ? appendContext(draft.body.trim(), attach && context ? withBrowser(context) : undefined)
+            : undefined,
         url: format === "recorded" ? draft.url.trim() : undefined,
       }),
     onSuccess: () => {
@@ -207,6 +220,24 @@ export function FeedbackComposer({ round, accountId }: FeedbackComposerProps) {
               An image didn't finish uploading (outlined in red). Remove it or paste it again before
               posting.
             </p>
+          )}
+          {hasContext(context) && (
+            <label
+              className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground"
+              htmlFor="feedback-attach-context"
+            >
+              <Checkbox
+                id="feedback-attach-context"
+                checked={attach}
+                disabled={postMutation.isPending}
+                onCheckedChange={(checked) => setAttach(checked === true)}
+              />
+              <span>
+                Include page details
+                {context.pageUrl ? `: ${context.pageUrl}` : ""}
+                {context.viewport ? ` (window ${context.viewport})` : ""}, plus your browser.
+              </span>
+            </label>
           )}
         </Field>
       ) : (

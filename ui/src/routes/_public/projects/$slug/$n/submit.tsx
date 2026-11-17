@@ -8,6 +8,7 @@ import { FeedbackComposer } from "@/components/feedback-composer";
 import { FeedbackList } from "@/components/feedback-list";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
 import { RouteError, RoutePending } from "@/components/route-states";
+import { contextFromSearch } from "@/lib/feedback-context";
 import { roundFeedbackPermissions } from "@/lib/feedback-edit";
 import { myFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { myFeedbackHref } from "@/lib/round-links";
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/_public/projects/$slug/$n/submit")({
 
 function SubmitFeedbackTab() {
   const params = Route.useParams();
+  const search = Route.useSearch();
   const round = useRound(params);
   const viewer = useRoundViewer(round);
   const feedbackPermissions = roundFeedbackPermissions(round.status, viewer.isExpired);
@@ -55,7 +57,13 @@ function SubmitFeedbackTab() {
 
   return (
     <div className="space-y-6">
-      {viewer.canPost && <FeedbackComposer round={round} accountId={viewer.accountId} />}
+      {viewer.canPost && (
+        <FeedbackComposer
+          round={round}
+          accountId={viewer.accountId}
+          context={contextFromSearch(search)}
+        />
+      )}
       <MySubmissions
         round={round}
         accountId={viewer.accountId}

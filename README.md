@@ -204,6 +204,14 @@ Optional attributes: `data-label` (button text) and `data-position="left"`. The 
 send-feedback page, so sign-in, joining and posting all happen on this site, where the session
 cookie works. The snippet is also shown on a round's settings tab in the console.
 
+## Page details on feedback
+
+When feedback is sent from the widget, or from a page opened by the embed button, the tester can
+attach the page address, their browser and their window size. The address never includes a query
+string or hash, everything is sanitized, and the tester can switch it off before sending. The
+details are appended to the feedback as a short markdown footer. Console errors and screenshots
+are not captured.
+
 ## Feedback images
 
 Images pasted or dropped into the feedback editor are uploaded to the storage plugin and live in
