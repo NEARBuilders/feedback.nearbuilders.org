@@ -14,6 +14,7 @@ import {
   EmptyState,
   PageHeader,
 } from "@/components";
+import { formatDateTime } from "@/lib/format-date";
 import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings/api-keys")({
@@ -50,7 +51,9 @@ function ApiKeysSettings() {
     useQuery({
       queryKey: userApiKeysQueryKey,
       queryFn: async (): Promise<ApiKeyItem[]> => {
-        const { data, error } = await auth.apiKey.list({});
+        const { data, error } = await auth.apiKey.list({
+          query: { configId: "user-keys" },
+        });
         if (error) throw new Error(error.message);
         return (data?.apiKeys ?? []) as ApiKeyItem[];
       },
@@ -60,6 +63,7 @@ function ApiKeysSettings() {
   const createApiKeyMutation = useMutation({
     mutationFn: async (values: ApiKeyFormValues) => {
       const { data, error } = await auth.apiKey.create({
+        configId: "user-keys",
         name: values.name,
         ...(values.expiresIn !== undefined ? { expiresIn: values.expiresIn } : {}),
       });
@@ -125,7 +129,7 @@ function ApiKeysSettings() {
         </div>
       </Card>
 
-      <Card className="p-6 hover:shadow-md">
+      <Card className="p-6">
         <ApiKeyForm
           onCreate={(values: ApiKeyFormValues) => createApiKeyMutation.mutate(values)}
           isPending={createApiKeyMutation.isPending}
@@ -139,7 +143,7 @@ function ApiKeysSettings() {
       {apiKeys.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
           {apiKeys.map((key) => (
-            <Card key={key.id} className="p-5 space-y-3 hover:shadow-md">
+            <Card key={key.id} className="p-5 space-y-3">
               <div className="space-y-1 min-w-0">
                 <div className="font-medium text-foreground break-all">{key.name ?? "unnamed"}</div>
                 <div className="text-xs text-muted-foreground font-mono">
@@ -147,8 +151,8 @@ function ApiKeysSettings() {
                 </div>
               </div>
               <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                <div>created {new Date(key.createdAt).toLocaleString()}</div>
-                {key.expiresAt && <div>expires {new Date(key.expiresAt).toLocaleString()}</div>}
+                <div>created {formatDateTime(key.createdAt)}</div>
+                {key.expiresAt && <div>expires {formatDateTime(key.expiresAt)}</div>}
               </div>
               <div className="flex gap-2">
                 <Button

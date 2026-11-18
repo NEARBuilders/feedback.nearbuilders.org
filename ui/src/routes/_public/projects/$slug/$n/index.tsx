@@ -12,6 +12,7 @@ import { RoundReadme } from "@/components/round-readme";
 import { RoundRepoLinks } from "@/components/round-repo-links";
 import { RoundWinnersBanner } from "@/components/round-winners";
 import { type LegionAccessResult, useLegionAccess } from "@/hooks/use-legion-access";
+import { formatDate } from "@/lib/format-date";
 import { roundEndorsementsQueryOptions, roundParticipantsQueryOptions } from "@/lib/queries/rounds";
 import { FORMAT_LABELS } from "@/lib/round-fields";
 import { type RoundDetail, useRound } from "@/lib/round-route";
@@ -20,10 +21,6 @@ import { useRoundViewer } from "@/lib/round-viewer";
 export const Route = createFileRoute("/_public/projects/$slug/$n/")({
   component: RoundOverviewPage,
 });
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString();
-}
 
 function RoundOverviewPage() {
   const params = Route.useParams();

@@ -54,6 +54,7 @@ describe("getRoundGithubIssues", () => {
   it("rejects a round that isn't collecting GitHub issues", async () => {
     const owner = await getPluginClient(nearAuthedContext("github-issues-owner.near"));
     const round = await owner.createRound({
+      isPrivate: false,
       projectSlug: "no-issues-project",
       title: "Written feedback only",
       description: "No GitHub issues collected on this round.",
@@ -73,6 +74,7 @@ describe("getRoundGithubIssues", () => {
     // the lookup's own unit tests (tests/unit/github-issues.test.ts) already
     // cover what happens once a repo is actually reachable.
     const round = await owner.createRound({
+      isPrivate: false,
       projectSlug: "issues-project",
       title: "File issues against our repo",
       description: "Break it and tell us on GitHub.",

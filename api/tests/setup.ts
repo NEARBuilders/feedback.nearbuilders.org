@@ -59,7 +59,15 @@ const mockNostrClient = { createComment: nostrCreateComment };
 export const authListTeams = vi.fn();
 export const authListTeamMembers = vi.fn();
 
-const mockAuthClient = { listTeams: authListTeams, listTeamMembers: authListTeamMembers };
+// Stand-in for the auth plugin's org directory (`listOrganizations`), which the
+// partner-management guard uses to resolve a slug and check approval status.
+export const authListOrganizations = vi.fn();
+
+const mockAuthClient = {
+  listTeams: authListTeams,
+  listTeamMembers: authListTeamMembers,
+  listOrganizations: authListOrganizations,
+};
 
 // Stand-in for the legion plugin's holder check (`plugins.legion` in src/index.ts).
 // Tests decide whether the checked account holds a Legion NFT (#128).

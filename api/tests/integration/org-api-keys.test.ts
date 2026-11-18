@@ -90,6 +90,7 @@ describe("organization API keys (#111)", () => {
       nearAuthedContext(`okey-pending-${n}.near`, `okey-pending-user-${n}`, orgId, "owner"),
     );
     const pending = await owner.createRound({
+      isPrivate: false,
       projectSlug: `okey-pending-project-${n}`,
       title: "Waiting for approval",
       description: "Pending.",

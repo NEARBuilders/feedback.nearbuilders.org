@@ -21,6 +21,11 @@ import { absoluteUrl, copyUrl } from "@/lib/share";
  * URL, so a round has one address whoever is looking at it.
  */
 export const Route = createFileRoute("/_public/projects/$slug/$n/submit")({
+  // `from` and `vp` come from the embed launcher: the host page address and window size (#294).
+  validateSearch: (search: Record<string, unknown>): { from?: string; vp?: string } => ({
+    from: typeof search.from === "string" ? search.from : undefined,
+    vp: typeof search.vp === "string" ? search.vp : undefined,
+  }),
   // Only the round is prefetched: listMyFeedback needs a session, and this tab
   // is reachable (and renders a join prompt) while signed out.
   loader: ({ context, params }) => loadRound(context, params),

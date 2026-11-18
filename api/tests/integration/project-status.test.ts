@@ -6,6 +6,7 @@ describe("getProjectStatus (#239)", () => {
   it("reports a pending project to anonymous callers without its private details", async () => {
     const owner = await clientFor("status-owner1.near");
     const pending = await owner.createRound({
+      isPrivate: false,
       projectSlug: freshSlug("status-pending"),
       title: "Secret launch plan",
       description: "Not approved yet",
@@ -60,6 +61,7 @@ describe("getProjectStatus (#239)", () => {
   it("reports a rejected project", async () => {
     const owner = await clientFor("status-owner3.near");
     const round = await owner.createRound({
+      isPrivate: false,
       projectSlug: freshSlug("status-rejected"),
       title: "Rejected",
       description: "Will be rejected",

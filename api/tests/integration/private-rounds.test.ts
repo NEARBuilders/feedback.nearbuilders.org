@@ -55,6 +55,20 @@ describe("private rounds (#101)", () => {
     expect(closedAgain.isPrivate).toBe(true);
   });
 
+  it("defaults a new round to private when no visibility is given (#263)", async () => {
+    const n = ++counter;
+    const owner = await getPluginClient(
+      nearAuthedContext(`def-owner-${n}.near`, `def-owner-user-${n}`, `def-org-${n}`, "owner"),
+    );
+    const round = await owner.createRound({
+      projectSlug: `default-private-${n}`,
+      title: `Default ${n}`,
+      description: "No visibility value given.",
+      formats: ["written"],
+    });
+    expect(round.isPrivate).toBe(true);
+  });
+
   it("refuses the settings change to everyone who can't manage the round", async () => {
     const { round } = await privateRound();
     const outsider = await getPluginClient(nearAuthedContext("priv-outsider.near"));

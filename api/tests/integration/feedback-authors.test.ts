@@ -7,6 +7,7 @@ async function openRound() {
   const n = ++counter;
   const owner = await getPluginClient(nearAuthedContext(`authors-owner-${n}.near`));
   const round = await owner.createRound({
+    isPrivate: false,
     projectSlug: `authors-project-${n}`,
     title: `Authors ${n}`,
     description: "Review by tester.",

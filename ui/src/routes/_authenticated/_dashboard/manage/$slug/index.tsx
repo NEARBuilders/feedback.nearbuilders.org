@@ -6,6 +6,7 @@ import { Button, SectionHeader } from "@/components";
 import { ActionCard } from "@/components/action-card";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
+import { ProjectPartners } from "@/components/project-partners";
 import { ProjectRoundsTable } from "@/components/project-rounds-table";
 import { RouteError, RouteNotFound, RoutePending } from "@/components/route-states";
 import { pageHead } from "@/lib/page-title";
@@ -80,6 +81,12 @@ function ProjectConsolePage() {
             </Link>
           </ActionCard>
         )}
+
+        <ProjectPartners
+          projectId={project.id}
+          partners={project.partners}
+          canManagePartners={project.canManagePartners}
+        />
 
         <section className="space-y-3">
           <SectionHeader title="Rounds" />

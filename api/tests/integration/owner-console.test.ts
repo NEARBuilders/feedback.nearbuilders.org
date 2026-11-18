@@ -23,6 +23,7 @@ describe("listFeedback filters (#115)", () => {
   it("hides a pending round's feedback from everyone but its managers", async () => {
     const owner = await getPluginClient(nearAuthedContext("inbox-owner2.near"));
     const pending = await owner.createRound({
+      isPrivate: false,
       projectSlug: freshSlug("inbox-pending"),
       title: "Pending",
       description: "Not approved yet",

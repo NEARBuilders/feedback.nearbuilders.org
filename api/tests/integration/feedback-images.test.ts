@@ -14,6 +14,7 @@ async function openRound() {
   const n = ++counter;
   const owner = await getPluginClient(nearAuthedContext(`img-owner-${n}.near`));
   const round = await owner.createRound({
+    isPrivate: false,
     projectSlug: `img-project-${n}`,
     title: `Images ${n}`,
     description: "Attach screenshots.",
@@ -198,6 +199,7 @@ describe("feedback images", () => {
     const owner = await getPluginClient(ctx);
     const bannerUrl = `https://cdn.test/feedback/img-owner-${n}-alt.near/1-banner.png`;
     const round = await owner.createRound({
+      isPrivate: false,
       projectSlug: `img-project-${n}`,
       title: `Images ${n}`,
       description: "Attach screenshots.",
@@ -222,6 +224,7 @@ describe("feedback images", () => {
       nearAuthedContext(`img-owner-${n}.near`, `img-owner-user-${n}`, orgId, "owner"),
     );
     const round = await owner.createRound({
+      isPrivate: false,
       projectSlug: `img-project-${n}`,
       title: `Images ${n}`,
       description: "Attach screenshots.",

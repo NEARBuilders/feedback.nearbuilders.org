@@ -91,7 +91,7 @@ describe("RoundsService", () => {
   it("creates the project pending, owned by the requesting org, and links the round to it", async () => {
     const layer = freshLayer();
     const round = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, projectName: "My Project" }),
+      svc.createRound({ isPrivate: false, ...baseInput, projectName: "My Project" }),
     );
 
     const project = await runService(layer, (_svc, projects) =>
@@ -168,7 +168,9 @@ describe("RoundsService", () => {
     const layer = freshLayer();
     await runService(layer, (svc) => svc.createRound(baseInput));
     await expect(
-      runService(layer, (svc) => svc.createRound({ ...baseInput, ownerOrgId: "org-2" })),
+      runService(layer, (svc) =>
+        svc.createRound({ isPrivate: false, ...baseInput, ownerOrgId: "org-2" }),
+      ),
     ).rejects.toThrow("belongs to another organization");
   });
 
@@ -190,7 +192,9 @@ describe("RoundsService", () => {
   it("doesn't leave a project behind when round creation fails", async () => {
     const layer = freshLayer();
     await expect(
-      runService(layer, (svc) => svc.createRound({ ...baseInput, ownerAccountId: null as never })),
+      runService(layer, (svc) =>
+        svc.createRound({ isPrivate: false, ...baseInput, ownerAccountId: null as never }),
+      ),
     ).rejects.toThrow();
     const project = await runService(layer, (_svc, projects) =>
       projects.resolveProjectBySlug("my-project"),
@@ -201,7 +205,7 @@ describe("RoundsService", () => {
   it("stores a readme at creation and lets it be replaced", async () => {
     const layer = freshLayer();
     const created = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, readme: "# Steps" }),
+      svc.createRound({ isPrivate: false, ...baseInput, readme: "# Steps" }),
     );
     expect(created.readme).toBe("# Steps");
 
@@ -219,6 +223,7 @@ describe("RoundsService", () => {
     const layer = freshLayer();
     const created = await runService(layer, (svc) =>
       svc.createRound({
+        isPrivate: false,
         ...baseInput,
         formats: ["written", "recorded", "issues"],
         repoUrl: "https://github.com/near/feedback",
@@ -297,7 +302,7 @@ describe("RoundsService", () => {
   it("derives credit candidates and closes a round with credit", async () => {
     const layer = freshLayer();
     const round = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, formats: ["written", "recorded"] }),
+      svc.createRound({ isPrivate: false, ...baseInput, formats: ["written", "recorded"] }),
     );
     await approveProjectOf(layer, round);
     await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
@@ -406,6 +411,7 @@ describe("RoundsService", () => {
 
     const withIssues = await runService(layer, (svc) =>
       svc.createRound({
+        isPrivate: false,
         ...baseInput,
         title: "Round with issues",
         formats: ["written", "issues"],
@@ -430,7 +436,12 @@ describe("RoundsService", () => {
     );
 
     const writtenOnly = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, title: "Written-only round", formats: ["written"] }),
+      svc.createRound({
+        isPrivate: false,
+        ...baseInput,
+        title: "Written-only round",
+        formats: ["written"],
+      }),
     );
     await runService(layer, (svc) => svc.addParticipant(writtenOnly.id, "tester.near"));
     await runService(layer, (svc) =>
@@ -469,7 +480,7 @@ describe("RoundsService", () => {
   it("does not surface open rounds or other builders' credit on a profile", async () => {
     const layer = freshLayer();
     const round = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, formats: ["written"] }),
+      svc.createRound({ isPrivate: false, ...baseInput, formats: ["written"] }),
     );
     await approveProjectOf(layer, round);
     await runService(layer, (svc) => svc.addParticipant(round.id, "alice.near"));
@@ -509,10 +520,15 @@ describe("RoundsService", () => {
   it("lists rounds and filters by status", async () => {
     const layer = freshLayer();
     const first = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, title: "First" }),
+      svc.createRound({ isPrivate: false, ...baseInput, title: "First" }),
     );
     const second = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, projectSlug: "other-project", title: "Second" }),
+      svc.createRound({
+        isPrivate: false,
+        ...baseInput,
+        projectSlug: "other-project",
+        title: "Second",
+      }),
     );
     await approveProjectOf(layer, first);
     await runService(layer, (_svc, projects) =>
@@ -539,10 +555,11 @@ describe("RoundsService", () => {
   it("filters rounds by the organization that owns their project", async () => {
     const layer = freshLayer();
     const inOrgOne = await runService(layer, (svc) =>
-      svc.createRound({ ...baseInput, title: "Org one" }),
+      svc.createRound({ isPrivate: false, ...baseInput, title: "Org one" }),
     );
     const inOrgTwo = await runService(layer, (svc) =>
       svc.createRound({
+        isPrivate: false,
         ...baseInput,
         ownerOrgId: "org-2",
         projectSlug: "other-project",

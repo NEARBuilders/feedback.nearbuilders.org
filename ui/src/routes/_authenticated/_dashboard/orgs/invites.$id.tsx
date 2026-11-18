@@ -4,6 +4,7 @@ import { CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthClient } from "@/app";
 import { Badge, Button, Card, CardContent, PageHeader } from "@/components";
+import { formatDate } from "@/lib/format-date";
 import { pageHead } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/orgs/invites/$id")({
@@ -140,7 +141,7 @@ function AcceptInvitation() {
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">expires</span>
-              <span>{new Date(invitation.expiresAt).toLocaleDateString()}</span>
+              <span>{formatDate(invitation.expiresAt)}</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">status</span>

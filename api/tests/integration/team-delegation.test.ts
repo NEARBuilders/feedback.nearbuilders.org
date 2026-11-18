@@ -27,6 +27,7 @@ async function projectWithRound(): Promise<Setup> {
   );
   const ownerClient = await getPluginClient(asOwner);
   const round = await ownerClient.createRound({
+    isPrivate: false,
     projectSlug: `delegation-project-${n}`,
     title: `Delegation ${n}`,
     description: "Walk through the flow.",

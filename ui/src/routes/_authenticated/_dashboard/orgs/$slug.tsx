@@ -37,7 +37,9 @@ import {
 } from "@/components";
 import { useSwitchOrganization } from "@/components/layout/use-switch-organization";
 import { OrgTeams } from "@/components/org-teams";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { pageHead } from "@/lib/page-title";
+import { organizationsQueryOptions } from "@/lib/queries/organizations";
 
 type AuthClientType = import("@/app").AuthClient;
 
@@ -69,14 +71,11 @@ export const Route = createFileRoute("/_authenticated/_dashboard/orgs/$slug")({
     await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),
     );
-    await context.queryClient.ensureQueryData({
-      queryKey: ["organizations"],
-      queryFn: async () => {
-        const { data } = await context.authClient.organization.list();
-        return (data || []) as Organization[];
-      },
-      staleTime: 30 * 1000,
-    });
+    // The SSR auth client carries no cookies, so this fetch would always fail
+    // server-side; let the browser fetch it with the session after hydration.
+    if (typeof window !== "undefined") {
+      await context.queryClient.ensureQueryData(organizationsQueryOptions(context.authClient));
+    }
   },
   component: OrganizationDetail,
 });
@@ -89,14 +88,8 @@ function OrganizationDetail() {
 
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
 
-  const { data: organizations = [], isLoading: isLoadingOrgs } = useQuery({
-    queryKey: ["organizations"],
-    queryFn: async () => {
-      const { data } = await auth.organization.list();
-      return (data || []) as Organization[];
-    },
-    staleTime: 30 * 1000,
-  });
+  const organizationsQuery = useQuery(organizationsQueryOptions(auth));
+  const organizations = organizationsQuery.data ?? [];
 
   const org = organizations.find((o: Organization) => o.slug === orgSlug);
   const orgId = org?.id ?? "";
@@ -334,11 +327,35 @@ function OrganizationDetail() {
   const [editName, setEditName] = useState("");
   const [editSlug, setEditSlug] = useState("");
 
-  if (isLoadingOrgs) {
+  if (organizationsQuery.isPending || (organizationsQuery.isFetching && !organizationsQuery.data)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh]">
         <p className="text-sm text-muted-foreground">Loading organization...</p>
       </div>
+    );
+  }
+
+  if (organizationsQuery.isError) {
+    return (
+      <SharedEmptyState
+        icon={Building2}
+        title="Couldn't load your organizations"
+        description={
+          organizationsQuery.error instanceof Error
+            ? organizationsQuery.error.message
+            : "Something went wrong while fetching your organizations."
+        }
+        action={
+          <div className="flex gap-2">
+            <Button onClick={() => organizationsQuery.refetch()} variant="outline">
+              retry
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/orgs">back to organizations</Link>
+            </Button>
+          </div>
+        }
+      />
     );
   }
 
@@ -373,7 +390,7 @@ function OrganizationDetail() {
         title={org.name}
       />
 
-      <Card className="p-6 space-y-4 hover:shadow-md">
+      <Card className="p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Chip>organization</Chip>
           {isActive && <Chip accent>active</Chip>}
@@ -383,9 +400,7 @@ function OrganizationDetail() {
           <InfoRow label="members" value={String(members.length)} />
           <InfoRow label="invites" value={String(pendingInvitationsCount)} />
           <InfoRow label="api keys" value={String(apiKeys.length)} />
-          {org.createdAt && (
-            <InfoRow label="created" value={new Date(org.createdAt).toLocaleDateString()} />
-          )}
+          {org.createdAt && <InfoRow label="created" value={formatDate(org.createdAt)} />}
         </div>
         <div className="flex flex-wrap gap-2">
           {!isActive && (
@@ -438,7 +453,7 @@ function OrganizationDetail() {
       </Card>
 
       {isEditing && isOwner && (
-        <Card className="p-6 space-y-4 hover:shadow-md">
+        <Card className="p-6 space-y-4">
           <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             Edit Organization
           </div>
@@ -523,7 +538,7 @@ function OrganizationDetail() {
 
         <TabsContent value="invitations" className="space-y-6 pt-4">
           {canManageMembers && !isPersonal && (
-            <Card className="p-6 space-y-4 hover:shadow-md">
+            <Card className="p-6 space-y-4">
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Invite member
               </div>
@@ -584,7 +599,7 @@ function OrganizationDetail() {
 
         <TabsContent value="apikeys" className="space-y-6 pt-4">
           {canManageMembers && (
-            <Card className="p-6 hover:shadow-md">
+            <Card className="p-6">
               <ApiKeyForm
                 onCreate={(values: ApiKeyFormValues) => createApiKeyMutation.mutate(values)}
                 isPending={createApiKeyMutation.isPending}
@@ -599,7 +614,7 @@ function OrganizationDetail() {
           {apiKeys.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {apiKeys.map((key) => (
-                <Card key={key.id} className="p-5 space-y-3 hover:shadow-md">
+                <Card key={key.id} className="p-5 space-y-3">
                   <div className="space-y-1 min-w-0">
                     <div className="font-medium text-foreground break-all">
                       {key.name ?? "unnamed"}
@@ -609,8 +624,8 @@ function OrganizationDetail() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                    <div>created {new Date(key.createdAt).toLocaleString()}</div>
-                    {key.expiresAt && <div>expires {new Date(key.expiresAt).toLocaleString()}</div>}
+                    <div>created {formatDateTime(key.createdAt)}</div>
+                    {key.expiresAt && <div>expires {formatDateTime(key.expiresAt)}</div>}
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -676,7 +691,7 @@ function MemberCard({
   const user = member.user;
 
   return (
-    <Card className="hover:shadow-md">
+    <Card>
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -779,7 +794,7 @@ function InvitationCard({
   isCancelling?: boolean;
 }) {
   return (
-    <Card className="hover:shadow-md">
+    <Card>
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1 min-w-0">
@@ -810,7 +825,7 @@ function InvitationCard({
           </div>
         </div>
         <div className="text-xs text-muted-foreground">
-          expires {new Date(invitation.expiresAt).toLocaleString()}
+          expires {formatDateTime(invitation.expiresAt)}
         </div>
       </CardContent>
     </Card>

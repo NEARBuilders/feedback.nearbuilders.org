@@ -2,6 +2,7 @@ import { Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button, Card, CardContent, Input, Label } from "@/components";
+import { formatDateTime } from "@/lib/format-date";
 
 export interface ApiKeyFormValues {
   name: string;
@@ -135,7 +136,7 @@ export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
           <InfoRow label="name" value={apiKey.name ?? "unnamed"} />
           <InfoRow label="prefix" value={`${apiKey.prefix ?? "api_"}...`} mono />
-          <InfoRow label="created" value={new Date(apiKey.createdAt).toLocaleString()} />
+          <InfoRow label="created" value={formatDateTime(apiKey.createdAt)} />
         </div>
       </CardContent>
     </Card>

@@ -191,6 +191,19 @@ and deleting are refused. A key is denied for projects owned by other organizati
 `api_…` keys are not covered. Access is decided in one place (the round-access actor), so HTTP and
 MCP behave identically.
 
+## Embeddable feedback button
+
+A project can add a feedback button to its own app with one line:
+
+```html
+<script src="https://feedback.nearbuilders.org/embed.js" data-project="your-project-slug" defer></script>
+```
+
+Optional attributes: `data-label` (button text) and `data-position="left"`. The button opens
+`/send/<slug>` in a popup. That page finds the project's latest open round and forwards to its
+send-feedback page, so sign-in, joining and posting all happen on this site, where the session
+cookie works. The snippet is also shown on a round's settings tab in the console.
+
 ## Feedback images
 
 Images pasted or dropped into the feedback editor are uploaded to the storage plugin and live in

@@ -1,16 +1,25 @@
 import { ORPCError } from "@orpc/server";
-import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import type { Database } from "../db/layer";
 import { DatabaseTag } from "../db/layer";
 import {
+  accessGrants as accessGrantsTable,
   type projectStatus,
   projects as projectsTable,
   type roundStatus,
   rounds as roundsTable,
 } from "../db/schema";
+import type { AccessGrantSubject } from "./round-access";
 
 export type ProjectStatus = (typeof projectStatus)["enumValues"][number];
+
+export interface ProjectAccessGrant extends AccessGrantSubject {
+  /** Display snapshot for org principals, so the UI never needs live org lookups. */
+  orgSlug: string | null;
+  addedByAccountId: string;
+  createdAt: string;
+}
 
 export interface ProjectRecord {
   id: string;
@@ -20,6 +29,13 @@ export interface ProjectRecord {
   ownerOrgId: string | null;
   /** Team the owning org delegated round management to; null means any org member. */
   managingTeamId: string | null;
+  /**
+   * Principals granted management beyond the owner (#279). Attached by the
+   * resolve/list loaders; rows built inside the create-round transaction carry
+   * none, and nothing in that flow consults grants — partners manage existing
+   * rounds, they never create rounds under someone else's project.
+   */
+  accessGrants: ProjectAccessGrant[];
   nearbuildersProjectId: string | null;
   /** Contact the requester volunteered on the round form (telegram/email/URL). */
   contact: string | null;
@@ -58,8 +74,35 @@ export interface ProjectRecordsService {
   resolveProjectBySlug(slug: string): Promise<ProjectRecord | null>;
   /** Delegates round management to a team, or back to every org member with null. */
   setManagingTeam(id: string, teamId: string | null): Promise<ProjectRecord | null>;
+  /**
+   * Transfers the project to another organization, or back to creator ownership with null.
+   * A cross-org move clears the team delegation — the old org's team must not gate the new
+   * owner's members; the new owner re-delegates if wanted.
+   */
+  setProjectOwner(id: string, ownerOrgId: string | null): Promise<ProjectRecord | null>;
+  /**
+   * Grants a principal management of the project's rounds (#279). Idempotent;
+   * v1 writes org principals with the "manage" permission.
+   */
+  addAccessGrant(
+    projectId: string,
+    grant: {
+      principalType: "org" | "team";
+      principalId: string;
+      permission: "manage" | "read";
+      orgSlug?: string | null;
+    },
+    addedByAccountId: string,
+  ): Promise<ProjectRecord | null>;
+  /** Withdraws a grant; null when the project itself is gone. */
+  removeAccessGrant(
+    projectId: string,
+    principalType: "org" | "team",
+    principalId: string,
+  ): Promise<ProjectRecord | null>;
   getProjectWithRounds(id: string): Promise<ProjectWithRounds | null>;
   listProjects(status?: ProjectStatus): Promise<ProjectWithRounds[]>;
+  /** Projects the org owns or has been granted management of (#279). */
   listProjectsByOrg(orgId: string): Promise<ProjectWithRounds[]>;
   /** Pending -> approved, opening the project's pending rounds. Throws BAD_REQUEST otherwise. */
   approveProject(id: string): Promise<ProjectDecisionResult>;
@@ -90,6 +133,7 @@ export function toProjectRecord(row: ProjectRow): ProjectRecord {
     name: row.name,
     ownerOrgId: row.ownerOrgId,
     managingTeamId: row.managingTeamId,
+    accessGrants: [],
     nearbuildersProjectId: row.nearbuildersProjectId,
     contact: row.contact,
     status: row.status,
@@ -101,6 +145,56 @@ export function toProjectRecord(row: ProjectRow): ProjectRecord {
     createdAt: iso(row.createdAt) ?? "",
     updatedAt: iso(row.updatedAt) ?? "",
   };
+}
+
+/**
+ * Attaches each project's access grants in one batched query. This is the seam
+ * where grants enter the access decision: if the source ever moves to a
+ * canonical NearBuilders API, only this function changes.
+ */
+async function attachGrants<T extends ProjectRecord>(db: Database, records: T[]): Promise<T[]> {
+  if (records.length === 0) return records;
+  const rows = await db
+    .select()
+    .from(accessGrantsTable)
+    .where(
+      inArray(
+        accessGrantsTable.projectId,
+        records.map((record) => record.id),
+      ),
+    );
+  const byProject = new Map<string, ProjectAccessGrant[]>();
+  for (const row of rows) {
+    const grant: ProjectAccessGrant = {
+      principalType: row.principalType,
+      principalId: row.principalId,
+      permission: row.permission,
+      orgSlug: row.orgSlug,
+      addedByAccountId: row.addedByAccountId,
+      createdAt: iso(row.createdAt) ?? "",
+    };
+    const existing = byProject.get(row.projectId);
+    if (existing) existing.push(grant);
+    else byProject.set(row.projectId, [grant]);
+  }
+  return records.map((record) => ({
+    ...record,
+    accessGrants: byProject.get(record.id) ?? [],
+  }));
+}
+
+/** Grants principal filter shared by the "owned or granted" org queries (#279). */
+export function grantedProjectIds(db: Database, orgId: string) {
+  return db
+    .select({ projectId: accessGrantsTable.projectId })
+    .from(accessGrantsTable)
+    .where(
+      and(
+        eq(accessGrantsTable.principalType, "org"),
+        eq(accessGrantsTable.principalId, orgId),
+        eq(accessGrantsTable.permission, "manage"),
+      ),
+    );
 }
 
 function toOrpcError(error: unknown): ORPCError<string, unknown> {
@@ -120,6 +214,45 @@ export interface EnsureProjectInput {
   nearbuildersProjectId?: string | null;
   /** Contact volunteered on the round request form, stored for admin diligence. */
   contact?: string | null;
+}
+
+/** One org manage-grant to write alongside round creation (#280 follow-up). */
+export interface EnsureAccessGrantInput {
+  principalId: string;
+  orgSlug: string;
+}
+
+/**
+ * Inserts org manage-grants inside the create-round transaction, so a round
+ * never exists without the partners its creator requested. Idempotent on
+ * (projectId, principalType, principalId).
+ */
+export async function ensureAccessGrants(
+  tx: Transaction,
+  projectId: string,
+  partners: EnsureAccessGrantInput[],
+  addedByAccountId: string,
+): Promise<void> {
+  if (partners.length === 0) return;
+  await tx
+    .insert(accessGrantsTable)
+    .values(
+      partners.map((partner) => ({
+        projectId,
+        principalType: "org" as const,
+        principalId: partner.principalId,
+        permission: "manage" as const,
+        orgSlug: partner.orgSlug,
+        addedByAccountId,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [
+        accessGrantsTable.projectId,
+        accessGrantsTable.principalType,
+        accessGrantsTable.principalId,
+      ],
+    });
 }
 
 /**
@@ -279,7 +412,9 @@ export const ProjectRecordsLive = Layer.effect(
             .from(projectsTable)
             .where(eq(projectsTable.id, id))
             .limit(1);
-          return row ? toProjectRecord(row) : null;
+          if (!row) return null;
+          const [record] = await attachGrants(db, [toProjectRecord(row)]);
+          return record ?? null;
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -292,7 +427,91 @@ export const ProjectRecordsLive = Layer.effect(
             .set({ managingTeamId: teamId, updatedAt: new Date() })
             .where(eq(projectsTable.id, id))
             .returning();
-          return row ? toProjectRecord(row) : null;
+          if (!row) return null;
+          const [record] = await attachGrants(db, [toProjectRecord(row)]);
+          return record ?? null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setProjectOwner: async (id, ownerOrgId) => {
+        try {
+          const [current] = await db
+            .select({ ownerOrgId: projectsTable.ownerOrgId })
+            .from(projectsTable)
+            .where(eq(projectsTable.id, id))
+            .limit(1);
+          if (!current) return null;
+          const crossOrg = current.ownerOrgId !== ownerOrgId;
+          const [row] = await db
+            .update(projectsTable)
+            .set({
+              ownerOrgId,
+              ...(crossOrg ? { managingTeamId: null } : {}),
+              updatedAt: new Date(),
+            })
+            .where(eq(projectsTable.id, id))
+            .returning();
+          if (!row) return null;
+          const [record] = await attachGrants(db, [toProjectRecord(row)]);
+          return record ?? null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      addAccessGrant: async (projectId, grant, addedByAccountId) => {
+        try {
+          await db
+            .insert(accessGrantsTable)
+            .values({
+              projectId,
+              principalType: grant.principalType,
+              principalId: grant.principalId,
+              permission: grant.permission,
+              orgSlug: grant.orgSlug ?? null,
+              addedByAccountId,
+            })
+            .onConflictDoNothing({
+              target: [
+                accessGrantsTable.projectId,
+                accessGrantsTable.principalType,
+                accessGrantsTable.principalId,
+              ],
+            });
+          const [row] = await db
+            .select()
+            .from(projectsTable)
+            .where(eq(projectsTable.id, projectId))
+            .limit(1);
+          if (!row) return null;
+          const [record] = await attachGrants(db, [toProjectRecord(row)]);
+          return record ?? null;
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      removeAccessGrant: async (projectId, principalType, principalId) => {
+        try {
+          await db
+            .delete(accessGrantsTable)
+            .where(
+              and(
+                eq(accessGrantsTable.projectId, projectId),
+                eq(accessGrantsTable.principalType, principalType),
+                eq(accessGrantsTable.principalId, principalId),
+              ),
+            );
+          const [row] = await db
+            .select()
+            .from(projectsTable)
+            .where(eq(projectsTable.id, projectId))
+            .limit(1);
+          if (!row) return null;
+          const [record] = await attachGrants(db, [toProjectRecord(row)]);
+          return record ?? null;
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -305,7 +524,9 @@ export const ProjectRecordsLive = Layer.effect(
             .from(projectsTable)
             .where(eq(projectsTable.slug, slug))
             .limit(1);
-          return row ? toProjectRecord(row) : null;
+          if (!row) return null;
+          const [record] = await attachGrants(db, [toProjectRecord(row)]);
+          return record ?? null;
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -320,7 +541,9 @@ export const ProjectRecordsLive = Layer.effect(
             .limit(1);
           if (!row) return null;
           const [withRoundsRow] = await withRounds(db, [row]);
-          return withRoundsRow ?? null;
+          if (!withRoundsRow) return null;
+          const [granted] = await attachGrants(db, [withRoundsRow]);
+          return granted ?? null;
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -333,7 +556,7 @@ export const ProjectRecordsLive = Layer.effect(
             .from(projectsTable)
             .where(status ? eq(projectsTable.status, status) : undefined)
             .orderBy(desc(projectsTable.createdAt));
-          return await withRounds(db, rows);
+          return await attachGrants(db, await withRounds(db, rows));
         } catch (error) {
           throw toOrpcError(error);
         }
@@ -344,9 +567,14 @@ export const ProjectRecordsLive = Layer.effect(
           const rows = await db
             .select()
             .from(projectsTable)
-            .where(eq(projectsTable.ownerOrgId, orgId))
+            .where(
+              or(
+                eq(projectsTable.ownerOrgId, orgId),
+                inArray(projectsTable.id, grantedProjectIds(db, orgId)),
+              ),
+            )
             .orderBy(desc(projectsTable.createdAt));
-          return await withRounds(db, rows);
+          return await attachGrants(db, await withRounds(db, rows));
         } catch (error) {
           throw toOrpcError(error);
         }

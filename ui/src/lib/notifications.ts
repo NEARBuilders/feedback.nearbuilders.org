@@ -1,3 +1,5 @@
+import { formatDate } from "./format-date";
+
 export type BroadcastKind = "round_opened" | "round_closing" | "custom";
 
 export const BROADCAST_PRESETS: Array<{ value: BroadcastKind; label: string; hint: string }> = [
@@ -36,7 +38,7 @@ export function formatRelativeTime(iso: string, now: number = Date.now()): strin
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(then).toLocaleDateString();
+  return formatDate(then);
 }
 
 export function canSendBroadcast(

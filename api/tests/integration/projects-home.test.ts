@@ -8,6 +8,7 @@ describe("listPublicProjects (#119)", () => {
     const slug = freshSlug("home-public-safe");
     const ownerClient = await clientFor("home-public-safe-owner.near");
     const round = await ownerClient.createRound({
+      isPrivate: false,
       projectSlug: slug,
       title: "Public project",
       description: "Public description",
@@ -33,6 +34,7 @@ describe("listPublicProjects (#119)", () => {
     const { round, ownerClient } = await createOpenRound("home-owner1.near", { projectSlug: slug });
     await ownerClient.closeRound({ id: round.id });
     await ownerClient.createRound({
+      isPrivate: false,
       projectSlug: slug,
       title: "Round two",
       description: "Again",
@@ -40,6 +42,7 @@ describe("listPublicProjects (#119)", () => {
     });
     const pending = freshSlug("home-pending");
     await ownerClient.createRound({
+      isPrivate: false,
       projectSlug: pending,
       title: "Pending",
       description: "Not approved",
@@ -61,6 +64,7 @@ describe("getProjectBySlug (#119)", () => {
     const slug = freshSlug("home-detail-safe");
     const ownerClient = await clientFor("home-detail-safe-owner.near");
     const round = await ownerClient.createRound({
+      isPrivate: false,
       projectSlug: slug,
       title: "Public project",
       description: "Public description",
@@ -83,6 +87,7 @@ describe("getProjectBySlug (#119)", () => {
     const slug = freshSlug("home-managed-detail");
     const ownerClient = await clientFor("home-managed-detail-owner.near");
     const round = await ownerClient.createRound({
+      isPrivate: false,
       projectSlug: slug,
       title: "Managed project",
       description: "Managed description",
@@ -118,6 +123,7 @@ describe("getProjectBySlug (#119)", () => {
   it("hides unknown and unapproved projects from visitors", async () => {
     const owner = await clientFor("home-owner3.near");
     const pending = await owner.createRound({
+      isPrivate: false,
       projectSlug: freshSlug("home-hidden"),
       title: "Pending",
       description: "Not approved",
@@ -147,6 +153,7 @@ describe("inviteTesters (#119)", () => {
     await joinWithFeedback(first.id, "home-a4.near");
     await joinWithFeedback(first.id, "home-b4.near");
     const next = await ownerClient.createRound({
+      isPrivate: false,
       projectSlug: slug,
       title: "Round two",
       description: "Again",

@@ -1,4 +1,6 @@
 import { Link } from "@tanstack/react-router";
+import { createColumnHelper, flexRender, tableFeatures, useTable } from "@tanstack/react-table";
+import { useMemo } from "react";
 import type { ApiClient } from "@/app";
 import { Badge } from "@/components";
 import {
@@ -18,41 +20,105 @@ interface LeaderboardTableProps {
   currentAccountId?: string | null;
 }
 
+const features = tableFeatures({});
+
+const columnHelper = createColumnHelper<typeof features, LeaderboardEntry>();
+
+const COLUMN_CLASS: Record<string, string> = {
+  rank: "w-16",
+  contributions: "text-right",
+  score: "text-right",
+};
+
 export function LeaderboardTable({ entries, currentAccountId }: LeaderboardTableProps) {
+  const columns = useMemo(
+    () =>
+      columnHelper.columns([
+        columnHelper.accessor("rank", {
+          id: "rank",
+          header: "Rank",
+          cell: ({ row }) => (
+            <Badge
+              variant={row.original.rank <= 3 ? "secondary" : "outline"}
+              className="text-[10px]"
+            >
+              #{row.original.rank}
+            </Badge>
+          ),
+        }),
+        columnHelper.accessor("actor", {
+          id: "builder",
+          header: "Builder",
+          cell: ({ row }) => (
+            <>
+              <Link
+                to="/$accountId"
+                params={{ accountId: row.original.actor }}
+                className="font-mono text-sm font-medium text-foreground hover:underline break-all"
+              >
+                {row.original.actor}
+              </Link>
+              {row.original.actor === currentAccountId && (
+                <Badge className="ml-2 text-[10px]">you</Badge>
+              )}
+            </>
+          ),
+        }),
+        columnHelper.accessor("eventCount", {
+          id: "contributions",
+          header: "Contributions",
+          cell: ({ row }) => (
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {contributionsLabel(row.original.eventCount)}
+            </span>
+          ),
+        }),
+        columnHelper.accessor("score", {
+          id: "score",
+          header: "Score",
+          cell: ({ row }) => (
+            <span className="text-sm font-semibold tabular-nums text-foreground">
+              {row.original.score}
+            </span>
+          ),
+        }),
+      ]),
+    [currentAccountId],
+  );
+
+  const table = useTable({
+    features,
+    columns,
+    data: entries,
+    getRowId: (entry) => entry.actor,
+  });
+
   return (
     <Table data-testid="leaderboard-table">
       <TableHeader>
-        <TableRow>
-          <TableHead className="w-16">Rank</TableHead>
-          <TableHead>Builder</TableHead>
-          <TableHead className="text-right">Contributions</TableHead>
-          <TableHead className="text-right">Score</TableHead>
-        </TableRow>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => (
+              <TableHead key={header.id} className={COLUMN_CLASS[header.column.id]}>
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHead>
+            ))}
+          </TableRow>
+        ))}
       </TableHeader>
       <TableBody>
-        {entries.map((entry) => (
-          <TableRow key={entry.actor}>
-            <TableCell>
-              <Badge variant={entry.rank <= 3 ? "secondary" : "outline"} className="text-[10px]">
-                #{entry.rank}
-              </Badge>
-            </TableCell>
-            <TableCell className="min-w-0">
-              <Link
-                to="/$accountId"
-                params={{ accountId: entry.actor }}
-                className="font-mono text-sm font-medium text-foreground hover:underline break-all"
+        {table.getRowModel().rows.map((row) => (
+          <TableRow key={row.id}>
+            {row.getAllCells().map((cell) => (
+              <TableCell
+                key={cell.id}
+                className={cell.column.id === "builder" ? "min-w-0" : COLUMN_CLASS[cell.column.id]}
               >
-                {entry.actor}
-              </Link>
-              {entry.actor === currentAccountId && <Badge className="ml-2 text-[10px]">you</Badge>}
-            </TableCell>
-            <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
-              {contributionsLabel(entry.eventCount)}
-            </TableCell>
-            <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">
-              {entry.score}
-            </TableCell>
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
           </TableRow>
         ))}
       </TableBody>

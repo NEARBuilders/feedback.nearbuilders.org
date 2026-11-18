@@ -9,6 +9,11 @@ export async function copyUrl(url: string): Promise<void> {
   toast.success("Link copied");
 }
 
+export async function copyText(text: string, message = "Copied"): Promise<void> {
+  await navigator.clipboard.writeText(text);
+  toast.success(message);
+}
+
 export async function shareUrl({ title, url }: { title: string; url: string }): Promise<void> {
   try {
     await navigator.share({ title, url });

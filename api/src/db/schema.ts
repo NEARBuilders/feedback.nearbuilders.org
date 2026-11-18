@@ -98,6 +98,45 @@ export const projects = pgTable(
   }),
 );
 
+export const accessGrantPrincipal = pgEnum("access_grant_principal", ["org", "team"]);
+
+export const accessGrantPermission = pgEnum("access_grant_permission", ["manage", "read"]);
+
+/**
+ * Who besides the owning organization may act on a project's rounds (#279): one
+ * row per principal. v1 writes only org principals with the "manage" permission —
+ * the partner flow — while the columns stay general (org | team, manage | read),
+ * so narrower grants are new rows, not migrations. The access decision consumes
+ * these as data carried on the project subject; only the project loaders query
+ * this table.
+ */
+export const accessGrants = pgTable(
+  "access_grants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    principalType: accessGrantPrincipal("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    permission: accessGrantPermission("permission").notNull(),
+    orgSlug: text("org_slug"),
+    addedByAccountId: text("added_by_account_id").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    principalIdx: uniqueIndex("access_grants_project_principal_idx").on(
+      table.projectId,
+      table.principalType,
+      table.principalId,
+    ),
+    principalLookupIdx: index("access_grants_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+  }),
+);
+
 export const roundStatus = pgEnum("round_status", ["pending", "open", "closed", "rejected"]);
 
 export const rounds = pgTable(
@@ -204,6 +243,35 @@ export const roundFeedback = pgTable(
   },
   (table) => ({
     roundCreatedIdx: index("round_feedback_round_created_idx").on(table.roundId, table.createdAt),
+  }),
+);
+
+/**
+ * What an organization API key suggests doing with a feedback item (#296). Org keys are
+ * read-only, so an agent can only leave a suggestion here; a signed-in member accepts it
+ * (which runs the normal resolve, dismiss or star path) or rejects it. One live suggestion per
+ * item: a new one replaces the old.
+ */
+export const feedbackSuggestions = pgTable(
+  "feedback_suggestions",
+  {
+    feedbackId: uuid("feedback_id")
+      .primaryKey()
+      .references(() => roundFeedback.id, { onDelete: "cascade" }),
+    roundId: uuid("round_id")
+      .notNull()
+      .references(() => rounds.id, { onDelete: "cascade" }),
+    // Only "resolved" or "dismissed": the API never stores "unresolved" as a suggestion.
+    status: roundFeedbackStatus("status"),
+    star: boolean("star").default(false).notNull(),
+    note: text("note"),
+    // Audit trail: which key and organization made the suggestion.
+    suggestedByKeyId: text("suggested_by_key_id"),
+    organizationId: text("organization_id"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    roundIdx: index("feedback_suggestions_round_idx").on(table.roundId),
   }),
 );
 

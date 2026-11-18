@@ -30,6 +30,7 @@ import { Route as PublicFeedIndexRouteImport } from './routes/_public/feed/index
 import { Route as PublicFeedRoundIdRouteImport } from './routes/_public/feed/$roundId'
 import { Route as PublicProjectsIndexRouteImport } from './routes/_public/projects/index'
 import { Route as PublicRoundsIndexRouteImport } from './routes/_public/rounds/index'
+import { Route as PublicSendSlugRouteImport } from './routes/_public/send.$slug'
 import { Route as AdminDashboardAdminIndexRouteImport } from './routes/_admin/_dashboard/admin/index'
 import { Route as AdminDashboardAdminProjectsRouteImport } from './routes/_admin/_dashboard/admin/projects'
 import { Route as AuthenticatedDashboardDashboardIndexRouteImport } from './routes/_authenticated/_dashboard/dashboard/index'
@@ -53,6 +54,7 @@ import { Route as PublicProjectsSlugNIndexRouteImport } from './routes/_public/p
 import { Route as PublicProjectsSlugNFeedbackRouteImport } from './routes/_public/projects/$slug/$n/feedback'
 import { Route as PublicProjectsSlugNSubmitRouteImport } from './routes/_public/projects/$slug/$n/submit'
 import { Route as AuthenticatedDashboardManageSlugNInboxRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/_inbox'
+import { Route as AuthenticatedDashboardManageSlugNAgentRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/agent'
 import { Route as AuthenticatedDashboardManageSlugNBroadcastRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/broadcast'
 import { Route as AuthenticatedDashboardManageSlugNCloseRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/close'
 import { Route as AuthenticatedDashboardManageSlugNParticipantsRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/participants'
@@ -162,6 +164,11 @@ const PublicProjectsIndexRoute = PublicProjectsIndexRouteImport.update({
 const PublicRoundsIndexRoute = PublicRoundsIndexRouteImport.update({
   id: '/rounds/',
   path: '/rounds/',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicSendSlugRoute = PublicSendSlugRouteImport.update({
+  id: '/send/$slug',
+  path: '/send/$slug',
   getParentRoute: () => PublicRoute,
 } as any)
 const AdminDashboardAdminIndexRoute =
@@ -299,6 +306,12 @@ const AuthenticatedDashboardManageSlugNInboxRoute =
     id: '/_inbox',
     getParentRoute: () => AuthenticatedDashboardManageSlugNRoute,
   } as any)
+const AuthenticatedDashboardManageSlugNAgentRoute =
+  AuthenticatedDashboardManageSlugNAgentRouteImport.update({
+    id: '/agent',
+    path: '/agent',
+    getParentRoute: () => AuthenticatedDashboardManageSlugNRoute,
+  } as any)
 const AuthenticatedDashboardManageSlugNBroadcastRoute =
   AuthenticatedDashboardManageSlugNBroadcastRouteImport.update({
     id: '/broadcast',
@@ -355,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/orgs': typeof AuthenticatedDashboardOrgsRouteWithChildren
   '/settings': typeof AuthenticatedDashboardSettingsRouteWithChildren
   '/feed/$roundId': typeof PublicFeedRoundIdRoute
+  '/send/$slug': typeof PublicSendSlugRoute
   '/$accountId/': typeof PublicAccountIdIndexRoute
   '/feed/': typeof PublicFeedIndexRoute
   '/projects/': typeof PublicProjectsIndexRoute
@@ -381,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/projects/$slug/$n/submit': typeof PublicProjectsSlugNSubmitRoute
   '/manage/$slug/': typeof AuthenticatedDashboardManageSlugIndexRoute
   '/projects/$slug/$n/': typeof PublicProjectsSlugNIndexRoute
+  '/manage/$slug/$n/agent': typeof AuthenticatedDashboardManageSlugNAgentRoute
   '/manage/$slug/$n/broadcast': typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   '/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -397,6 +412,7 @@ export interface FileRoutesByTo {
   '/login': typeof PublicLoginRoute
   '/skill': typeof PublicSkillRoute
   '/feed/$roundId': typeof PublicFeedRoundIdRoute
+  '/send/$slug': typeof PublicSendSlugRoute
   '/$accountId': typeof PublicAccountIdIndexRoute
   '/feed': typeof PublicFeedIndexRoute
   '/projects': typeof PublicProjectsIndexRoute
@@ -422,6 +438,7 @@ export interface FileRoutesByTo {
   '/projects/$slug/$n/submit': typeof PublicProjectsSlugNSubmitRoute
   '/manage/$slug': typeof AuthenticatedDashboardManageSlugIndexRoute
   '/projects/$slug/$n': typeof PublicProjectsSlugNIndexRoute
+  '/manage/$slug/$n/agent': typeof AuthenticatedDashboardManageSlugNAgentRoute
   '/manage/$slug/$n/broadcast': typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   '/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -448,6 +465,7 @@ export interface FileRoutesById {
   '/_authenticated/_dashboard/orgs': typeof AuthenticatedDashboardOrgsRouteWithChildren
   '/_authenticated/_dashboard/settings': typeof AuthenticatedDashboardSettingsRouteWithChildren
   '/_public/feed/$roundId': typeof PublicFeedRoundIdRoute
+  '/_public/send/$slug': typeof PublicSendSlugRoute
   '/_public/$accountId/': typeof PublicAccountIdIndexRoute
   '/_public/feed/': typeof PublicFeedIndexRoute
   '/_public/projects/': typeof PublicProjectsIndexRoute
@@ -475,6 +493,7 @@ export interface FileRoutesById {
   '/_authenticated/_dashboard/manage/$slug/': typeof AuthenticatedDashboardManageSlugIndexRoute
   '/_public/projects/$slug/$n/': typeof PublicProjectsSlugNIndexRoute
   '/_authenticated/_dashboard/manage/$slug/$n/_inbox': typeof AuthenticatedDashboardManageSlugNInboxRouteWithChildren
+  '/_authenticated/_dashboard/manage/$slug/$n/agent': typeof AuthenticatedDashboardManageSlugNAgentRoute
   '/_authenticated/_dashboard/manage/$slug/$n/broadcast': typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   '/_authenticated/_dashboard/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/_authenticated/_dashboard/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -498,6 +517,7 @@ export interface FileRouteTypes {
     | '/orgs'
     | '/settings'
     | '/feed/$roundId'
+    | '/send/$slug'
     | '/$accountId/'
     | '/feed/'
     | '/projects/'
@@ -524,6 +544,7 @@ export interface FileRouteTypes {
     | '/projects/$slug/$n/submit'
     | '/manage/$slug/'
     | '/projects/$slug/$n/'
+    | '/manage/$slug/$n/agent'
     | '/manage/$slug/$n/broadcast'
     | '/manage/$slug/$n/close'
     | '/manage/$slug/$n/participants'
@@ -540,6 +561,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/skill'
     | '/feed/$roundId'
+    | '/send/$slug'
     | '/$accountId'
     | '/feed'
     | '/projects'
@@ -565,6 +587,7 @@ export interface FileRouteTypes {
     | '/projects/$slug/$n/submit'
     | '/manage/$slug'
     | '/projects/$slug/$n'
+    | '/manage/$slug/$n/agent'
     | '/manage/$slug/$n/broadcast'
     | '/manage/$slug/$n/close'
     | '/manage/$slug/$n/participants'
@@ -590,6 +613,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_dashboard/orgs'
     | '/_authenticated/_dashboard/settings'
     | '/_public/feed/$roundId'
+    | '/_public/send/$slug'
     | '/_public/$accountId/'
     | '/_public/feed/'
     | '/_public/projects/'
@@ -617,6 +641,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_dashboard/manage/$slug/'
     | '/_public/projects/$slug/$n/'
     | '/_authenticated/_dashboard/manage/$slug/$n/_inbox'
+    | '/_authenticated/_dashboard/manage/$slug/$n/agent'
     | '/_authenticated/_dashboard/manage/$slug/$n/broadcast'
     | '/_authenticated/_dashboard/manage/$slug/$n/close'
     | '/_authenticated/_dashboard/manage/$slug/$n/participants'
@@ -781,6 +806,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRoundsIndexRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/send/$slug': {
+      id: '/_public/send/$slug'
+      path: '/send/$slug'
+      fullPath: '/send/$slug'
+      preLoaderRoute: typeof PublicSendSlugRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_admin/_dashboard/admin/': {
       id: '/_admin/_dashboard/admin/'
       path: '/'
@@ -940,6 +972,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/manage/$slug/$n'
       preLoaderRoute: typeof AuthenticatedDashboardManageSlugNInboxRouteImport
+      parentRoute: typeof AuthenticatedDashboardManageSlugNRoute
+    }
+    '/_authenticated/_dashboard/manage/$slug/$n/agent': {
+      id: '/_authenticated/_dashboard/manage/$slug/$n/agent'
+      path: '/agent'
+      fullPath: '/manage/$slug/$n/agent'
+      preLoaderRoute: typeof AuthenticatedDashboardManageSlugNAgentRouteImport
       parentRoute: typeof AuthenticatedDashboardManageSlugNRoute
     }
     '/_authenticated/_dashboard/manage/$slug/$n/broadcast': {
@@ -1112,6 +1151,7 @@ const AuthenticatedDashboardManageSlugNInboxRouteWithChildren =
 
 interface AuthenticatedDashboardManageSlugNRouteChildren {
   AuthenticatedDashboardManageSlugNInboxRoute: typeof AuthenticatedDashboardManageSlugNInboxRouteWithChildren
+  AuthenticatedDashboardManageSlugNAgentRoute: typeof AuthenticatedDashboardManageSlugNAgentRoute
   AuthenticatedDashboardManageSlugNBroadcastRoute: typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   AuthenticatedDashboardManageSlugNCloseRoute: typeof AuthenticatedDashboardManageSlugNCloseRoute
   AuthenticatedDashboardManageSlugNParticipantsRoute: typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -1123,6 +1163,8 @@ const AuthenticatedDashboardManageSlugNRouteChildren: AuthenticatedDashboardMana
   {
     AuthenticatedDashboardManageSlugNInboxRoute:
       AuthenticatedDashboardManageSlugNInboxRouteWithChildren,
+    AuthenticatedDashboardManageSlugNAgentRoute:
+      AuthenticatedDashboardManageSlugNAgentRoute,
     AuthenticatedDashboardManageSlugNBroadcastRoute:
       AuthenticatedDashboardManageSlugNBroadcastRoute,
     AuthenticatedDashboardManageSlugNCloseRoute:
@@ -1223,6 +1265,7 @@ interface PublicRouteChildren {
   PublicSkillRoute: typeof PublicSkillRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicFeedRoundIdRoute: typeof PublicFeedRoundIdRoute
+  PublicSendSlugRoute: typeof PublicSendSlugRoute
   PublicFeedIndexRoute: typeof PublicFeedIndexRoute
   PublicProjectsIndexRoute: typeof PublicProjectsIndexRoute
   PublicRoundsIndexRoute: typeof PublicRoundsIndexRoute
@@ -1239,6 +1282,7 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicSkillRoute: PublicSkillRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicFeedRoundIdRoute: PublicFeedRoundIdRoute,
+  PublicSendSlugRoute: PublicSendSlugRoute,
   PublicFeedIndexRoute: PublicFeedIndexRoute,
   PublicProjectsIndexRoute: PublicProjectsIndexRoute,
   PublicRoundsIndexRoute: PublicRoundsIndexRoute,

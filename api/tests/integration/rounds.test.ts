@@ -32,7 +32,7 @@ interface RoundOverrides {
  */
 async function createOpenRound(owner: string, input: RoundOverrides) {
   const ownerClient = await getPluginClient(nearAuthedContext(owner));
-  const round = await ownerClient.createRound({ ...fresh(), ...input });
+  const round = await ownerClient.createRound({ isPrivate: false, ...fresh(), ...input });
   if (round.status === "open") return round;
   const admin = await getPluginClient(adminContext());
   await admin.approveProject({ id: round.projectRecordId });
@@ -76,12 +76,15 @@ describe("createRound", () => {
 
   it("rejects a round with no formats selected", async () => {
     const client = await getPluginClient(nearAuthedContext());
-    await expect(client.createRound({ ...fresh(), formats: [] })).rejects.toThrow();
+    await expect(
+      client.createRound({ isPrivate: false, ...fresh(), formats: [] }),
+    ).rejects.toThrow();
   });
 
   it("stores the picker's resolved project id on the project, not just the slug", async () => {
     const client = await getPluginClient(nearAuthedContext("picker-owner.near"));
     const round = await client.createRound({
+      isPrivate: false,
       ...baseInput,
       projectSlug: "onboarding-flow",
       projectId: "proj_1",
@@ -101,12 +104,15 @@ describe("createRound", () => {
 
   it("rejects the issues format without a repo URL", async () => {
     const client = await getPluginClient(nearAuthedContext());
-    await expect(client.createRound({ ...fresh(), formats: ["issues"] })).rejects.toThrow();
+    await expect(
+      client.createRound({ isPrivate: false, ...fresh(), formats: ["issues"] }),
+    ).rejects.toThrow();
   });
 
   it("accepts the issues format when a repo URL is provided", async () => {
     const client = await getPluginClient(nearAuthedContext());
     const round = await client.createRound({
+      isPrivate: false,
       ...fresh(),
       formats: ["issues"],
       repoUrl: "https://github.com/near/feedback",
@@ -117,16 +123,29 @@ describe("createRound", () => {
   it("numbers rounds sequentially per project, independent of other projects", async () => {
     const client = await getPluginClient(nearAuthedContext("numbering-owner.near"));
 
-    const first = await client.createRound({ ...fresh(), projectSlug: "numbered-project" });
+    const first = await client.createRound({
+      isPrivate: false,
+      ...fresh(),
+      projectSlug: "numbered-project",
+    });
     const admin = await getPluginClient(adminContext());
     await admin.approveProject({ id: first.projectRecordId });
-    const second = await client.createRound({ ...fresh(), projectSlug: "numbered-project" });
-    const third = await client.createRound({ ...fresh(), projectSlug: "numbered-project" });
+    const second = await client.createRound({
+      isPrivate: false,
+      ...fresh(),
+      projectSlug: "numbered-project",
+    });
+    const third = await client.createRound({
+      isPrivate: false,
+      ...fresh(),
+      projectSlug: "numbered-project",
+    });
     expect(first.projectRoundNumber).toBe(1);
     expect(second.projectRoundNumber).toBe(2);
     expect(third.projectRoundNumber).toBe(3);
 
     const otherProject = await client.createRound({
+      isPrivate: false,
       ...fresh(),
       projectSlug: "other-numbered-project",
     });
@@ -271,7 +290,11 @@ describe("rounds belong to approved projects (#70)", () => {
     const first = await createOpenRound("own-owner1.near", { title: "First" });
     const owner = await getPluginClient(nearAuthedContext("own-owner1.near"));
 
-    const second = await owner.createRound({ ...fresh(), projectSlug: first.projectSlug });
+    const second = await owner.createRound({
+      isPrivate: false,
+      ...fresh(),
+      projectSlug: first.projectSlug,
+    });
     expect(second.status).toBe("open");
     expect(second.projectRecordId).toBe(first.projectRecordId);
   });
@@ -282,7 +305,11 @@ describe("rounds belong to approved projects (#70)", () => {
       nearAuthedContext("own-teammate2.near", "user-2", "org-of-own-owner2.near"),
     );
 
-    const round = await teammate.createRound({ ...fresh(), projectSlug: first.projectSlug });
+    const round = await teammate.createRound({
+      isPrivate: false,
+      ...fresh(),
+      projectSlug: first.projectSlug,
+    });
     expect(round.status).toBe("open");
     expect(round.ownerAccountId).toBe("own-teammate2.near");
   });
@@ -292,7 +319,7 @@ describe("rounds belong to approved projects (#70)", () => {
     const stranger = await getPluginClient(nearAuthedContext("own-stranger3.near"));
 
     await expect(
-      stranger.createRound({ ...fresh(), projectSlug: first.projectSlug }),
+      stranger.createRound({ isPrivate: false, ...fresh(), projectSlug: first.projectSlug }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
@@ -300,21 +327,29 @@ describe("rounds belong to approved projects (#70)", () => {
     const owner = await getPluginClient(nearAuthedContext("own-owner4.near"));
     const first = await owner.createRound(fresh());
     await expect(
-      owner.createRound({ ...fresh(), projectSlug: first.projectSlug }),
+      owner.createRound({ isPrivate: false, ...fresh(), projectSlug: first.projectSlug }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
     const admin = await getPluginClient(adminContext());
     await admin.rejectProject({ id: first.projectRecordId, reason: "Not a fit" });
     await expect(
-      owner.createRound({ ...fresh(), projectSlug: first.projectSlug }),
+      owner.createRound({ isPrivate: false, ...fresh(), projectSlug: first.projectSlug }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("keeps incrementing per-project round numbers across approved rounds", async () => {
     const first = await createOpenRound("own-owner5.near", { title: "One" });
     const owner = await getPluginClient(nearAuthedContext("own-owner5.near"));
-    const second = await owner.createRound({ ...fresh(), projectSlug: first.projectSlug });
-    const third = await owner.createRound({ ...fresh(), projectSlug: first.projectSlug });
+    const second = await owner.createRound({
+      isPrivate: false,
+      ...fresh(),
+      projectSlug: first.projectSlug,
+    });
+    const third = await owner.createRound({
+      isPrivate: false,
+      ...fresh(),
+      projectSlug: first.projectSlug,
+    });
     expect([first.projectRoundNumber, second.projectRoundNumber, third.projectRoundNumber]).toEqual(
       [1, 2, 3],
     );
@@ -367,6 +402,7 @@ describe("round readme (#71)", () => {
   it("stores a readme supplied at creation", async () => {
     const owner = await getPluginClient(nearAuthedContext("readme-owner2.near"));
     const round = await owner.createRound({
+      isPrivate: false,
       ...fresh(),
       readme: "## Focus\n\nTry the signup flow.",
     });
@@ -409,7 +445,9 @@ describe("round readme (#71)", () => {
 
   it("rejects an oversized readme and an unknown round", async () => {
     const owner = await getPluginClient(nearAuthedContext("readme-owner5.near"));
-    await expect(owner.createRound({ ...fresh(), readme: "x".repeat(20001) })).rejects.toThrow();
+    await expect(
+      owner.createRound({ isPrivate: false, ...fresh(), readme: "x".repeat(20001) }),
+    ).rejects.toThrow();
     await expect(
       owner.updateRound({ id: "00000000-0000-0000-0000-000000000000", readme: "x" }),
     ).rejects.toThrow();
@@ -435,7 +473,11 @@ describe("listRounds", () => {
 
   it("excludes pending and rejected rounds from the unfiltered public listing", async () => {
     const owner = await getPluginClient(nearAuthedContext("hidden-owner.near"));
-    const pending = await owner.createRound({ ...fresh(), title: "Still pending" });
+    const pending = await owner.createRound({
+      isPrivate: false,
+      ...fresh(),
+      title: "Still pending",
+    });
 
     const anon = await getPluginClient();
     const rounds = await anon.listRounds({});
@@ -477,7 +519,11 @@ describe("getRound", () => {
 
   it("hides a pending round from strangers but shows it to its owner and admins", async () => {
     const owner = await getPluginClient(nearAuthedContext("reader-owner2.near"));
-    const round = await owner.createRound({ ...fresh(), title: "Awaiting review" });
+    const round = await owner.createRound({
+      isPrivate: false,
+      ...fresh(),
+      title: "Awaiting review",
+    });
 
     const anon = await getPluginClient();
     await expect(anon.getRound({ id: round.id })).rejects.toThrow();
@@ -731,7 +777,7 @@ describe("getBuilderRounds", () => {
 describe("deleteRound", () => {
   async function freshRound(owner = "del-owner.near") {
     const client = await getPluginClient(nearAuthedContext(owner));
-    return client.createRound({ ...fresh(), title: `Round for ${owner}` });
+    return client.createRound({ isPrivate: false, ...fresh(), title: `Round for ${owner}` });
   }
 
   it("rejects a non-owner deleting the round", async () => {

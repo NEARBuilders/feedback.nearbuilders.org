@@ -12,6 +12,7 @@ let slugCounter = 0;
 async function createOpenRound(owner: string, title: string) {
   const ownerClient = await getPluginClient(nearAuthedContext(owner));
   const round = await ownerClient.createRound({
+    isPrivate: false,
     projectSlug: `notify-project-${++slugCounter}`,
     title,
     description: "Walk through signup and tell us where you got stuck.",

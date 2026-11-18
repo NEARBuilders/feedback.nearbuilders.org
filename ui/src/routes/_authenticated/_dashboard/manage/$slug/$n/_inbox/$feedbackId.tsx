@@ -11,6 +11,7 @@ import { FeedbackStatusActions } from "@/components/feedback-status-actions";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { RouteNotFound } from "@/components/route-states";
 import { TelegramHandle, TipButtons } from "@/components/tip-tester";
+import { formatDateTime } from "@/lib/format-date";
 import { feedbackItemQueryOptions } from "@/lib/queries/feedback";
 import { orNotFound } from "@/lib/queries/not-found";
 import { loadRound, useRound } from "@/lib/round-route";
@@ -66,7 +67,7 @@ function FeedbackDetailPane() {
             </Link>
             <TelegramHandle accountId={feedback.authorAccountId} enabled />
             <p className="text-xs text-muted-foreground">
-              {new Date(feedback.createdAt).toLocaleString()} · {feedback.format}
+              {formatDateTime(feedback.createdAt)} · {feedback.format}
             </p>
           </div>
         </div>

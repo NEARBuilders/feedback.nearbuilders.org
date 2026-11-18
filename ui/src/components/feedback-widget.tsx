@@ -7,10 +7,11 @@ import { useApiClient } from "@/app";
 import { Button, SegmentedToggle, Skeleton, Textarea } from "@/components";
 import { useLegionAccess } from "@/hooks/use-legion-access";
 import { FEEDBACK_TEXT_MAX, feedbackTextLength } from "@/lib/feedback-body";
+import { formatCount, formatDate } from "@/lib/format-date";
+import { latestOpenRound } from "@/lib/latest-open-round";
 import { invalidateFeedbackQueries, myFeedbackQueryOptions } from "@/lib/queries/feedback";
 import { projectQueryOptions } from "@/lib/queries/projects";
 import { roundBySlugQueryOptions } from "@/lib/queries/rounds";
-import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 import { useRoundJoinMutation } from "@/lib/round-join";
 import { roundHref } from "@/lib/round-links";
 import type { RoundDetail } from "@/lib/round-route";
@@ -48,7 +49,7 @@ export function FeedbackWidget({ projectSlug }: FeedbackWidgetProps) {
       <Button
         type="button"
         size="icon"
-        className="h-12 w-12 rounded-full shadow-lg"
+        className="h-12 w-12 rounded-full"
         aria-label={open ? "Close feedback" : "Give feedback"}
         aria-expanded={open}
         data-testid="feedback-widget-launcher"
@@ -63,12 +64,7 @@ export function FeedbackWidget({ projectSlug }: FeedbackWidgetProps) {
 function WidgetPanel({ projectSlug, onClose }: { projectSlug: string; onClose: () => void }) {
   const apiClient = useApiClient();
   const project = useQuery(projectQueryOptions(apiClient, projectSlug));
-  const latestOpen = project.data?.rounds
-    .filter((r) => isRoundAcceptingFeedback(r))
-    .reduce<{ projectRoundNumber: number } | null>(
-      (best, r) => (!best || r.projectRoundNumber > best.projectRoundNumber ? r : best),
-      null,
-    );
+  const latestOpen = latestOpenRound(project.data?.rounds ?? []);
   const round = useQuery({
     ...roundBySlugQueryOptions(apiClient, projectSlug, latestOpen?.projectRoundNumber ?? 0),
     enabled: !!latestOpen,
@@ -330,7 +326,7 @@ function HomeTab({
       />
       <div className="flex items-center justify-between gap-2">
         <span className={cn("text-xs text-muted-foreground", tooLong && "text-destructive")}>
-          {length.toLocaleString()} / {FEEDBACK_TEXT_MAX.toLocaleString()}
+          {formatCount(length)} / {formatCount(FEEDBACK_TEXT_MAX)}
         </span>
         <Button type="submit" size="sm" disabled={!text.trim() || tooLong || post.isPending}>
           {post.isPending ? "Sending…" : "Send"}
@@ -370,7 +366,7 @@ function MessagesTab({ round, signedIn }: { round: RoundDetail; signedIn: boolea
             {plainText(item.body, item.url)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {new Date(item.createdAt).toLocaleDateString()} · {item.status}
+            {formatDate(item.createdAt)} · {item.status}
           </p>
           {item.notes.length > 0 && (
             <ul className="mt-2 flex flex-col gap-2 border-t border-border pt-2">

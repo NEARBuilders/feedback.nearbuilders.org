@@ -78,8 +78,15 @@ export const ProjectIdentitySchema = z
 
 export type ProjectIdentity = z.infer<typeof ProjectIdentitySchema>;
 
+/** An organization granted co-management of a project's rounds (#279). */
+export const PartnerSchema = z.object({
+  organizationId: z.string(),
+  slug: z.string().nullable(),
+});
+
 export const ProjectWithRoundsSchema = ProjectSchema.extend({
   identity: ProjectIdentitySchema,
+  partners: z.array(PartnerSchema),
   rounds: z.array(
     z.object({
       id: z.string(),
@@ -250,6 +257,32 @@ export const FeedbackDetailSchema = RoundFeedbackSchema.extend({
 });
 
 export type FeedbackDetail = z.infer<typeof FeedbackDetailSchema>;
+
+/** What an organization key suggests doing with a feedback item (#296). */
+export const FeedbackSuggestionSchema = z.object({
+  feedbackId: z.string(),
+  roundId: z.string(),
+  /** Only "resolved" or "dismissed"; null when the suggestion is just a star. */
+  status: z.enum(["resolved", "dismissed"]).nullable(),
+  star: z.boolean(),
+  note: z.string().nullable(),
+  /** The key that made the suggestion, for the audit trail. */
+  suggestedByKeyId: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type FeedbackSuggestion = z.infer<typeof FeedbackSuggestionSchema>;
+
+const SuggestionItemSchema = z
+  .object({
+    feedbackId: z.string(),
+    status: z.enum(["resolved", "dismissed"]).optional(),
+    star: z.boolean().optional(),
+    note: NoteBodySchema.optional(),
+  })
+  .refine((item) => item.status !== undefined || item.star === true, {
+    message: "Suggest a status or a star",
+  });
 
 export const MyFeedbackSchema = FeedbackDetailSchema;
 
@@ -515,6 +548,8 @@ export type NearBuildersProject = z.infer<typeof NearBuildersProjectSchema>;
 
 export const ProjectDetailSchema = ProjectWithRoundsSchema.extend({
   canManage: z.boolean(),
+  /** Owner-org admins and site admins only (#279): may manage the partner list. */
+  canManagePartners: z.boolean(),
 });
 
 export type ProjectDetail = z.infer<typeof ProjectDetailSchema>;
@@ -585,6 +620,11 @@ const CreateRoundInputSchema = z
     repoUrl: z.string().url("Must be a valid URL").optional(),
     /** Feedback readable only by the managing org/team and admins (#101). */
     isPrivate: z.boolean().optional(),
+    /** Organizations to grant co-management alongside the round's creation (#280 follow-up). */
+    partnerOrganizationSlugs: z
+      .array(z.string().trim().min(1).max(100))
+      .max(5, "At most 5 partners per round")
+      .optional(),
     /** Only Legion SBT holders can join and post (#103). */
     legionOnly: z.boolean().optional(),
     /** ISO datetime after which joining and posting are blocked. */
@@ -716,6 +756,49 @@ export const contract = oc.router({
     .input(z.object({ id: z.string(), teamId: z.string().min(1).nullable() }))
     .output(ProjectWithRoundsSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  setProjectOwner: oc
+    .route({ method: "POST", path: "/projects/{id}/owner" })
+    .input(z.object({ id: z.string(), organizationSlug: z.string().trim().min(1).max(200) }))
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  addProjectPartner: oc
+    .route({ method: "POST", path: "/projects/{id}/partners" })
+    .input(
+      z.object({
+        id: z.string(),
+        organizationSlug: z.string().trim().min(1, "An organization slug is required").max(200),
+      }),
+    )
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  removeProjectPartner: oc
+    .route({ method: "DELETE", path: "/projects/{id}/partners/{organizationSlug}" })
+    .input(z.object({ id: z.string(), organizationSlug: z.string().trim().min(1).max(200) }))
+    .output(ProjectWithRoundsSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  listPartnerSuggestions: oc
+    .route({
+      method: "GET",
+      path: "/partners/suggestions",
+      summary: "Organizations offered as partners when creating a round",
+    })
+    .output(
+      z.object({
+        partners: z.array(
+          z.object({
+            slug: z.string(),
+            name: z.string().nullable(),
+            /** False when the org couldn't be resolved or isn't approved yet. */
+            active: z.boolean(),
+          }),
+        ),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
 
   verifyProject: oc
     .route({ method: "POST", path: "/projects/{id}/verify" })
@@ -897,6 +980,41 @@ export const contract = oc.router({
       }),
     )
     .output(z.array(RoundFeedbackSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  suggestFeedback: oc
+    .route({
+      method: "POST",
+      path: "/rounds/{id}/suggestions",
+      summary: "Suggest a status or star for feedback (organization keys only)",
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        suggestions: z.array(SuggestionItemSchema).min(1).max(200),
+      }),
+    )
+    .output(z.array(FeedbackSuggestionSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  listFeedbackSuggestions: oc
+    .route({
+      method: "GET",
+      path: "/rounds/{id}/suggestions",
+      summary: "Pending status and star suggestions for a round's feedback",
+    })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(FeedbackSuggestionSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  clearFeedbackSuggestions: oc
+    .route({
+      method: "POST",
+      path: "/rounds/{id}/suggestions/clear",
+      summary: "Reject or finish suggestions (signed-in managers only)",
+    })
+    .input(z.object({ id: z.string(), feedbackIds: z.array(z.string()).min(1).max(500) }))
+    .output(z.object({ cleared: z.number().int().nonnegative() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   listFeedbackAuthors: oc
