@@ -1613,6 +1613,58 @@ export default createPlugin.withPlugins<PluginsClient>()({
           );
         }),
 
+      suggestFeedback: builder.suggestFeedback
+        .use(requireAuthOrApiKey)
+        .handler(async ({ input, context }) => {
+          // The only write an organization key may make (#296): a suggestion, never a status.
+          // People and personal keys act on feedback directly, so they have no use for one.
+          const organizationId = orgKeyOrganizationId(context as ViewerContext);
+          if (!organizationId) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only an organization API key can suggest what to do with feedback",
+            });
+          }
+          const round = await requireRound(input.id);
+          await assertCanManageRound(
+            round,
+            context,
+            "This key can't suggest changes on another organization's round",
+          );
+          const apiKey = (context as { apiKey?: { id?: unknown } }).apiKey;
+          const keyId = typeof apiKey?.id === "string" ? apiKey.id : null;
+          return await getRuntime().rounds.suggestFeedback(
+            round.id,
+            input.suggestions.map((item) => ({
+              feedbackId: item.feedbackId,
+              status: item.status ?? null,
+              star: item.star === true,
+              note: item.note ?? null,
+            })),
+            { keyId, organizationId },
+          );
+        }),
+
+      listFeedbackSuggestions: builder.listFeedbackSuggestions
+        .use(requireAuthOrApiKey)
+        .handler(async ({ input, context }) => {
+          const round = await requireRound(input.id);
+          await assertCanManageRound(round, context, "Only the round owner can read suggestions");
+          return await getRuntime().rounds.listFeedbackSuggestions(round.id);
+        }),
+
+      clearFeedbackSuggestions: builder.clearFeedbackSuggestions
+        .use(requireAuthOrApiKey)
+        .handler(async ({ input, context }) => {
+          assertNotOrgKey(context);
+          const round = await requireRound(input.id);
+          await assertCanManageRound(round, context, "Only the round owner can reject suggestions");
+          const cleared = await getRuntime().rounds.clearFeedbackSuggestions(
+            round.id,
+            input.feedbackIds,
+          );
+          return { cleared };
+        }),
+
       listFeedbackAuthors: builder.listFeedbackAuthors
         .use(requireAuthOrApiKey)
         .handler(async ({ input, context }) => {

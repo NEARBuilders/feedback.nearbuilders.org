@@ -54,6 +54,7 @@ import { Route as PublicProjectsSlugNIndexRouteImport } from './routes/_public/p
 import { Route as PublicProjectsSlugNFeedbackRouteImport } from './routes/_public/projects/$slug/$n/feedback'
 import { Route as PublicProjectsSlugNSubmitRouteImport } from './routes/_public/projects/$slug/$n/submit'
 import { Route as AuthenticatedDashboardManageSlugNInboxRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/_inbox'
+import { Route as AuthenticatedDashboardManageSlugNAgentRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/agent'
 import { Route as AuthenticatedDashboardManageSlugNBroadcastRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/broadcast'
 import { Route as AuthenticatedDashboardManageSlugNCloseRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/close'
 import { Route as AuthenticatedDashboardManageSlugNParticipantsRouteImport } from './routes/_authenticated/_dashboard/manage/$slug/$n/participants'
@@ -305,6 +306,12 @@ const AuthenticatedDashboardManageSlugNInboxRoute =
     id: '/_inbox',
     getParentRoute: () => AuthenticatedDashboardManageSlugNRoute,
   } as any)
+const AuthenticatedDashboardManageSlugNAgentRoute =
+  AuthenticatedDashboardManageSlugNAgentRouteImport.update({
+    id: '/agent',
+    path: '/agent',
+    getParentRoute: () => AuthenticatedDashboardManageSlugNRoute,
+  } as any)
 const AuthenticatedDashboardManageSlugNBroadcastRoute =
   AuthenticatedDashboardManageSlugNBroadcastRouteImport.update({
     id: '/broadcast',
@@ -388,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/projects/$slug/$n/submit': typeof PublicProjectsSlugNSubmitRoute
   '/manage/$slug/': typeof AuthenticatedDashboardManageSlugIndexRoute
   '/projects/$slug/$n/': typeof PublicProjectsSlugNIndexRoute
+  '/manage/$slug/$n/agent': typeof AuthenticatedDashboardManageSlugNAgentRoute
   '/manage/$slug/$n/broadcast': typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   '/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -430,6 +438,7 @@ export interface FileRoutesByTo {
   '/projects/$slug/$n/submit': typeof PublicProjectsSlugNSubmitRoute
   '/manage/$slug': typeof AuthenticatedDashboardManageSlugIndexRoute
   '/projects/$slug/$n': typeof PublicProjectsSlugNIndexRoute
+  '/manage/$slug/$n/agent': typeof AuthenticatedDashboardManageSlugNAgentRoute
   '/manage/$slug/$n/broadcast': typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   '/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -484,6 +493,7 @@ export interface FileRoutesById {
   '/_authenticated/_dashboard/manage/$slug/': typeof AuthenticatedDashboardManageSlugIndexRoute
   '/_public/projects/$slug/$n/': typeof PublicProjectsSlugNIndexRoute
   '/_authenticated/_dashboard/manage/$slug/$n/_inbox': typeof AuthenticatedDashboardManageSlugNInboxRouteWithChildren
+  '/_authenticated/_dashboard/manage/$slug/$n/agent': typeof AuthenticatedDashboardManageSlugNAgentRoute
   '/_authenticated/_dashboard/manage/$slug/$n/broadcast': typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   '/_authenticated/_dashboard/manage/$slug/$n/close': typeof AuthenticatedDashboardManageSlugNCloseRoute
   '/_authenticated/_dashboard/manage/$slug/$n/participants': typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -534,6 +544,7 @@ export interface FileRouteTypes {
     | '/projects/$slug/$n/submit'
     | '/manage/$slug/'
     | '/projects/$slug/$n/'
+    | '/manage/$slug/$n/agent'
     | '/manage/$slug/$n/broadcast'
     | '/manage/$slug/$n/close'
     | '/manage/$slug/$n/participants'
@@ -576,6 +587,7 @@ export interface FileRouteTypes {
     | '/projects/$slug/$n/submit'
     | '/manage/$slug'
     | '/projects/$slug/$n'
+    | '/manage/$slug/$n/agent'
     | '/manage/$slug/$n/broadcast'
     | '/manage/$slug/$n/close'
     | '/manage/$slug/$n/participants'
@@ -629,6 +641,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_dashboard/manage/$slug/'
     | '/_public/projects/$slug/$n/'
     | '/_authenticated/_dashboard/manage/$slug/$n/_inbox'
+    | '/_authenticated/_dashboard/manage/$slug/$n/agent'
     | '/_authenticated/_dashboard/manage/$slug/$n/broadcast'
     | '/_authenticated/_dashboard/manage/$slug/$n/close'
     | '/_authenticated/_dashboard/manage/$slug/$n/participants'
@@ -961,6 +974,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardManageSlugNInboxRouteImport
       parentRoute: typeof AuthenticatedDashboardManageSlugNRoute
     }
+    '/_authenticated/_dashboard/manage/$slug/$n/agent': {
+      id: '/_authenticated/_dashboard/manage/$slug/$n/agent'
+      path: '/agent'
+      fullPath: '/manage/$slug/$n/agent'
+      preLoaderRoute: typeof AuthenticatedDashboardManageSlugNAgentRouteImport
+      parentRoute: typeof AuthenticatedDashboardManageSlugNRoute
+    }
     '/_authenticated/_dashboard/manage/$slug/$n/broadcast': {
       id: '/_authenticated/_dashboard/manage/$slug/$n/broadcast'
       path: '/broadcast'
@@ -1131,6 +1151,7 @@ const AuthenticatedDashboardManageSlugNInboxRouteWithChildren =
 
 interface AuthenticatedDashboardManageSlugNRouteChildren {
   AuthenticatedDashboardManageSlugNInboxRoute: typeof AuthenticatedDashboardManageSlugNInboxRouteWithChildren
+  AuthenticatedDashboardManageSlugNAgentRoute: typeof AuthenticatedDashboardManageSlugNAgentRoute
   AuthenticatedDashboardManageSlugNBroadcastRoute: typeof AuthenticatedDashboardManageSlugNBroadcastRoute
   AuthenticatedDashboardManageSlugNCloseRoute: typeof AuthenticatedDashboardManageSlugNCloseRoute
   AuthenticatedDashboardManageSlugNParticipantsRoute: typeof AuthenticatedDashboardManageSlugNParticipantsRoute
@@ -1142,6 +1163,8 @@ const AuthenticatedDashboardManageSlugNRouteChildren: AuthenticatedDashboardMana
   {
     AuthenticatedDashboardManageSlugNInboxRoute:
       AuthenticatedDashboardManageSlugNInboxRouteWithChildren,
+    AuthenticatedDashboardManageSlugNAgentRoute:
+      AuthenticatedDashboardManageSlugNAgentRoute,
     AuthenticatedDashboardManageSlugNBroadcastRoute:
       AuthenticatedDashboardManageSlugNBroadcastRoute,
     AuthenticatedDashboardManageSlugNCloseRoute:

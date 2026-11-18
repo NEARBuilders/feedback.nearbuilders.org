@@ -258,6 +258,32 @@ export const FeedbackDetailSchema = RoundFeedbackSchema.extend({
 
 export type FeedbackDetail = z.infer<typeof FeedbackDetailSchema>;
 
+/** What an organization key suggests doing with a feedback item (#296). */
+export const FeedbackSuggestionSchema = z.object({
+  feedbackId: z.string(),
+  roundId: z.string(),
+  /** Only "resolved" or "dismissed"; null when the suggestion is just a star. */
+  status: z.enum(["resolved", "dismissed"]).nullable(),
+  star: z.boolean(),
+  note: z.string().nullable(),
+  /** The key that made the suggestion, for the audit trail. */
+  suggestedByKeyId: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type FeedbackSuggestion = z.infer<typeof FeedbackSuggestionSchema>;
+
+const SuggestionItemSchema = z
+  .object({
+    feedbackId: z.string(),
+    status: z.enum(["resolved", "dismissed"]).optional(),
+    star: z.boolean().optional(),
+    note: NoteBodySchema.optional(),
+  })
+  .refine((item) => item.status !== undefined || item.star === true, {
+    message: "Suggest a status or a star",
+  });
+
 export const MyFeedbackSchema = FeedbackDetailSchema;
 
 export type MyFeedback = z.infer<typeof MyFeedbackSchema>;
@@ -954,6 +980,41 @@ export const contract = oc.router({
       }),
     )
     .output(z.array(RoundFeedbackSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  suggestFeedback: oc
+    .route({
+      method: "POST",
+      path: "/rounds/{id}/suggestions",
+      summary: "Suggest a status or star for feedback (organization keys only)",
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        suggestions: z.array(SuggestionItemSchema).min(1).max(200),
+      }),
+    )
+    .output(z.array(FeedbackSuggestionSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  listFeedbackSuggestions: oc
+    .route({
+      method: "GET",
+      path: "/rounds/{id}/suggestions",
+      summary: "Pending status and star suggestions for a round's feedback",
+    })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(FeedbackSuggestionSchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  clearFeedbackSuggestions: oc
+    .route({
+      method: "POST",
+      path: "/rounds/{id}/suggestions/clear",
+      summary: "Reject or finish suggestions (signed-in managers only)",
+    })
+    .input(z.object({ id: z.string(), feedbackIds: z.array(z.string()).min(1).max(500) }))
+    .output(z.object({ cleared: z.number().int().nonnegative() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   listFeedbackAuthors: oc

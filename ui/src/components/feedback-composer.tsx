@@ -14,6 +14,7 @@ import {
   MarkdownEditor,
   SegmentedToggle,
 } from "@/components";
+import { AgentDraftHelp } from "@/components/agent-draft-help";
 import { useClientValue } from "@/hooks";
 import { FEEDBACK_TEXT_MAX, feedbackTextLength, hasUnuploadedImage } from "@/lib/feedback-body";
 import {
@@ -239,6 +240,7 @@ export function FeedbackComposer({ round, accountId, context }: FeedbackComposer
               </span>
             </label>
           )}
+          <AgentDraftHelp round={round} />
         </Field>
       ) : (
         <Field>

@@ -20,6 +20,7 @@ import { DatabaseTag } from "../db/layer";
 import {
   activityOutbox as activityOutboxTable,
   feedbackNotes as feedbackNotesTable,
+  feedbackSuggestions as feedbackSuggestionsTable,
   projectRoundCounters as projectRoundCountersTable,
   projects as projectsTable,
   roundCredits as roundCreditsTable,
@@ -166,6 +167,24 @@ export interface RoundFeedbackRecord {
   updatedAt: string | null;
   activityEventId: string | null;
   nostrEventId: string | null;
+}
+
+/** A pending suggestion from an organization key for one feedback item (#296). */
+export interface FeedbackSuggestionRecord {
+  feedbackId: string;
+  roundId: string;
+  status: "resolved" | "dismissed" | null;
+  star: boolean;
+  note: string | null;
+  suggestedByKeyId: string | null;
+  createdAt: string;
+}
+
+export interface FeedbackSuggestionInput {
+  feedbackId: string;
+  status: "resolved" | "dismissed" | null;
+  star: boolean;
+  note: string | null;
 }
 
 export interface FeedbackNoteRecord {
@@ -348,6 +367,19 @@ export interface RoundsService {
     starred: boolean,
     starredByAccountId: string | null,
   ): Promise<RoundFeedbackRecord[]>;
+  /**
+   * Stores suggestions, replacing any earlier one on the same item. Every item must belong to
+   * the round. Never touches the real status or star.
+   */
+  suggestFeedback(
+    roundId: string,
+    items: FeedbackSuggestionInput[],
+    source: { keyId: string | null; organizationId: string | null },
+  ): Promise<FeedbackSuggestionRecord[]>;
+  /** Suggestions still worth acting on: the item is unresolved, or not yet starred. */
+  listFeedbackSuggestions(roundId: string): Promise<FeedbackSuggestionRecord[]>;
+  /** Drops suggestions (a rejection, or once they were applied). Returns how many went. */
+  clearFeedbackSuggestions(roundId: string, feedbackIds: string[]): Promise<number>;
   addFeedbackNote(note: NewFeedbackNote): Promise<FeedbackNoteRecord>;
   listFeedbackNotes(feedbackIds: string[]): Promise<FeedbackNoteRecord[]>;
   listParticipants(roundId: string): Promise<RoundParticipantRecord[]>;
@@ -440,6 +472,20 @@ function toFeedbackRecord(row: RoundFeedbackRow): RoundFeedbackRecord {
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : null,
     activityEventId: row.activityEventId,
     nostrEventId: row.nostrEventId,
+  };
+}
+
+function toSuggestionRecord(
+  row: typeof feedbackSuggestionsTable.$inferSelect,
+): FeedbackSuggestionRecord {
+  return {
+    feedbackId: row.feedbackId,
+    roundId: row.roundId,
+    status: row.status === "resolved" || row.status === "dismissed" ? row.status : null,
+    star: row.star,
+    note: row.note,
+    suggestedByKeyId: row.suggestedByKeyId,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
   };
 }
 
@@ -1060,6 +1106,99 @@ export const RoundsLive = Layer.effect(
 
             return rows.map(toFeedbackRecord);
           });
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      suggestFeedback: async (roundId, items, source) => {
+        try {
+          // One suggestion per item: the last one wins, and the upsert can't see a row twice.
+          const byFeedback = new Map(items.map((item) => [item.feedbackId, item]));
+          const ids = [...byFeedback.keys()];
+          if (ids.length === 0) return [];
+          const found = await db
+            .select({ id: roundFeedbackTable.id })
+            .from(roundFeedbackTable)
+            .where(
+              and(eq(roundFeedbackTable.roundId, roundId), inArray(roundFeedbackTable.id, ids)),
+            );
+          if (found.length !== ids.length) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Some of that feedback doesn't belong to this round",
+            });
+          }
+          const rows = await db
+            .insert(feedbackSuggestionsTable)
+            .values(
+              [...byFeedback.values()].map((item) => ({
+                feedbackId: item.feedbackId,
+                roundId,
+                status: item.status,
+                star: item.star,
+                note: item.note,
+                suggestedByKeyId: source.keyId,
+                organizationId: source.organizationId,
+              })),
+            )
+            .onConflictDoUpdate({
+              target: feedbackSuggestionsTable.feedbackId,
+              set: {
+                status: sql`excluded.status`,
+                star: sql`excluded.star`,
+                note: sql`excluded.note`,
+                suggestedByKeyId: sql`excluded.suggested_by_key_id`,
+                organizationId: sql`excluded.organization_id`,
+                createdAt: sql`now()`,
+              },
+            })
+            .returning();
+          return rows.map(toSuggestionRecord);
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      listFeedbackSuggestions: async (roundId) => {
+        try {
+          const rows = await db
+            .select({
+              suggestion: feedbackSuggestionsTable,
+              status: roundFeedbackTable.status,
+              starredAt: roundFeedbackTable.starredAt,
+            })
+            .from(feedbackSuggestionsTable)
+            .innerJoin(
+              roundFeedbackTable,
+              eq(roundFeedbackTable.id, feedbackSuggestionsTable.feedbackId),
+            )
+            .where(eq(feedbackSuggestionsTable.roundId, roundId))
+            .orderBy(asc(feedbackSuggestionsTable.createdAt));
+          return rows
+            .filter(
+              ({ suggestion, status, starredAt }) =>
+                (suggestion.status !== null && status === "unresolved") ||
+                (suggestion.star && starredAt === null),
+            )
+            .map(({ suggestion }) => toSuggestionRecord(suggestion));
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      clearFeedbackSuggestions: async (roundId, feedbackIds) => {
+        try {
+          if (feedbackIds.length === 0) return 0;
+          const rows = await db
+            .delete(feedbackSuggestionsTable)
+            .where(
+              and(
+                eq(feedbackSuggestionsTable.roundId, roundId),
+                inArray(feedbackSuggestionsTable.feedbackId, feedbackIds),
+              ),
+            )
+            .returning({ id: feedbackSuggestionsTable.feedbackId });
+          return rows.length;
         } catch (error) {
           throw toOrpcError(error);
         }
