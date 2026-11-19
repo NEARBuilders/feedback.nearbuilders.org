@@ -710,7 +710,7 @@ export const contract = oc.router({
         winners: z.array(RoundWinnerIdSchema).max(MAX_ROUND_WINNERS).optional(),
       }),
     )
-    .output(RoundSchema)
+    .output(RoundSchema.extend({ privacyNotice: z.string().nullable() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   listRounds: oc
