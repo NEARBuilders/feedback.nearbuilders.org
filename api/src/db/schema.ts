@@ -176,6 +176,7 @@ export const rounds = pgTable(
     rejectedAt: timestamp("rejected_at", { mode: "date", withTimezone: true }),
     rejectionReason: text("rejection_reason"),
     activityEventId: text("activity_event_id"),
+    closedActivityEventId: text("closed_activity_event_id"),
   },
   (table) => ({
     ownerAccountIdIdx: index("rounds_owner_account_id_idx").on(table.ownerAccountId),
@@ -311,6 +312,7 @@ export const roundCredits = pgTable(
     summary: text("summary"),
     writtenCount: integer("written_count").default(0).notNull(),
     recordedCount: integer("recorded_count").default(0).notNull(),
+    activityEventId: text("activity_event_id"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
@@ -378,7 +380,12 @@ export type ActivityEventType =
   | "credit.awarded";
 
 /** Where the gateway's event id is written back to once delivered. */
-export type ActivitySubjectKind = "round" | "feedback" | "feedback_accepted";
+export type ActivitySubjectKind =
+  | "round"
+  | "round_closed"
+  | "feedback"
+  | "feedback_accepted"
+  | "credit";
 
 /**
  * Durable queue for activity.nearbuilders.org submissions.

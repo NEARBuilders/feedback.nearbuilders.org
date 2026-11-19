@@ -1879,15 +1879,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
               }`,
             );
           }
-          await getRuntime().activityEvents.emitRoundClosed(detail);
-          const credits = await getRuntime().rounds.listRoundCredits(round.id);
-          for (const credit of credits) {
-            if (!credit.contributedMeaningfully) continue;
-            await getRuntime().activityEvents.emitCreditAwarded({
-              ...credit,
-              isPrivate: round.isPrivate,
-            });
-          }
           return withRoundIdentity(detail);
         }),
 

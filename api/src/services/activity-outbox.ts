@@ -19,7 +19,7 @@
 import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
 import type { Database } from "../db/layer";
 import type { ActivityEventType, ActivitySubjectKind } from "../db/schema";
-import { activityOutbox, roundFeedback, rounds } from "../db/schema";
+import { activityOutbox, roundCredits, roundFeedback, rounds } from "../db/schema";
 import type { Transaction } from "../db/transaction";
 import type { JsonValue } from "./activity-client";
 import type { ActivityEmitter } from "./activity-events";
@@ -165,6 +165,18 @@ export function createActivityOutboxWorker(
   > = {
     round: async (subjectId, eventId) => {
       await db.update(rounds).set({ activityEventId: eventId }).where(eq(rounds.id, subjectId));
+    },
+    round_closed: async (subjectId, eventId) => {
+      await db
+        .update(rounds)
+        .set({ closedActivityEventId: eventId })
+        .where(eq(rounds.id, subjectId));
+    },
+    credit: async (subjectId, eventId) => {
+      await db
+        .update(roundCredits)
+        .set({ activityEventId: eventId })
+        .where(eq(roundCredits.id, subjectId));
     },
     feedback: async (subjectId, eventId) => {
       await db

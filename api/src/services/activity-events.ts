@@ -7,11 +7,15 @@
  * up. This is a producer integration only — feedback keeps its own database;
  * there are no shared tables and no Nostr/Redis here.
  *
- * Every emit is best-effort: a failed, rejected, or unreachable gateway is
- * logged and swallowed, and never blocks or fails the local action that
- * triggered it. Submissions carry an idempotency key scoped to the round,
- * feedback, or credit, so a retry of the same logical event is de-duplicated
- * by the gateway (see docs/integration-guide.md in activity.nearbuilders.org).
+ * The `emit*` helpers here are best-effort: a failed, rejected, or unreachable
+ * gateway is logged and swallowed, and never blocks or fails the local action
+ * that triggered it. Events the leaderboard scores or that close a round
+ * (`feedback.accepted`, `round.closed`, `credit.awarded`) are not sent from
+ * here; they are queued in the outbox inside the transaction that causes them
+ * (see `./activity-outbox`). Submissions carry an idempotency key scoped to the
+ * round, feedback, or credit, so a retry of the same logical event is
+ * de-duplicated by the gateway (see docs/integration-guide.md in
+ * activity.nearbuilders.org).
  *
  * Wire plumbing (submit/listEvents/leaderboard/retract) lives in
  * `./activity-client`, the ported activity.nearbuilders.org reference client.
@@ -69,25 +73,6 @@ export interface FeedbackPostedInput {
   isPrivate?: boolean;
 }
 
-export interface RoundClosedInput {
-  id: string;
-  ownerAccountId: string;
-  projectSlug: string;
-  title: string;
-}
-
-export interface CreditAwardedInput {
-  roundId: string;
-  builderAccountId: string;
-  projectSlug: string;
-  roundTitle: string;
-  writtenCount: number;
-  recordedCount: number;
-  summary: string | null;
-  /** A private round's credit summary stays in this app (#101). */
-  isPrivate?: boolean;
-}
-
 export interface LeaderboardInput {
   period: "weekly" | "monthly" | "all-time";
   type?: ActivityEventType;
@@ -115,8 +100,6 @@ export interface ActivityEmitter {
   /** Returns the gateway's event id on success, or null if disabled/failed. */
   emitRoundOpened(round: RoundOpenedInput): Promise<string | null>;
   emitFeedbackPosted(feedback: FeedbackPostedInput): Promise<string | null>;
-  emitRoundClosed(round: RoundClosedInput): Promise<string | null>;
-  emitCreditAwarded(credit: CreditAwardedInput): Promise<string | null>;
   /** Hides a previously emitted event, e.g. because its round/feedback was deleted. */
   retract(eventId: string, reason: string): Promise<void>;
   /** Read-only; works even when submission is disabled (no API key required). */
@@ -224,35 +207,6 @@ export function createActivityEmitter(options: ActivityEmitterOptions = {}): Act
         },
       };
       return submit(feedback.isPrivate ? await redactPrivateEvent(event, feedback.id) : event);
-    },
-
-    emitRoundClosed: (round) =>
-      submit({
-        eventType: "round.closed",
-        actor: round.ownerAccountId,
-        idempotencyKey: `round.closed:${round.id}`,
-        payload: {
-          roundId: round.id,
-          projectSlug: round.projectSlug,
-          title: round.title,
-        },
-      }),
-
-    emitCreditAwarded: async (credit) => {
-      const event: ActivityEventSubmission = {
-        eventType: "credit.awarded",
-        actor: credit.builderAccountId,
-        idempotencyKey: `credit.awarded:${credit.roundId}:${credit.builderAccountId}`,
-        payload: {
-          roundId: credit.roundId,
-          projectSlug: credit.projectSlug,
-          roundTitle: credit.roundTitle,
-          writtenCount: credit.writtenCount,
-          recordedCount: credit.recordedCount,
-          summary: credit.summary,
-        },
-      };
-      return submit(credit.isPrivate ? await redactPrivateEvent(event) : event);
     },
 
     retract: async (eventId, reason) => {

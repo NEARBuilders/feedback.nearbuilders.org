@@ -176,26 +176,6 @@ describe("createActivityEmitter (enabled)", () => {
     expect(keys[0]).toBe(keys[1]);
   });
 
-  it("keeps a private round's credit summary out of credit.awarded", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(okResponse());
-    const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
-
-    await emitter.emitCreditAwarded({
-      roundId: round.id,
-      builderAccountId: "tester.near",
-      projectSlug: "my-project",
-      roundTitle: "Try the onboarding flow",
-      writtenCount: 2,
-      recordedCount: 0,
-      summary: "Found the checkout bug",
-      isPrivate: true,
-    });
-
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(init.body as string).not.toContain("Found the checkout bug");
-    expect(JSON.parse(init.body as string).payload).not.toHaveProperty("summary");
-  });
-
   it("swallows and logs a rejected gateway response", async () => {
     const fetchMock = vi.fn().mockResolvedValue(okResponse(503));
     const emitter = createActivityEmitter({ ...config, fetch: fetchMock, logger: { warn } });
