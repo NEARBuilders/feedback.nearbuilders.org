@@ -1,3 +1,4 @@
+import { httpUrl } from "@/lib/http-url";
 import type { RoundStatus } from "@/lib/queries/rounds";
 import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 
@@ -28,7 +29,8 @@ function collectsPostedFeedback(round: WorkspaceRound): boolean {
 }
 
 export function issuesUrl(repoUrl: string | null): string | null {
-  return repoUrl ? `${repoUrl.replace(/\/+$/, "")}/issues` : null;
+  const safe = httpUrl(repoUrl);
+  return safe ? `${safe.replace(/\/+$/, "")}/issues` : null;
 }
 
 export function roundIssuesUrl(round: { formats: string[]; repoUrl: string | null }) {
