@@ -1813,7 +1813,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               data: {},
             });
           }
-          const contributors = await getRuntime().githubIssuesLookup.forRound({
+          const lookup = await getRuntime().githubIssuesLookup.forRound({
             repoUrl: round.repoUrl,
             windowStart: round.createdAt,
             windowEnd: round.closedAt,
@@ -1822,7 +1822,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
             repoUrl: round.repoUrl,
             windowStart: round.createdAt,
             windowEnd: round.closedAt,
-            contributors: contributors ?? [],
+            contributors: lookup?.contributors ?? [],
+            truncated: lookup?.truncated ?? false,
+            lookupFailed: lookup === null,
           };
         },
       ),

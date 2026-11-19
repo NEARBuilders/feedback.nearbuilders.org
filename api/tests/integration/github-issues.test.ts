@@ -89,6 +89,8 @@ describe("getRoundGithubIssues", () => {
     expect(result.windowStart).toEqual(round.createdAt);
     expect(result.windowEnd).toBeNull();
     expect(result.contributors).toEqual([]);
+    expect(result.truncated).toBe(false);
+    expect(result.lookupFailed).toBe(true);
   });
 
   it("checks private-round authorization before the feedback format", async () => {

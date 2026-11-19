@@ -388,6 +388,8 @@ export const RoundGithubIssuesSchema = z.object({
   windowStart: z.string(),
   windowEnd: z.string().nullable(),
   contributors: z.array(GithubIssueContributorSchema),
+  truncated: z.boolean(),
+  lookupFailed: z.boolean(),
 });
 
 export type RoundGithubIssues = z.infer<typeof RoundGithubIssuesSchema>;
