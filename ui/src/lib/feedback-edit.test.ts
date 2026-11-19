@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canSaveFeedbackEdit, isOwnFeedback, roundFeedbackPermissions } from "./feedback-edit";
+import {
+  canSaveFeedbackEdit,
+  isFeedbackLocked,
+  isOwnFeedback,
+  roundFeedbackPermissions,
+} from "./feedback-edit";
 
 describe("roundFeedbackPermissions", () => {
   it("allows editing and deletion while an open round is active", () => {
@@ -55,5 +60,19 @@ describe("canSaveFeedbackEdit", () => {
         isPending: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("isFeedbackLocked", () => {
+  it("allows editing only while the owner has not acted on the feedback", () => {
+    expect(isFeedbackLocked({ status: "unresolved", starredAt: null })).toBe(false);
+  });
+
+  it("locks feedback that was resolved, dismissed or starred", () => {
+    expect(isFeedbackLocked({ status: "resolved", starredAt: null })).toBe(true);
+    expect(isFeedbackLocked({ status: "dismissed", starredAt: null })).toBe(true);
+    expect(isFeedbackLocked({ status: "unresolved", starredAt: "2026-11-10T00:00:00.000Z" })).toBe(
+      true,
+    );
   });
 });

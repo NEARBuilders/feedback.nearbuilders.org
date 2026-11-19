@@ -8,7 +8,7 @@ import { FeedbackContent } from "@/components/feedback-content";
 import { StarBadge } from "@/components/feedback-star-badge";
 import { FeedbackStatusBadge } from "@/components/feedback-status-badge";
 import { FEEDBACK_TEXT_MAX, feedbackTextLength, hasUnuploadedImage } from "@/lib/feedback-body";
-import { canSaveFeedbackEdit, isOwnFeedback } from "@/lib/feedback-edit";
+import { canSaveFeedbackEdit, isFeedbackLocked, isOwnFeedback } from "@/lib/feedback-edit";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { type FeedbackEntry, invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
@@ -99,7 +99,7 @@ export function FeedbackList<T extends FeedbackEntry>({
                 <span className="flex shrink-0 items-center gap-1">
                   {entry.starredAt && <StarBadge data-testid="star-badge" />}
                   <FeedbackStatusBadge status={entry.status} />
-                  {isOwn && canEdit && editId !== entry.id && (
+                  {isOwn && canEdit && !isFeedbackLocked(entry) && editId !== entry.id && (
                     <Button
                       variant="ghost"
                       size="icon-sm"
