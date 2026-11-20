@@ -6,6 +6,7 @@ import { Button, EmptyState, Skeleton } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectRoundsTable } from "@/components/project-rounds-table";
+import { QueryError } from "@/components/query-error";
 import { pageHead } from "@/lib/page-title";
 import { myProjectsQueryOptions } from "@/lib/queries/projects";
 
@@ -41,6 +42,12 @@ function ManagePage() {
 
         {projectsQuery.isLoading ? (
           <Skeleton className="h-32 w-full" />
+        ) : projectsQuery.isError ? (
+          <QueryError
+            message="Couldn't load your projects."
+            onRetry={() => void projectsQuery.refetch()}
+            isRetrying={projectsQuery.isFetching}
+          />
         ) : projects.length === 0 ? (
           <EmptyState
             icon={FolderKanban}
