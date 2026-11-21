@@ -9,6 +9,7 @@ import {
   isOrgAdminRole,
   needsTeamCheck,
   orgRunsRound,
+  runningOrgIds,
 } from "@/services/round-access";
 
 const round = { ownerAccountId: "creator.near" };
@@ -336,5 +337,21 @@ describe("filterVisibleFeedback (#101)", () => {
     expect(filterVisibleFeedback(items, false, null)).toEqual([]);
     expect(filterVisibleFeedback(items, false, undefined)).toEqual([]);
     expect(filterVisibleFeedback(items, false, [])).toEqual([]);
+  });
+});
+
+describe("runningOrgIds (#291)", () => {
+  it("lists the owning org and manage-granted orgs once each", () => {
+    expect(
+      runningOrgIds({
+        ownerOrgId: "org-1",
+        accessGrants: [grant("org-2"), grant("org-1"), grant("org-3", "read")],
+      }),
+    ).toEqual(["org-1", "org-2"]);
+  });
+
+  it("is empty without a project or any running org", () => {
+    expect(runningOrgIds(null)).toEqual([]);
+    expect(runningOrgIds({ ownerOrgId: null })).toEqual([]);
   });
 });

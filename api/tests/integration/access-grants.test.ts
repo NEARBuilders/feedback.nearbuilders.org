@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   adminContext,
+  authGetActiveMember,
   authListOrganizations,
   authListTeamMembers,
   authListTeams,
@@ -58,6 +59,8 @@ beforeEach(() => {
   authListTeamMembers.mockReset();
   authListTeams.mockResolvedValue([{ id: "team-a" }]);
   authListTeamMembers.mockResolvedValue([]);
+  authGetActiveMember.mockReset();
+  authGetActiveMember.mockResolvedValue({ id: null, role: null, organizationId: null });
   authListOrganizations.mockReset();
   authListOrganizations.mockResolvedValue([
     { id: "nearlegion-org-1", name: "NearLegion", slug: "near-legion", status: "active" },
@@ -115,6 +118,91 @@ describe("partner management (#279)", () => {
     );
     await expect(partnerMember.joinRound({ id: round.id })).rejects.toMatchObject({
       code: "BAD_REQUEST",
+    });
+  });
+
+  describe("join guard when the active org differs (#291)", () => {
+    const memberOf = (...organizationIds: string[]) =>
+      authGetActiveMember.mockImplementation(
+        async ({ organizationId }: { organizationId: string }) =>
+          organizationIds.includes(organizationId)
+            ? { id: "member-x", role: "member", organizationId }
+            : { id: null, role: null, organizationId: null },
+      );
+
+    it("refuses a member of the owning org whose active org is another org", async () => {
+      const { n, round } = await ownedPrivateRound();
+      memberOf(`partner-owner-org-${n}`);
+      const member = await getPluginClient(
+        nearAuthedContext("elsewhere.near", "elsewhere-user", "some-other-org", "member"),
+      );
+      await expect(member.joinRound({ id: round.id })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Your organization runs this round, so you can't join it as a tester",
+      });
+    });
+
+    it("refuses a partner org member whose active org is another org", async () => {
+      const { owner, round } = await ownedPrivateRound();
+      await owner.addProjectPartner({
+        id: round.projectRecordId,
+        organizationSlug: "nearlytrade",
+      });
+      memberOf(PARTNER.id);
+      const member = await getPluginClient(
+        nearAuthedContext("elsewhere.near", "elsewhere-user", "some-other-org", "member"),
+      );
+      await expect(member.joinRound({ id: round.id })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Your organization runs this round, so you can't join it as a tester",
+      });
+    });
+
+    it("refuses a member with no active org at all", async () => {
+      const { n, round } = await ownedPrivateRound();
+      memberOf(`partner-owner-org-${n}`);
+      const member = await getPluginClient({
+        ...nearAuthedContext("elsewhere.near", "elsewhere-user"),
+        organization: { activeOrganizationId: null },
+      });
+      await expect(member.joinRound({ id: round.id })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+      });
+    });
+
+    it("still lets a non-member join and post", async () => {
+      const { round } = await ownedPrivateRound();
+      const outsider = await getPluginClient(
+        nearAuthedContext("outsider.near", "outsider-user", "some-other-org", "member"),
+      );
+      await outsider.joinRound({ id: round.id });
+      await expect(
+        outsider.postFeedback({ id: round.id, format: "written", body: "A finding" }),
+      ).resolves.toMatchObject({ format: "written" });
+    });
+
+    it("refuses posting when membership appears after joining", async () => {
+      const { n, round } = await ownedPrivateRound();
+      const user = await getPluginClient(
+        nearAuthedContext("late.near", "late-user", "some-other-org", "member"),
+      );
+      await user.joinRound({ id: round.id });
+      memberOf(`partner-owner-org-${n}`);
+      await expect(
+        user.postFeedback({ id: round.id, format: "written", body: "Own round" }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    });
+
+    it("refuses with a retry message when membership can't be verified", async () => {
+      const { round } = await ownedPrivateRound();
+      authGetActiveMember.mockRejectedValue(new Error("auth down"));
+      const member = await getPluginClient(
+        nearAuthedContext("elsewhere.near", "elsewhere-user", "some-other-org", "member"),
+      );
+      await expect(member.joinRound({ id: round.id })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Couldn't verify your organization membership right now, try again",
+      });
     });
   });
 

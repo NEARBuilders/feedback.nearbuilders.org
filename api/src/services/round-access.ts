@@ -125,6 +125,23 @@ export function orgRunsRound(
 }
 
 /**
+ * Every organization that runs a round through its project: the owning org plus each
+ * org holding a manage grant (#279). The anti-join guard checks the caller's membership
+ * in these, whichever organization is active in their session (#291).
+ */
+export function runningOrgIds(project: ProjectAccessSubject | null): string[] {
+  if (!project) return [];
+  const ids = new Set<string>();
+  if (project.ownerOrgId) ids.add(project.ownerOrgId);
+  for (const grant of project.accessGrants ?? []) {
+    if (grant.permission === "manage" && grant.principalType === "org") {
+      ids.add(grant.principalId);
+    }
+  }
+  return [...ids];
+}
+
+/**
  * Who may manage a project's partner list (#279): the owning org's owners and
  * admins, or a platform admin. Partners themselves never can — grants confer
  * round management, not partnership control.
