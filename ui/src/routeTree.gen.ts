@@ -32,6 +32,7 @@ import { Route as PublicProjectsIndexRouteImport } from './routes/_public/projec
 import { Route as PublicRoundsIndexRouteImport } from './routes/_public/rounds/index'
 import { Route as PublicSendSlugRouteImport } from './routes/_public/send.$slug'
 import { Route as AdminDashboardAdminIndexRouteImport } from './routes/_admin/_dashboard/admin/index'
+import { Route as AdminDashboardAdminActivityRouteImport } from './routes/_admin/_dashboard/admin/activity'
 import { Route as AdminDashboardAdminProjectsRouteImport } from './routes/_admin/_dashboard/admin/projects'
 import { Route as AuthenticatedDashboardDashboardIndexRouteImport } from './routes/_authenticated/_dashboard/dashboard/index'
 import { Route as AuthenticatedDashboardManageIndexRouteImport } from './routes/_authenticated/_dashboard/manage/index'
@@ -175,6 +176,12 @@ const AdminDashboardAdminIndexRoute =
   AdminDashboardAdminIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => AdminDashboardAdminRoute,
+  } as any)
+const AdminDashboardAdminActivityRoute =
+  AdminDashboardAdminActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
     getParentRoute: () => AdminDashboardAdminRoute,
   } as any)
 const AdminDashboardAdminProjectsRoute =
@@ -373,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/feed/': typeof PublicFeedIndexRoute
   '/projects/': typeof PublicProjectsIndexRoute
   '/rounds/': typeof PublicRoundsIndexRoute
+  '/admin/activity': typeof AdminDashboardAdminActivityRoute
   '/admin/projects': typeof AdminDashboardAdminProjectsRoute
   '/manage/new': typeof AuthenticatedDashboardManageNewRoute
   '/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
@@ -417,6 +425,7 @@ export interface FileRoutesByTo {
   '/feed': typeof PublicFeedIndexRoute
   '/projects': typeof PublicProjectsIndexRoute
   '/rounds': typeof PublicRoundsIndexRoute
+  '/admin/activity': typeof AdminDashboardAdminActivityRoute
   '/admin/projects': typeof AdminDashboardAdminProjectsRoute
   '/manage/new': typeof AuthenticatedDashboardManageNewRoute
   '/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
@@ -470,6 +479,7 @@ export interface FileRoutesById {
   '/_public/feed/': typeof PublicFeedIndexRoute
   '/_public/projects/': typeof PublicProjectsIndexRoute
   '/_public/rounds/': typeof PublicRoundsIndexRoute
+  '/_admin/_dashboard/admin/activity': typeof AdminDashboardAdminActivityRoute
   '/_admin/_dashboard/admin/projects': typeof AdminDashboardAdminProjectsRoute
   '/_authenticated/_dashboard/manage/new': typeof AuthenticatedDashboardManageNewRoute
   '/_authenticated/_dashboard/orgs/$slug': typeof AuthenticatedDashboardOrgsSlugRoute
@@ -522,6 +532,7 @@ export interface FileRouteTypes {
     | '/feed/'
     | '/projects/'
     | '/rounds/'
+    | '/admin/activity'
     | '/admin/projects'
     | '/manage/new'
     | '/orgs/$slug'
@@ -566,6 +577,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/projects'
     | '/rounds'
+    | '/admin/activity'
     | '/admin/projects'
     | '/manage/new'
     | '/orgs/$slug'
@@ -618,6 +630,7 @@ export interface FileRouteTypes {
     | '/_public/feed/'
     | '/_public/projects/'
     | '/_public/rounds/'
+    | '/_admin/_dashboard/admin/activity'
     | '/_admin/_dashboard/admin/projects'
     | '/_authenticated/_dashboard/manage/new'
     | '/_authenticated/_dashboard/orgs/$slug'
@@ -818,6 +831,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminDashboardAdminIndexRouteImport
+      parentRoute: typeof AdminDashboardAdminRoute
+    }
+    '/_admin/_dashboard/admin/activity': {
+      id: '/_admin/_dashboard/admin/activity'
+      path: '/activity'
+      fullPath: '/admin/activity'
+      preLoaderRoute: typeof AdminDashboardAdminActivityRouteImport
       parentRoute: typeof AdminDashboardAdminRoute
     }
     '/_admin/_dashboard/admin/projects': {
@@ -1034,11 +1054,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminDashboardAdminRouteChildren {
+  AdminDashboardAdminActivityRoute: typeof AdminDashboardAdminActivityRoute
   AdminDashboardAdminProjectsRoute: typeof AdminDashboardAdminProjectsRoute
   AdminDashboardAdminIndexRoute: typeof AdminDashboardAdminIndexRoute
 }
 
 const AdminDashboardAdminRouteChildren: AdminDashboardAdminRouteChildren = {
+  AdminDashboardAdminActivityRoute: AdminDashboardAdminActivityRoute,
   AdminDashboardAdminProjectsRoute: AdminDashboardAdminProjectsRoute,
   AdminDashboardAdminIndexRoute: AdminDashboardAdminIndexRoute,
 }

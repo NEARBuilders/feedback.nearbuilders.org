@@ -135,6 +135,10 @@ export interface ActivityOutboxWorker {
   listFailed(limit?: number): Promise<(typeof activityOutbox.$inferSelect)[]>;
   /** Re-queue parked rows, e.g. after the gateway comes back. */
   retryFailed(ids: string[]): Promise<number>;
+  /** Parked rows whose event belongs to one round, for that round's owner. */
+  listFailedForRound(roundId: string): Promise<(typeof activityOutbox.$inferSelect)[]>;
+  /** Re-queue parked rows, limited to ones that belong to the given round. */
+  retryFailedForRound(roundId: string, ids: string[]): Promise<number>;
   /** Queue depth by status, for the startup log and health checks. */
   depth(): Promise<Record<string, number>>;
   start(): void;
@@ -288,6 +292,8 @@ export function createActivityOutboxWorker(
     drain,
     listFailed: (limit) => listFailedActivity(db, limit),
     retryFailed: (ids) => retryFailedActivity(db, ids),
+    listFailedForRound: (roundId) => listFailedActivityForRound(db, roundId),
+    retryFailedForRound: (roundId, ids) => retryFailedActivityForRound(db, roundId, ids),
     depth: () => activityOutboxDepth(db),
     start: () => {
       if (timer) return;
@@ -325,6 +331,33 @@ export async function listFailedActivity(db: Database, limit = 50) {
     .where(eq(activityOutbox.status, "failed"))
     .orderBy(asc(activityOutbox.createdAt))
     .limit(limit);
+}
+
+const inRound = (roundId: string) => sql`${activityOutbox.payload}->>'roundId' = ${roundId}`;
+
+export async function listFailedActivityForRound(db: Database, roundId: string) {
+  return db
+    .select()
+    .from(activityOutbox)
+    .where(and(eq(activityOutbox.status, "failed"), inRound(roundId)))
+    .orderBy(asc(activityOutbox.createdAt))
+    .limit(50);
+}
+
+export async function retryFailedActivityForRound(
+  db: Database,
+  roundId: string,
+  ids: string[],
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const rows = await db
+    .update(activityOutbox)
+    .set({ status: "pending", attempts: 0, nextAttemptAt: new Date(), lastError: null })
+    .where(
+      and(eq(activityOutbox.status, "failed"), inArray(activityOutbox.id, ids), inRound(roundId)),
+    )
+    .returning({ id: activityOutbox.id });
+  return rows.length;
 }
 
 /** Re-queue parked rows, e.g. after the gateway comes back. */
