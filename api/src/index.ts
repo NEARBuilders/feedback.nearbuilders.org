@@ -1615,12 +1615,24 @@ export default createPlugin.withPlugins<PluginsClient>()({
           // Feedback data is keyed on NEAR accounts only (#121, #224): an admin with none
           // stars without a recorded account, never under their auth user id.
           const starredBy = linkedAccountIds(context as LinkedAccountsContext)[0] ?? null;
-          return await getRuntime().rounds.setFeedbackStarred(
+          const alreadyStarred = new Set<string>();
+          if (input.starred) {
+            const before = await Promise.all(
+              input.feedbackIds.map((id) => getRuntime().rounds.getFeedback(round.id, id)),
+            );
+            for (const item of before) if (item?.starredAt) alreadyStarred.add(item.id);
+          }
+          const updated = await getRuntime().rounds.setFeedbackStarred(
             round.id,
             input.feedbackIds,
             input.starred,
             starredBy,
           );
+          if (input.starred) {
+            const fresh = updated.filter((item) => !alreadyStarred.has(item.id));
+            if (fresh.length > 0) await notifyAuthors(round, fresh, "feedback_starred");
+          }
+          return updated;
         }),
 
       suggestFeedback: builder.suggestFeedback
@@ -1759,6 +1771,21 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const accountIds = linkedAccountIds(context as LinkedAccountsContext);
           if (accountIds.length === 0) return { items: [], unreadCount: 0 };
           return await getRuntime().notifications.listForAccount(accountIds, input.limit);
+        }),
+
+      getNotificationPreferences: builder.getNotificationPreferences
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const accountIds = linkedAccountIds(context as LinkedAccountsContext);
+          return await getRuntime().notifications.getPreferences(accountIds);
+        }),
+
+      setNotificationPreferences: builder.setNotificationPreferences
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const accountIds = linkedAccountIds(context as LinkedAccountsContext);
+          if (accountIds.length === 0) return { feedbackUpdates: input.feedbackUpdates };
+          return await getRuntime().notifications.setPreferences(accountIds, input);
         }),
 
       markNotificationRead: builder.markNotificationRead
