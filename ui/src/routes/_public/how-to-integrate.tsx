@@ -45,6 +45,32 @@ const FOR_BUILDERS = [
   "Credit you receive is portable — it shows on your public profile page, linked from the round.",
 ];
 
+const EMBED_EXAMPLE = `<script src="https://feedback.nearbuilders.org/embed.js" data-project="your-project-slug" defer></script>`;
+
+const MCP_EXAMPLE = `POST https://feedback.nearbuilders.org/api/mcp
+x-api-key: <your organization key>`;
+
+const TOOLS = [
+  {
+    title: "Add a feedback button to your app",
+    body: 'Paste one line into your app and testers get a button that opens your latest open round\'s send-feedback page, already knowing which page they were on. They still sign in and join here. Optional: data-label for the button text and data-position="left" to move it.',
+    code: EMBED_EXAMPLE,
+  },
+  {
+    title: "Review feedback with your own agent",
+    body: "Open a round's agent tab to get its MCP address, the header to send and a ready prompt. Organization keys (org_) are read-only, so an agent can read a round and its feedback but never change it. Ask for an organization key from your organization's settings.",
+    code: MCP_EXAMPLE,
+  },
+  {
+    title: "Let your agent suggest, and decide yourself",
+    body: 'An agent using an organization key can leave a suggested status or star on each item. Suggestions appear at the top of the inbox as "Suggested by your agent", and a member accepts or rejects each one. Nothing changes until a person accepts.',
+  },
+  {
+    title: "Draft a report with your own assistant",
+    body: "Testers can copy a prompt from the feedback box, paste it into their own AI assistant, answer its questions and paste the finished draft back. We never see that conversation and the tester reviews and posts the text.",
+  },
+];
+
 function HowToIntegratePage() {
   return (
     <PageContainer variant="default">
@@ -92,6 +118,30 @@ function HowToIntegratePage() {
             </ul>
           </Card>
         </div>
+
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Connect your tools</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {TOOLS.map(({ title, body, code }) => (
+              <Card key={title} className="p-5 space-y-3">
+                <h3 className="text-base font-semibold text-foreground">{title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{body}</p>
+                {code ? (
+                  <pre className="overflow-x-auto whitespace-pre-wrap break-words border border-border bg-muted p-3 font-mono text-xs text-foreground">
+                    {code}
+                  </pre>
+                ) : null}
+              </Card>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Agents can also read{" "}
+            <a href="/skill.md" className="underline">
+              skill.md
+            </a>{" "}
+            for the full step-by-step instructions.
+          </p>
+        </section>
 
         <div className="flex flex-wrap gap-3">
           <Button asChild>
