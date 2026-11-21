@@ -61,7 +61,7 @@ export function PublicHeader({ showConnect = true }: PublicHeaderProps) {
           data-testid="public-nav-home"
         >
           <BrandMark className="size-10" />
-          Feedback Rounds
+          <span className="sr-only sm:not-sr-only">Feedback Rounds</span>
         </Link>
         <PublicNavLinks className="hidden min-w-0 flex-1 items-center gap-4 md:ml-6 md:flex" />
         <div className="ml-auto flex items-center gap-2">
