@@ -19,8 +19,9 @@ export function NetworkToggle() {
     >
       {supportedNetworks.map((network) => (
         <ToggleGroupItem key={network} value={network} aria-label={`Switch to ${network}`}>
-          <Globe />
-          {network === "mainnet" ? "Mainnet" : "Testnet"}
+          <Globe className="hidden sm:block" />
+          <span className="sm:hidden">{network === "mainnet" ? "Main" : "Test"}</span>
+          <span className="hidden sm:inline">{network === "mainnet" ? "Mainnet" : "Testnet"}</span>
         </ToggleGroupItem>
       ))}
     </ToggleGroup>

@@ -23,7 +23,7 @@ function RoundStack({ rounds }: { rounds: LiveRound[] }) {
   const live = rounds.slice(0, STACK_SIZE);
 
   return (
-    <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+    <div className="relative mx-auto w-full min-w-0 max-w-md lg:max-w-none">
       <p className="mb-3 flex items-center gap-2 text-3xs font-medium uppercase tracking-6 text-muted-foreground">
         <span aria-hidden="true" className="size-1.5 bg-brand-accent" />
         {live.length > 0 ? "Open now" : "Example rounds"}
@@ -74,8 +74,8 @@ function RoundStack({ rounds }: { rounds: LiveRound[] }) {
 
 export function LandingHero({ rounds }: { rounds: LiveRound[] }) {
   return (
-    <section className="relative grid items-center gap-12 lg:grid-cols-2">
-      <div className="space-y-6">
+    <section className="relative grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
+      <div className="min-w-0 space-y-6">
         <p className="inline-flex items-center gap-2 border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
           <span aria-hidden="true" className="size-1.5 bg-brand-accent" />
           Open feedback rounds for the NEAR ecosystem
