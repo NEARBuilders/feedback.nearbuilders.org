@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ClipboardCheck, Settings, Users } from "lucide-react";
+import { Activity, ClipboardCheck, Settings, Users } from "lucide-react";
 import { getAccount } from "@/app";
 import { Button, Card, SectionHeader } from "@/components";
 import { StatCard } from "@/components/stat-card";
@@ -39,6 +39,19 @@ function AdminDashboard() {
             </p>
             <Button asChild variant="outline" size="sm">
               <Link to="/admin/projects">open project approvals</Link>
+            </Button>
+          </Card>
+
+          <Card className="p-6 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-none bg-foreground text-background">
+              <Activity className="h-4 w-4" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">Activity events</h3>
+            <p className="text-sm text-muted-foreground">
+              See reputation events that failed to deliver and send them again.
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/activity">open activity events</Link>
             </Button>
           </Card>
 
