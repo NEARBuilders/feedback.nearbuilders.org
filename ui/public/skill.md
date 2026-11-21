@@ -69,6 +69,13 @@ POST /api/rounds/<roundId>/suggestions
 - Read pending suggestions with GET /api/rounds/<roundId>/suggestions.
 - The key that made each suggestion is recorded.
 
+## Related
+
+- Projects can add a feedback button to their own app with one line:
+  `<script src="https://feedback.nearbuilders.org/embed.js" data-project="<project-slug>" defer></script>`
+- Testers can draft a report with their own assistant from the feedback box. That is
+  separate from this key and never reaches us until the tester posts it.
+
 ## Ground rules
 
 - Round feedback is private. Keep submissions, tester handles, and excerpts
