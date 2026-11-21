@@ -13,6 +13,7 @@ import type { activityOutbox as activityOutboxTable } from "./db/schema";
 import { type AuthContext, createAuthMiddleware } from "./lib/auth";
 import { ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
+import { clientKey, createRateLimiter } from "./lib/rate-limit";
 import { createActivityEmitter } from "./services/activity-events";
 import { createActivityOutboxWorker } from "./services/activity-outbox";
 import { createFeedbackAssets } from "./services/feedback-assets";
@@ -115,6 +116,8 @@ type ApiRuntimeShape = {
 class ApiRuntimeTag extends Context.Service<ApiRuntimeTag, ApiRuntimeShape>()("api/ApiRuntime") {}
 
 let runtime: ApiRuntimeShape | undefined;
+
+const githubIssuesLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
 
 const getRuntime = (): ApiRuntimeShape => {
   if (!runtime) {
@@ -1790,6 +1793,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getRoundGithubIssues: builder.getRoundGithubIssues.handler(
         async ({ input, context, errors }) => {
+          const caller = clientKey(
+            (context as { reqHeaders?: Headers }).reqHeaders,
+            (context as { userId?: string | null }).userId,
+          );
+          if (!githubIssuesLimiter.allow(caller)) {
+            throw errors.RATE_LIMITED({
+              message: "Too many GitHub issue lookups. Try again in a minute.",
+              data: { retryAfter: 60 },
+            });
+          }
           const round = await getRuntime().rounds.resolveRoundById(input.id);
           if (!round) {
             throw errors.NOT_FOUND({

@@ -1,6 +1,6 @@
 import "@orpc/openapi/extensions/route";
 import { oc } from "@orpc/contract";
-import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, RATE_LIMITED, UNAUTHORIZED } from "every-plugin/errors";
 import { z } from "zod";
 import {
   FEEDBACK_BODY_RAW_MAX,
@@ -1072,7 +1072,7 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/rounds/{id}/github-issues" })
     .input(z.object({ id: z.string() }))
     .output(RoundGithubIssuesSchema)
-    .errors({ NOT_FOUND, BAD_REQUEST, FORBIDDEN }),
+    .errors({ NOT_FOUND, BAD_REQUEST, FORBIDDEN, RATE_LIMITED }),
 
   getCreditCandidates: oc
     .route({ method: "GET", path: "/rounds/{id}/credit-candidates" })
