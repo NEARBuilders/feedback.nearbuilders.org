@@ -33,6 +33,7 @@ import {
 } from "./services/notifications";
 import { createOrgAccess } from "./services/org-access";
 import { type OrganizationPrincipal, orgKeyOrganizationId } from "./services/org-key";
+import { createOrgMembershipAccess } from "./services/org-membership";
 import { projectIdMismatchesRegistry } from "./services/project-id";
 import type {
   ProjectRecord,
@@ -56,6 +57,7 @@ import {
   needsTeamCheck,
   orgRunsRound,
   type RoundActor,
+  runningOrgIds,
 } from "./services/round-access";
 import { isRoundExpired } from "./services/round-liveness";
 import {
@@ -105,6 +107,7 @@ type ApiRuntimeShape = {
   projectsLookup: ReturnType<typeof createProjectsLookup>;
   teamAccess: ReturnType<typeof createTeamAccess>;
   orgAccess: ReturnType<typeof createOrgAccess>;
+  orgMembership: ReturnType<typeof createOrgMembershipAccess>;
   preferredPartnerSlugs: string[];
   legionAccess: ReturnType<typeof createLegionAccess>;
   feedbackAssets: ReturnType<typeof createFeedbackAssets>;
@@ -196,6 +199,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       const orgAccess = createOrgAccess(plugins.auth);
 
+      const orgMembership = createOrgMembershipAccess(plugins.auth);
+
       const preferredPartnerSlugs = config.variables.preferredPartnerSlugs;
 
       const legionAccess = createLegionAccess(plugins.legion);
@@ -230,6 +235,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         projectsLookup,
         teamAccess,
         orgAccess,
+        orgMembership,
         preferredPartnerSlugs,
         legionAccess,
         feedbackAssets,
@@ -420,6 +426,37 @@ export default createPlugin.withPlugins<PluginsClient>()({
         throw new ORPCError("FORBIDDEN", {
           message: `You need a Legion SBT to ${action} this round`,
           data: { legionOnly: true, mintUrl: access.mintUrl },
+        });
+      }
+    };
+
+    /**
+     * Members of the owning org or of a partner org can't test their own round (#99, #291).
+     * The session's active org settles it without a lookup; otherwise the caller's membership
+     * in each running org is checked, so switching the active org doesn't bypass the guard.
+     * Fails closed: if membership can't be verified, the caller is asked to retry.
+     */
+    const assertNotRunningOrgTester = async (
+      project: Parameters<typeof runningOrgIds>[0],
+      context: ActorContext,
+    ) => {
+      if (orgRunsRound(project, context.organization?.activeOrganizationId)) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Your organization runs this round, so you can't join it as a tester",
+        });
+      }
+      const membership = await getRuntime().orgMembership.checkMembership(
+        context as Record<string, unknown>,
+        runningOrgIds(project),
+      );
+      if (membership === "member") {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Your organization runs this round, so you can't join it as a tester",
+        });
+      }
+      if (membership === "unverifiable") {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Couldn't verify your organization membership right now, try again",
         });
       }
     };
@@ -1203,11 +1240,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
         }
         const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
-        if (orgRunsRound(project, context.organization?.activeOrganizationId)) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Your organization runs this round, so you can't join it as a tester",
-          });
-        }
+        await assertNotRunningOrgTester(project, context);
         // One participation per user, whichever linked wallet is primary now: if one of their
         // accounts already joined, that stays the participation instead of adding a second.
         const alreadyJoinedAs = await getRuntime().rounds.findParticipantAccount(
@@ -1311,6 +1344,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Join the round before posting feedback",
             });
           }
+          await assertNotRunningOrgTester(
+            await getRuntime().projectRecords.resolveProjectById(round.projectRecordId),
+            context,
+          );
           await assertLegionAccess(round, accountId, context, "post in");
           const body = input.format === "written" ? (input.body?.trim() ?? null) : null;
           const url = input.format === "recorded" ? (input.url ?? null) : null;
