@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import {
   Button,
+  Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -18,6 +19,7 @@ import { roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 const NOTIFICATIONS_KEY = ["notifications"] as const;
+const PREFERENCES_KEY = ["notifications", "preferences"] as const;
 const POLL_INTERVAL_MS = 60_000;
 
 export function NotificationBell() {
@@ -38,6 +40,20 @@ export function NotificationBell() {
   const readMutation = useMutation({
     mutationFn: (id: string) => apiClient.markNotificationRead({ id }),
     onSuccess: () => void invalidate(),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const preferences = useQuery({
+    queryKey: PREFERENCES_KEY,
+    queryFn: () => apiClient.getNotificationPreferences(),
+    enabled: !!accountId,
+    staleTime: 60_000,
+  });
+
+  const preferencesMutation = useMutation({
+    mutationFn: (feedbackUpdates: boolean) =>
+      apiClient.setNotificationPreferences({ feedbackUpdates }),
+    onSuccess: (saved) => queryClient.setQueryData(PREFERENCES_KEY, saved),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -146,6 +162,19 @@ export function NotificationBell() {
             </ul>
           )}
         </div>
+        <DropdownMenuSeparator className="m-0" />
+        <label
+          htmlFor="feedback-updates"
+          className="flex cursor-pointer items-center gap-2.5 px-3 py-2.5 text-xs text-muted-foreground"
+        >
+          <Checkbox
+            id="feedback-updates"
+            checked={preferences.data?.feedbackUpdates ?? true}
+            disabled={preferences.isPending || preferencesMutation.isPending}
+            onCheckedChange={(checked) => preferencesMutation.mutate(checked === true)}
+          />
+          Tell me when my feedback is resolved, dismissed or starred
+        </label>
       </DropdownMenuContent>
     </DropdownMenu>
   );

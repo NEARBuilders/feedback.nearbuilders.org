@@ -38,6 +38,13 @@ describe("feedback status notifications (#118)", () => {
     });
   });
 
+  it("tells the author their feedback was starred", () => {
+    expect(notificationText("feedback_starred", "Onboarding")).toEqual({
+      title: "Feedback starred: Onboarding",
+      body: "The round owner starred your feedback as especially useful.",
+    });
+  });
+
   it("falls back to a default body", () => {
     expect(notificationText("feedback_resolved", "Onboarding").body).toBe(
       "The round owner resolved your feedback. Thanks for testing.",

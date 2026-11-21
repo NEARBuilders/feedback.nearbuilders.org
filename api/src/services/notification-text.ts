@@ -1,6 +1,6 @@
 export type BroadcastKind = "round_opened" | "round_closing" | "custom";
 
-export type FeedbackStatusKind = "feedback_resolved" | "feedback_dismissed";
+export type FeedbackStatusKind = "feedback_resolved" | "feedback_dismissed" | "feedback_starred";
 
 export type NotificationKind = BroadcastKind | FeedbackStatusKind | "round_closed";
 
@@ -15,6 +15,7 @@ const DEFAULT_BODY: Record<Exclude<NotificationKind, "custom">, string> = {
   round_closed: "This round has closed. Thanks for testing.",
   feedback_resolved: "The round owner resolved your feedback. Thanks for testing.",
   feedback_dismissed: "The round owner dismissed your feedback. Open it to reply.",
+  feedback_starred: "The round owner starred your feedback as especially useful.",
 };
 
 export function notificationText(
@@ -36,5 +37,7 @@ export function notificationText(
       return { title: `Feedback resolved: ${roundTitle}`, body: note || DEFAULT_BODY[kind] };
     case "feedback_dismissed":
       return { title: `Feedback dismissed: ${roundTitle}`, body: note || DEFAULT_BODY[kind] };
+    case "feedback_starred":
+      return { title: `Feedback starred: ${roundTitle}`, body: note || DEFAULT_BODY[kind] };
   }
 }
