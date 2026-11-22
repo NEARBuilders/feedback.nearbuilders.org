@@ -27,7 +27,7 @@ function CodePanel() {
   return (
     <div className="min-w-0 border border-border bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5">
-        <Tabs value={active} onValueChange={setActive}>
+        <Tabs value={active} onValueChange={setActive} className="min-w-0 overflow-x-auto">
           <TabsList>
             {CODE_SAMPLES.map((item) => (
               <TabsTrigger key={item.value} value={item.value}>
