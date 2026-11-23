@@ -14,6 +14,8 @@ import {
   createActivityOutboxWorker,
   enqueueActivity,
   findEmittedEventId,
+  listFailedActivityForRound,
+  retryFailedActivityForRound,
 } from "@/services/activity-outbox";
 import {
   ProjectRecordsLive,
@@ -964,6 +966,46 @@ describe("closing a round (#312)", () => {
       const delivered = await db.select().from(activityOutbox);
       expect(delivered.every((row) => row.status === "sent" && row.eventId)).toBe(true);
       expect(emitter.submitRaw).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("round-scoped failures", () => {
+    async function parkTwo(db: Database) {
+      for (const [key, roundId] of [
+        ["key-a", "round-a"],
+        ["key-b", "round-b"],
+      ] as const) {
+        await enqueueActivity(db, {
+          operation: "emit",
+          eventType: "credit.awarded",
+          actor: "tester.near",
+          idempotencyKey: key,
+          payload: { roundId },
+        });
+      }
+      await db.update(activityOutbox).set({ status: "failed", attempts: 8 });
+    }
+
+    it("lists only the failures that belong to the round", async () => {
+      await withHarness(async ({ db }) => {
+        await parkTwo(db);
+        const rows = await listFailedActivityForRound(db, "round-a");
+        expect(rows.map((row) => row.idempotencyKey)).toEqual(["key-a"]);
+      });
+    });
+
+    it("retries only rows in that round", async () => {
+      await withHarness(async ({ db }) => {
+        await parkTwo(db);
+        const all = await db.select().from(activityOutbox);
+        const ids = all.map((row) => row.id);
+
+        expect(await retryFailedActivityForRound(db, "round-a", ids)).toBe(1);
+
+        const after = await db.select().from(activityOutbox);
+        const status = Object.fromEntries(after.map((row) => [row.idempotencyKey, row.status]));
+        expect(status).toEqual({ "key-a": "pending", "key-b": "failed" });
+      });
     });
   });
 });

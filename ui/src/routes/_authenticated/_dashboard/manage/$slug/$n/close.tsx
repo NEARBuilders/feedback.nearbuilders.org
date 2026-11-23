@@ -3,6 +3,7 @@ import { Lock } from "lucide-react";
 import { EmptyState } from "@/components";
 import { CloseRoundPanel } from "@/components/close-round-panel";
 import { RoundCredits } from "@/components/round-credits";
+import { RoundDeliveryPanel } from "@/components/round-delivery-panel";
 import { useRound } from "@/lib/round-route";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/manage/$slug/$n/close")({
@@ -14,6 +15,7 @@ function CloseTab() {
   if (round.status === "open") return <CloseRoundPanel roundId={round.id} />;
   return (
     <div className="space-y-6">
+      <RoundDeliveryPanel roundId={round.id} />
       <EmptyState
         icon={Lock}
         title={round.status === "closed" ? "This round is closed." : "This round isn't open yet."}

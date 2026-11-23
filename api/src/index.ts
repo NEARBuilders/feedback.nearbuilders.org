@@ -2156,6 +2156,42 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return { retried };
         }),
 
+      listRoundFailedActivity: builder.listRoundFailedActivity
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const round = await requireRound(input.id);
+          await assertCanManageRound(
+            round,
+            context as ViewerContext,
+            "Only the round owner can see undelivered activity",
+          );
+          const rows = await getRuntime().activityOutbox.listFailedForRound(round.id);
+          return rows.map((row) => ({
+            id: row.id,
+            operation: row.operation,
+            eventType: row.eventType,
+            actor: row.actor,
+            attempts: row.attempts,
+            createdAt: toIsoDateTime(row.createdAt),
+          }));
+        }),
+
+      retryRoundFailedActivity: builder.retryRoundFailedActivity
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const round = await requireRound(input.id);
+          await assertCanManageRound(
+            round,
+            context as ViewerContext,
+            "Only the round owner can retry undelivered activity",
+          );
+          const retried = await getRuntime().activityOutbox.retryFailedForRound(
+            round.id,
+            input.ids,
+          );
+          return { retried };
+        }),
+
       backfillAcceptedFeedback: builder.backfillAcceptedFeedback
         .use(requireAdmin)
         .handler(async () => getRuntime().rounds.backfillAcceptedFeedback()),

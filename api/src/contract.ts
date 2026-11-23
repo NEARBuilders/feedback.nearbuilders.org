@@ -499,6 +499,18 @@ export const BuilderActivityEventSchema = z.object({
 
 export type BuilderActivityEvent = z.infer<typeof BuilderActivityEventSchema>;
 
+/** One undeliverable event for a round, without the gateway error text. */
+export const RoundFailedActivitySchema = z.object({
+  id: z.uuid(),
+  operation: z.enum(["emit", "retract"]),
+  eventType: z.string().nullable(),
+  actor: z.string().nullable(),
+  attempts: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(),
+});
+
+export type RoundFailedActivity = z.infer<typeof RoundFailedActivitySchema>;
+
 /**
  * One undeliverable row from the activity outbox, for operator inspection.
  * Dates arrive as ISO strings; the local Date objects are serialized by the
@@ -1206,6 +1218,30 @@ export const contract = oc.router({
     })
     .output(z.array(ActivityOutboxRowSchema))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  listRoundFailedActivity: oc
+    .route({
+      method: "GET",
+      path: "/rounds/{id}/activity-failures",
+      summary: "Activity events for this round that could not be delivered",
+      description:
+        "Lets a round's owner see credit and round events that never reached the activity gateway. The gateway's error text is left out.",
+      tags: ["Activity"],
+    })
+    .input(z.object({ id: z.string() }))
+    .output(z.array(RoundFailedActivitySchema))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  retryRoundFailedActivity: oc
+    .route({
+      method: "POST",
+      path: "/rounds/{id}/activity-failures/retry",
+      summary: "Re-queue this round's undeliverable activity events",
+      tags: ["Activity"],
+    })
+    .input(z.object({ id: z.string(), ids: z.array(z.uuid()).min(1) }))
+    .output(z.object({ retried: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   retryFailedActivityEvents: oc
     .route({
