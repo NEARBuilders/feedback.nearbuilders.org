@@ -4,6 +4,7 @@ import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import {
   type notificationKind,
+  notificationPreferences as notificationPreferencesTable,
   notifications as notificationsTable,
   roundParticipants as roundParticipantsTable,
   rounds as roundsTable,
@@ -41,7 +42,16 @@ export interface NotifyAccountsInput extends NotifyParticipantsInput {
   recipients: Array<{ accountId: string; feedbackId?: string | null }>;
 }
 
+export interface NotificationPreferences {
+  feedbackUpdates: boolean;
+}
+
 export interface NotificationsService {
+  getPreferences(accountIds: string[]): Promise<NotificationPreferences>;
+  setPreferences(
+    accountIds: string[],
+    preferences: NotificationPreferences,
+  ): Promise<NotificationPreferences>;
   listForAccount(accountIds: string[], limit: number): Promise<NotificationList>;
   markRead(accountIds: string[], notificationId: string): Promise<NotificationRecord | null>;
   markAllRead(accountIds: string[]): Promise<number>;
@@ -187,8 +197,63 @@ export const NotificationsLive = Layer.effect(
         }
       },
 
-      notifyAccounts: async ({ recipients, ...input }) => {
+      getPreferences: async (accountIds) => {
         try {
+          const unique = [...new Set(accountIds)];
+          if (unique.length === 0) return { feedbackUpdates: true };
+          const muted = await db
+            .select({ accountId: notificationPreferencesTable.accountId })
+            .from(notificationPreferencesTable)
+            .where(
+              and(
+                inArray(notificationPreferencesTable.accountId, unique),
+                eq(notificationPreferencesTable.feedbackUpdates, false),
+              ),
+            );
+          // Off only when every linked account is muted. An account with no row (for example
+          // one linked after the tester muted) still gets notices, so the checkbox must show on.
+          return { feedbackUpdates: muted.length < unique.length };
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      setPreferences: async (accountIds, preferences) => {
+        try {
+          for (const accountId of accountIds) {
+            await db
+              .insert(notificationPreferencesTable)
+              .values({ accountId, feedbackUpdates: preferences.feedbackUpdates })
+              .onConflictDoUpdate({
+                target: notificationPreferencesTable.accountId,
+                set: { feedbackUpdates: preferences.feedbackUpdates, updatedAt: new Date() },
+              });
+          }
+          return { feedbackUpdates: preferences.feedbackUpdates };
+        } catch (error) {
+          throw toOrpcError(error);
+        }
+      },
+
+      notifyAccounts: async ({ recipients: requested, ...input }) => {
+        try {
+          let recipients = requested;
+          if (input.kind.startsWith("feedback_") && requested.length > 0) {
+            const muted = await db
+              .select({ accountId: notificationPreferencesTable.accountId })
+              .from(notificationPreferencesTable)
+              .where(
+                and(
+                  inArray(
+                    notificationPreferencesTable.accountId,
+                    requested.map((item) => item.accountId),
+                  ),
+                  eq(notificationPreferencesTable.feedbackUpdates, false),
+                ),
+              );
+            const mutedIds = new Set(muted.map((row) => row.accountId));
+            recipients = requested.filter((item) => !mutedIds.has(item.accountId));
+          }
           if (recipients.length === 0) return 0;
           const rows = recipients.map(({ accountId, feedbackId }) => ({
             ...input,

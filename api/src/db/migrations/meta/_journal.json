@@ -232,6 +232,20 @@
       "when": 1795066824356,
       "tag": "0032_activity_event_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795202306412,
+      "tag": "0033_feedback_starred_notification",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1795202933915,
+      "tag": "0034_notification_preferences",
+      "breakpoints": true
     }
   ]
 }

@@ -331,7 +331,14 @@ export const notificationKind = pgEnum("notification_kind", [
   "custom",
   "feedback_resolved",
   "feedback_dismissed",
+  "feedback_starred",
 ]);
+
+export const notificationPreferences = pgTable("notification_preferences", {
+  accountId: text("account_id").primaryKey(),
+  feedbackUpdates: boolean("feedback_updates").default(true).notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+});
 
 export const notifications = pgTable(
   "notifications",

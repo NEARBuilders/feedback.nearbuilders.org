@@ -54,6 +54,44 @@ describe("starring feedback (#104)", () => {
     expect(unstarred?.status).toBe("resolved");
   });
 
+  it("tells the author once when their feedback is starred", async () => {
+    const { round, owner } = await openRound();
+    const item = await post("star-notify.near", round.id, "Great find");
+    const tester = await getPluginClient(nearAuthedContext("star-notify.near"));
+    const starredCount = async () =>
+      (await tester.listNotifications({})).items.filter((n) => n.kind === "feedback_starred")
+        .length;
+
+    await owner.setFeedbackStarred({ id: round.id, feedbackIds: [item.id], starred: true });
+    expect(await starredCount()).toBe(1);
+
+    await owner.setFeedbackStarred({ id: round.id, feedbackIds: [item.id], starred: true });
+    expect(await starredCount()).toBe(1);
+
+    await owner.setFeedbackStarred({ id: round.id, feedbackIds: [item.id], starred: false });
+    expect(await starredCount()).toBe(1);
+  });
+
+  it("skips the starred notice for a tester who turned feedback updates off", async () => {
+    const { round, owner } = await openRound();
+    const item = await post("star-muted.near", round.id, "Great find");
+    const tester = await getPluginClient(nearAuthedContext("star-muted.near"));
+
+    expect(await tester.getNotificationPreferences()).toEqual({ feedbackUpdates: true });
+    await tester.setNotificationPreferences({ feedbackUpdates: false });
+    expect(await tester.getNotificationPreferences()).toEqual({ feedbackUpdates: false });
+
+    await owner.setFeedbackStarred({ id: round.id, feedbackIds: [item.id], starred: true });
+    await owner.setFeedbackStatus({ id: round.id, feedbackIds: [item.id], status: "resolved" });
+    const kinds = (await tester.listNotifications({})).items.map((n) => n.kind);
+    expect(kinds.filter((kind) => kind.startsWith("feedback_"))).toEqual([]);
+
+    await tester.setNotificationPreferences({ feedbackUpdates: true });
+    await owner.setFeedbackStatus({ id: round.id, feedbackIds: [item.id], status: "dismissed" });
+    const after = (await tester.listNotifications({})).items.map((n) => n.kind);
+    expect(after).toContain("feedback_dismissed");
+  });
+
   it("refuses non-managers and signed-out callers with FORBIDDEN/UNAUTHORIZED", async () => {
     const { round } = await openRound();
     const item = await post("star-t2.near", round.id, "Nice");

@@ -6,6 +6,7 @@ import { useApiClient } from "@/app";
 import {
   Button,
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -18,6 +19,7 @@ import { roundParams } from "@/lib/round-links";
 import { useNearAccountStatus } from "@/lib/use-near-account";
 
 const NOTIFICATIONS_KEY = ["notifications"] as const;
+const PREFERENCES_KEY = ["notifications", "preferences"] as const;
 const POLL_INTERVAL_MS = 60_000;
 
 export function NotificationBell() {
@@ -38,6 +40,20 @@ export function NotificationBell() {
   const readMutation = useMutation({
     mutationFn: (id: string) => apiClient.markNotificationRead({ id }),
     onSuccess: () => void invalidate(),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const preferences = useQuery({
+    queryKey: PREFERENCES_KEY,
+    queryFn: () => apiClient.getNotificationPreferences(),
+    enabled: !!accountId,
+    staleTime: 60_000,
+  });
+
+  const preferencesMutation = useMutation({
+    mutationFn: (feedbackUpdates: boolean) =>
+      apiClient.setNotificationPreferences({ feedbackUpdates }),
+    onSuccess: (saved) => queryClient.setQueryData(PREFERENCES_KEY, saved),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -146,6 +162,16 @@ export function NotificationBell() {
             </ul>
           )}
         </div>
+        <DropdownMenuSeparator className="m-0" />
+        <DropdownMenuCheckboxItem
+          checked={preferences.data?.feedbackUpdates ?? true}
+          disabled={preferences.isPending || preferencesMutation.isPending}
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={(checked) => preferencesMutation.mutate(checked === true)}
+          className="px-3 py-2.5 pl-8 text-xs text-muted-foreground"
+        >
+          Tell me when my feedback is resolved, dismissed or starred
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

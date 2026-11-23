@@ -325,6 +325,7 @@ export const NotificationKindSchema = z.enum([
   "custom",
   "feedback_resolved",
   "feedback_dismissed",
+  "feedback_starred",
 ]);
 
 export type NotificationKind = z.infer<typeof NotificationKindSchema>;
@@ -351,6 +352,12 @@ export const NotificationListSchema = z.object({
 });
 
 export type NotificationList = z.infer<typeof NotificationListSchema>;
+
+export const NotificationPreferencesSchema = z.object({
+  feedbackUpdates: z.boolean(),
+});
+
+export type NotificationPreferences = z.infer<typeof NotificationPreferencesSchema>;
 
 export const BroadcastKindSchema = z.enum(["round_opened", "round_closing", "custom"]);
 
@@ -1067,6 +1074,17 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/notifications" })
     .input(z.object({ limit: z.coerce.number().int().positive().max(100).default(30) }))
     .output(NotificationListSchema)
+    .errors({ UNAUTHORIZED }),
+
+  getNotificationPreferences: oc
+    .route({ method: "GET", path: "/notifications/preferences" })
+    .output(NotificationPreferencesSchema)
+    .errors({ UNAUTHORIZED }),
+
+  setNotificationPreferences: oc
+    .route({ method: "POST", path: "/notifications/preferences" })
+    .input(NotificationPreferencesSchema)
+    .output(NotificationPreferencesSchema)
     .errors({ UNAUTHORIZED }),
 
   markNotificationRead: oc
