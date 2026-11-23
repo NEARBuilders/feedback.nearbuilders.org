@@ -9,6 +9,9 @@ import {
   roundFailedActivityQueryOptions,
 } from "@/lib/queries/failed-activity";
 
+// Matches the API list limit; at this size there may be more stuck events than shown.
+const LIST_LIMIT = 50;
+
 /**
  * Credit and round events that never reached the activity gateway. Shown to the round's
  * owner only when something is stuck, so builders don't silently miss the points they earned.
@@ -29,6 +32,7 @@ export function RoundDeliveryPanel({ roundId }: { roundId: string }) {
 
   const rows = failed.data ?? [];
   if (rows.length === 0) return null;
+  const count = rows.length >= LIST_LIMIT ? `${LIST_LIMIT}+` : String(rows.length);
 
   return (
     <Card className="space-y-3 border-destructive p-4" data-testid="round-delivery-panel">
@@ -36,7 +40,7 @@ export function RoundDeliveryPanel({ roundId }: { roundId: string }) {
         <div className="flex items-center gap-2">
           <TriangleAlert className="h-4 w-4 text-destructive" />
           <span className="text-sm font-medium text-foreground">
-            {rows.length} activity event{rows.length === 1 ? "" : "s"} could not be delivered
+            {count} activity event{rows.length === 1 ? "" : "s"} could not be delivered
           </span>
         </div>
         <Button

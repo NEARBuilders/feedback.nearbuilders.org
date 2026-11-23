@@ -499,11 +499,7 @@ export const BuilderActivityEventSchema = z.object({
 
 export type BuilderActivityEvent = z.infer<typeof BuilderActivityEventSchema>;
 
-/**
- * One undeliverable row from the activity outbox, for operator inspection.
- * Dates arrive as ISO strings; the local Date objects are serialized by the
- * handler before returning.
- */
+/** One undeliverable event for a round, without the gateway error text. */
 export const RoundFailedActivitySchema = z.object({
   id: z.uuid(),
   operation: z.enum(["emit", "retract"]),
@@ -515,6 +511,11 @@ export const RoundFailedActivitySchema = z.object({
 
 export type RoundFailedActivity = z.infer<typeof RoundFailedActivitySchema>;
 
+/**
+ * One undeliverable row from the activity outbox, for operator inspection.
+ * Dates arrive as ISO strings; the local Date objects are serialized by the
+ * handler before returning.
+ */
 export const ActivityOutboxRowSchema = z.object({
   id: z.uuid(),
   operation: z.enum(["emit", "retract"]),

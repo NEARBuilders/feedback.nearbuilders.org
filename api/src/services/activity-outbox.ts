@@ -333,6 +333,9 @@ export async function listFailedActivity(db: Database, limit = 50) {
     .limit(limit);
 }
 
+/** Most rows the round owner list returns; the UI shows "50+" at this size. */
+export const ROUND_FAILED_LIMIT = 50;
+
 const inRound = (roundId: string) => sql`${activityOutbox.payload}->>'roundId' = ${roundId}`;
 
 export async function listFailedActivityForRound(db: Database, roundId: string) {
@@ -341,7 +344,7 @@ export async function listFailedActivityForRound(db: Database, roundId: string) 
     .from(activityOutbox)
     .where(and(eq(activityOutbox.status, "failed"), inRound(roundId)))
     .orderBy(asc(activityOutbox.createdAt))
-    .limit(50);
+    .limit(ROUND_FAILED_LIMIT);
 }
 
 export async function retryFailedActivityForRound(
