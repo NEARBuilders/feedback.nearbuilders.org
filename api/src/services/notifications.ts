@@ -199,18 +199,20 @@ export const NotificationsLive = Layer.effect(
 
       getPreferences: async (accountIds) => {
         try {
-          if (accountIds.length === 0) return { feedbackUpdates: true };
+          const unique = [...new Set(accountIds)];
+          if (unique.length === 0) return { feedbackUpdates: true };
           const muted = await db
             .select({ accountId: notificationPreferencesTable.accountId })
             .from(notificationPreferencesTable)
             .where(
               and(
-                inArray(notificationPreferencesTable.accountId, accountIds),
+                inArray(notificationPreferencesTable.accountId, unique),
                 eq(notificationPreferencesTable.feedbackUpdates, false),
               ),
-            )
-            .limit(1);
-          return { feedbackUpdates: muted.length === 0 };
+            );
+          // Off only when every linked account is muted. An account with no row (for example
+          // one linked after the tester muted) still gets notices, so the checkbox must show on.
+          return { feedbackUpdates: muted.length < unique.length };
         } catch (error) {
           throw toOrpcError(error);
         }

@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import {
   Button,
-  Checkbox,
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -163,18 +163,15 @@ export function NotificationBell() {
           )}
         </div>
         <DropdownMenuSeparator className="m-0" />
-        <label
-          htmlFor="feedback-updates"
-          className="flex cursor-pointer items-center gap-2.5 px-3 py-2.5 text-xs text-muted-foreground"
+        <DropdownMenuCheckboxItem
+          checked={preferences.data?.feedbackUpdates ?? true}
+          disabled={preferences.isPending || preferencesMutation.isPending}
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={(checked) => preferencesMutation.mutate(checked === true)}
+          className="px-3 py-2.5 pl-8 text-xs text-muted-foreground"
         >
-          <Checkbox
-            id="feedback-updates"
-            checked={preferences.data?.feedbackUpdates ?? true}
-            disabled={preferences.isPending || preferencesMutation.isPending}
-            onCheckedChange={(checked) => preferencesMutation.mutate(checked === true)}
-          />
           Tell me when my feedback is resolved, dismissed or starred
-        </label>
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
