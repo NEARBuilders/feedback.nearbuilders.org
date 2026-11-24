@@ -24,9 +24,12 @@ import { absoluteUrl, copyUrl } from "@/lib/share";
  */
 export const Route = createFileRoute("/_public/projects/$slug/$n/submit")({
   // `from` and `vp` come from the embed launcher: the host page address and window size (#294).
-  validateSearch: (search: Record<string, unknown>): { from?: string; vp?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { from?: string; vp?: string; err?: string } => ({
     from: typeof search.from === "string" ? search.from : undefined,
     vp: typeof search.vp === "string" ? search.vp : undefined,
+    err: typeof search.err === "string" ? search.err : undefined,
   }),
   // Only the round is prefetched: listMyFeedback needs a session, and this tab
   // is reachable (and renders a join prompt) while signed out.

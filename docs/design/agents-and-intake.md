@@ -102,3 +102,13 @@ If a chat is still wanted: the agent asks two or three follow-ups and drafts the
 tester edits and posts it as their own text, and the stored feedback format does not change.
 This needs a model provider, a cost owner, and a rule that the tester stays the author for
 credit. Decide those first.
+
+## Decisions recorded for #299
+
+**Automatic context.**
+- Capture is opt-in at every step: the host app enables console errors on the script tag, and the
+  tester sees each item before sending and can untick it.
+- Never captured: query strings and hashes (they can hold tokens), cookies, storage, form values,
+  network traffic. Screenshots use the browser's own screen picker and permission prompt, so the
+  tester chooses what is shown and nothing is taken silently.
+- "Upload images somehow" means both: paste and drop as before, plus the one-click screenshot.

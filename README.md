@@ -199,7 +199,10 @@ A project can add a feedback button to its own app with one line:
 <script src="https://feedback.nearbuilders.org/embed.js" data-project="your-project-slug" defer></script>
 ```
 
-Optional attributes: `data-label` (button text) and `data-position="left"`. The button opens
+Optional attributes: `data-label` (button text), `data-position="left"` and
+`data-capture-errors="true"`, which remembers the page's last three console errors and offers them
+to the tester (off by default; the tester sees them and can leave them out, and web addresses in
+them are cut at the query string). The button opens
 `/send/<slug>` in a popup. That page finds the project's latest open round and forwards to its
 send-feedback page, so sign-in, joining and posting all happen on this site, where the session
 cookie works. The snippet is also shown on a round's settings tab in the console.
@@ -209,8 +212,16 @@ cookie works. The snippet is also shown on a round's settings tab in the console
 When feedback is sent from the widget, or from a page opened by the embed button, the tester can
 attach the page address, their browser and their window size. The address never includes a query
 string or hash, everything is sanitized, and the tester can switch it off before sending. The
-details are appended to the feedback as a short markdown footer. Console errors and screenshots
-are not captured.
+details are appended to the feedback as a short markdown footer.
+
+Two more things can be added, both opt-in and both visible before sending:
+
+- **Console errors.** A host app turns this on with `data-capture-errors="true"` on the embed
+  script. The tester sees the last three errors with their own checkbox and can leave them out.
+  Web addresses in them are cut at the query string.
+- **A screenshot.** "add a screenshot" uses the browser's own screen capture, so the tester picks
+  the tab or window and the browser asks every time. The frame is uploaded as an ordinary image in
+  the feedback and can be deleted like any other. Nothing is captured silently.
 
 ## Feedback images
 

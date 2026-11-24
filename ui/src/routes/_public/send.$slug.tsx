@@ -15,11 +15,14 @@ import { projectQueryOptions } from "@/lib/queries/projects";
  */
 export const Route = createFileRoute("/_public/send/$slug")({
   // `from` and `vp` come from the launcher: the host page address and its window size.
-  validateSearch: (search: Record<string, unknown>): { from?: string; vp?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { from?: string; vp?: string; err?: string } => ({
     from: typeof search.from === "string" ? search.from : undefined,
     vp: typeof search.vp === "string" ? search.vp : undefined,
+    err: typeof search.err === "string" ? search.err : undefined,
   }),
-  loaderDeps: ({ search }) => ({ from: search.from, vp: search.vp }),
+  loaderDeps: ({ search }) => ({ from: search.from, vp: search.vp, err: search.err }),
   loader: async ({ context, params, deps }) => {
     const project = await orNotFound(
       context.queryClient.ensureQueryData(projectQueryOptions(context.apiClient, params.slug)),
@@ -29,7 +32,7 @@ export const Route = createFileRoute("/_public/send/$slug")({
       throw redirect({
         to: "/projects/$slug/$n/submit",
         params: { slug: params.slug, n: String(round.projectRoundNumber) },
-        search: { from: deps.from, vp: deps.vp },
+        search: { from: deps.from, vp: deps.vp, err: deps.err },
       });
     }
     return { name: project.name };
