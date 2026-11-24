@@ -25,6 +25,7 @@ import {
 } from "@/lib/feedback-context";
 import { invalidateFeedbackQueries } from "@/lib/queries/feedback";
 import { invalidateParticipationQueries } from "@/lib/queries/participation";
+import { reportHints } from "@/lib/report-hints";
 import { myFeedbackHref, roundParams } from "@/lib/round-links";
 import type { RoundDetail } from "@/lib/round-route";
 import { absoluteUrl, copyUrl, shareUrl } from "@/lib/share";
@@ -121,6 +122,7 @@ export function FeedbackComposer({ round, accountId, context }: FeedbackComposer
 
   const textLength = feedbackTextLength(draft.body);
   const overLimit = format === "written" && textLength > FEEDBACK_TEXT_MAX;
+  const hints = format === "written" ? reportHints(draft.body) : [];
   const stuckImage = format === "written" && pendingUploads === 0 && hasUnuploadedImage(draft.body);
   const canSubmit =
     !postMutation.isPending &&
@@ -221,6 +223,17 @@ export function FeedbackComposer({ round, accountId, context }: FeedbackComposer
               An image didn't finish uploading (outlined in red). Remove it or paste it again before
               posting.
             </p>
+          )}
+          {hints.length > 0 && (
+            <ul
+              className="space-y-0.5 text-xs text-muted-foreground"
+              data-testid="report-hints"
+              aria-label="Suggestions"
+            >
+              {hints.map((hint) => (
+                <li key={hint.id}>{hint.text}</li>
+              ))}
+            </ul>
           )}
           {hasContext(context) && (
             <label
