@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { SortingState } from "@tanstack/react-table";
 import {
@@ -14,7 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
-import { type ApiClient, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import type { ApiClient } from "@/app";
 import { Badge, Button, LegionMark } from "@/components";
 import { EndorsementCount } from "@/components/endorsement-count";
 import { ProjectLabel } from "@/components/project-identity";
@@ -29,12 +28,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { joinedRoundsQueryOptions } from "@/lib/queries/participation";
-import { roundCta } from "@/lib/round-cta";
-import { isRoundAcceptingFeedback } from "@/lib/round-expiry";
 import { FORMAT_LABELS } from "@/lib/round-fields";
-import { roundHref, roundParams } from "@/lib/round-links";
-import { useNearAccountStatus } from "@/lib/use-near-account";
+import { roundParams } from "@/lib/round-links";
+import { useRoundCtas } from "@/lib/use-round-cta";
 
 type RoundDetail = Awaited<ReturnType<ApiClient["listRounds"]>>[number];
 
@@ -85,30 +81,7 @@ interface RoundsTableProps {
 
 export function RoundsTable({ rounds, endorsements, page, onPageChange }: RoundsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  const apiClient = useApiClient();
-  const auth = useAuthClient();
-  const { accountId, isDetecting } = useNearAccountStatus();
-  const session = useQuery(sessionQueryOptions(auth));
-  const joinedRounds = useQuery({
-    ...joinedRoundsQueryOptions(apiClient),
-    enabled: !!accountId,
-  });
-  // One joined-rounds query backs every row, instead of a participation check each.
-  const joinedIds = useMemo(
-    () => new Set((joinedRounds.data ?? []).map((joined) => joined.roundId)),
-    [joinedRounds.data],
-  );
-  const sessionPending = session.isPending || isDetecting;
-
-  const rowCta = (round: RoundDetail) =>
-    roundCta({
-      redirectTo: roundHref(round),
-      canJoin: isRoundAcceptingFeedback(round) && accountId !== round.ownerAccountId,
-      sessionPending,
-      signedIn: !!session.data?.user,
-      nearAccountId: accountId,
-      joined: joinedIds.has(round.id),
-    });
+  const { ctaFor: rowCta, sessionPending } = useRoundCtas();
 
   const columns = useMemo(
     () =>
@@ -213,7 +186,7 @@ export function RoundsTable({ rounds, endorsements, page, onPageChange }: Rounds
           },
         }),
       ]),
-    [endorsements, accountId, sessionPending, session.data?.user, joinedIds],
+    [endorsements, rowCta, sessionPending],
   );
 
   const table = useTable({
