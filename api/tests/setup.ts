@@ -63,7 +63,15 @@ export const authListTeamMembers = vi.fn();
 // partner-management guard uses to resolve a slug and check approval status.
 export const authListOrganizations = vi.fn();
 
+// Stand-in for the caller's membership lookup in one org (`getActiveMember` with an
+// organizationId), which the anti-join guard uses whatever org is active (#291). Defaults to
+// "not a member"; tests override it per organization.
+export const authGetActiveMember = vi
+  .fn()
+  .mockResolvedValue({ id: null, role: null, organizationId: null });
+
 const mockAuthClient = {
+  getActiveMember: authGetActiveMember,
   listTeams: authListTeams,
   listTeamMembers: authListTeamMembers,
   listOrganizations: authListOrganizations,
