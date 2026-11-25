@@ -7,6 +7,7 @@ import { ActionCard } from "@/components/action-card";
 import { FeedbackComposer } from "@/components/feedback-composer";
 import { FeedbackList } from "@/components/feedback-list";
 import { FeedbackNoteForm, FeedbackNoteThread } from "@/components/feedback-notes";
+import { RoundJoinCta } from "@/components/round-join-cta";
 import { RouteError, RoutePending } from "@/components/route-states";
 import { contextFromSearch } from "@/lib/feedback-context";
 import { roundFeedbackPermissions } from "@/lib/feedback-edit";
@@ -46,11 +47,14 @@ function SubmitFeedbackTab() {
     return (
       <ActionCard>
         <p className="text-sm text-muted-foreground">Join this round to give feedback.</p>
-        <Button asChild size="sm">
-          <Link to="/projects/$slug/$n" params={params}>
-            back to the round
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <RoundJoinCta round={round} cta={viewer.cta} size="sm" />
+          <Button asChild size="sm" variant="ghost">
+            <Link to="/projects/$slug/$n" params={params}>
+              round details
+            </Link>
+          </Button>
+        </div>
       </ActionCard>
     );
   }
