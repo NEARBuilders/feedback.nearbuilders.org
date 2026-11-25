@@ -35,7 +35,14 @@ Accepting a suggestion behaves exactly like a manual resolve.
 
 ## #298 A tester's agent joins a round and posts
 
-**Status: investigated, no auth change made.** `joinRound` and `postFeedback` use `requireAuth`,
+**Status: guard and rate limit added; live-host confirmation still pending (#322).** Join and post
+now go through a tester-key guard (`api/src/services/tester-key.ts`): a key the host attached no
+user to is refused with a message that says whether it is an organization key (`keyKind:
+"organization"`) or has no user (`keyKind: "no-user"`), and personal keys are limited to 30 joins
+and 30 posts a minute per user. Run `scripts/check-tester-key.sh` with a real personal key to see
+which case the host produces, then record the result here and on #298.
+
+**Earlier status: investigated, no auth change made.** `joinRound` and `postFeedback` use `requireAuth`,
 which only needs `context.user` and `context.userId`: it never checks that the caller came from a
 browser session. So a personal `api_…` key already works **if the host attaches the key owner's
 user to the request**. That is decided by the host and the auth plugin, not this repo, so it
@@ -64,6 +71,17 @@ limits so an agent can't flood a round.
 
 **Test plan.** A personal key with a linked account can join and post. The same key without a
 linked account gets the "Link a NEAR account" error. An `org_…` key is refused on both.
+
+**Decisions taken for #298.**
+- Testers may use the API and MCP with a **personal `api_` key only**. Organization keys stay
+  read-only and are refused with a message that names them.
+- The key's owner must have a linked NEAR account, and every UI rule applies unchanged: open
+  rounds only, one account's credit, no members of the owning or partner organizations, the
+  Legion gate and the round end date.
+- Abuse handling: 30 joins and 30 posts a minute per user, `TOO_MANY_REQUESTS` beyond that. Credit
+  and the quality rules are unchanged, so low-effort automated posts earn nothing extra and owners
+  can dismiss them like any other feedback.
+- Still to confirm on the live host: that a personal key carries its owner's user.
 
 ## #300 Chat-style intake
 

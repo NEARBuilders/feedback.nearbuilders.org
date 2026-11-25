@@ -69,6 +69,7 @@ import {
 } from "./services/rounds";
 import { createTeamAccess } from "./services/team-access";
 import { createTelegramTipLookup } from "./services/telegram-tip";
+import { assertTesterKeyAllowed, createTesterKeyLimiter } from "./services/tester-key";
 
 const MAX_FEEDBACK_PER_TESTER = 500;
 const TELEGRAM_LOOKUP_CONCURRENCY = 8;
@@ -120,6 +121,7 @@ class ApiRuntimeTag extends Context.Service<ApiRuntimeTag, ApiRuntimeShape>()("a
 
 let runtime: ApiRuntimeShape | undefined;
 
+const testerKeyLimiter = createTesterKeyLimiter();
 const githubIssuesLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
 
 const getRuntime = (): ApiRuntimeShape => {
@@ -260,6 +262,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
   createRouter: (builder, _plugins) => {
     const { requireAuth, requireAuthOrApiKey, requireAdmin, requireOrganization } =
       createAuthMiddleware<AuthContext>(builder);
+
+    // Key-based testers (#298, #322): say why a key with no user is refused, and rate limit
+    // personal keys so an agent can't flood a round. Sessions pass through untouched.
+    const testerKeyGuard = (action: "join" | "post") =>
+      builder.middleware(async ({ context, next }) => {
+        assertTesterKeyAllowed(
+          context as Parameters<typeof assertTesterKeyAllowed>[0],
+          testerKeyLimiter,
+          action,
+        );
+        return next();
+      });
 
     /**
      * Project identity lives in the nearbuilders.org registry, not here. These
@@ -1220,45 +1234,50 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ),
       ),
 
-      joinRound: builder.joinRound.use(requireAuth).handler(async ({ input, context, errors }) => {
-        const myAccounts = linkedAccountIds(context as LinkedAccountsContext);
-        if (myAccounts.length === 0) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Link a NEAR account before joining a round",
-            data: { hint: "Link a NEAR wallet in settings" },
-          });
-        }
-        const round = await getRuntime().rounds.resolveRoundById(input.id);
-        if (!round) {
-          throw errors.NOT_FOUND({
-            message: "Round not found",
-            data: { resource: "round", resourceId: input.id },
-          });
-        }
-        if (round.status !== "open") {
-          throw new ORPCError("BAD_REQUEST", { message: "This round is no longer open" });
-        }
-        assertRoundNotExpired(round);
-        if (myAccounts.includes(round.ownerAccountId)) {
-          throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
-        }
-        const project = await getRuntime().projectRecords.resolveProjectById(round.projectRecordId);
-        await assertNotRunningOrgTester(project, context);
-        // One participation per user, whichever linked wallet is primary now: if one of their
-        // accounts already joined, that stays the participation instead of adding a second.
-        const alreadyJoinedAs = await getRuntime().rounds.findParticipantAccount(
-          round.id,
-          myAccounts,
-        );
-        const accountId = actingAccountId(myAccounts, alreadyJoinedAs) as string;
-        await assertLegionAccess(round, accountId, context, "join");
-        await getRuntime().rounds.addParticipant(round.id, accountId);
-        const detail = await getRuntime().rounds.getRoundDetail(round.id);
-        if (!detail) {
-          throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
-        }
-        return withRoundIdentity(detail);
-      }),
+      joinRound: builder.joinRound
+        .use(testerKeyGuard("join"))
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const myAccounts = linkedAccountIds(context as LinkedAccountsContext);
+          if (myAccounts.length === 0) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Link a NEAR account before joining a round",
+              data: { hint: "Link a NEAR wallet in settings" },
+            });
+          }
+          const round = await getRuntime().rounds.resolveRoundById(input.id);
+          if (!round) {
+            throw errors.NOT_FOUND({
+              message: "Round not found",
+              data: { resource: "round", resourceId: input.id },
+            });
+          }
+          if (round.status !== "open") {
+            throw new ORPCError("BAD_REQUEST", { message: "This round is no longer open" });
+          }
+          assertRoundNotExpired(round);
+          if (myAccounts.includes(round.ownerAccountId)) {
+            throw new ORPCError("BAD_REQUEST", { message: "You can't join your own round" });
+          }
+          const project = await getRuntime().projectRecords.resolveProjectById(
+            round.projectRecordId,
+          );
+          await assertNotRunningOrgTester(project, context);
+          // One participation per user, whichever linked wallet is primary now: if one of their
+          // accounts already joined, that stays the participation instead of adding a second.
+          const alreadyJoinedAs = await getRuntime().rounds.findParticipantAccount(
+            round.id,
+            myAccounts,
+          );
+          const accountId = actingAccountId(myAccounts, alreadyJoinedAs) as string;
+          await assertLegionAccess(round, accountId, context, "join");
+          await getRuntime().rounds.addParticipant(round.id, accountId);
+          const detail = await getRuntime().rounds.getRoundDetail(round.id);
+          if (!detail) {
+            throw errors.NOT_FOUND({ message: "Round not found", data: { resourceId: round.id } });
+          }
+          return withRoundIdentity(detail);
+        }),
 
       leaveRound: builder.leaveRound
         .use(requireAuth)
@@ -1318,6 +1337,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ),
 
       postFeedback: builder.postFeedback
+        .use(testerKeyGuard("post"))
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
           const myAccounts = linkedAccountIds(context as LinkedAccountsContext);
