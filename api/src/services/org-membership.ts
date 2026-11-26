@@ -22,7 +22,10 @@ export interface OrgMembershipAccess {
 
 /**
  * Looks up the caller's membership in specific organizations through the shared auth plugin,
- * independent of which organization is active in their session.
+ * independent of which organization is active in their session. A returned member only counts
+ * when it belongs to the organization that was asked about, so a lookup that ignores the
+ * requested organization and answers for the session's active one can't flag every caller
+ * with some active organization as a member of the running org.
  */
 export function createOrgMembershipAccess(
   auth: AuthClientFactory | undefined,
@@ -35,11 +38,13 @@ export function createOrgMembershipAccess(
       try {
         const client = auth.client(context);
         const members = await Promise.all(
-          organizationIds.map((organizationId) => client.getActiveMember({ organizationId })),
+          organizationIds.map(async (organizationId) => {
+            const member: { id: string | null; organizationId?: string | null } | null | undefined =
+              await client.getActiveMember({ organizationId });
+            return !!member?.id && member.organizationId === organizationId;
+          }),
         );
-        return members.some((member: { id: string | null } | null | undefined) => !!member?.id)
-          ? "member"
-          : "not-member";
+        return members.some(Boolean) ? "member" : "not-member";
       } catch (error) {
         logger.warn(
           `[orgs] membership lookup failed: ${
