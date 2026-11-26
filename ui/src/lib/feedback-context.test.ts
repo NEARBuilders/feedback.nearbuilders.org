@@ -5,6 +5,7 @@ import {
   formatContextFooter,
   hasContext,
   sanitizeBrowser,
+  sanitizeErrors,
   sanitizePageUrl,
   sanitizeViewport,
 } from "./feedback-context";
@@ -90,5 +91,37 @@ describe("contextFromSearch", () => {
   it("ignores bad values", () => {
     const context = contextFromSearch({ from: "javascript:1", vp: "nope" });
     expect(hasContext(context)).toBe(false);
+  });
+});
+
+describe("console errors (#299)", () => {
+  it("keeps the last three, one per line", () => {
+    expect(sanitizeErrors("a\nb\nc\nd")).toEqual(["b", "c", "d"]);
+  });
+
+  it("cuts query strings and hashes from addresses in a message", () => {
+    expect(sanitizeErrors("Failed https://api.example/x?token=secret#frag now")).toEqual([
+      "Failed https://api.example/x now",
+    ]);
+  });
+
+  it("drops backticks and control characters, and limits the length", () => {
+    const [line] = sanitizeErrors(`bad \`code\` ${"x".repeat(400)}`) ?? [];
+    expect(line).not.toContain("`");
+    expect(line?.length).toBeLessThanOrEqual(200);
+  });
+
+  it("returns nothing for empty or non-string input", () => {
+    expect(sanitizeErrors("")).toBeUndefined();
+    expect(sanitizeErrors("\n \n")).toBeUndefined();
+    expect(sanitizeErrors(42)).toBeUndefined();
+  });
+
+  it("lists errors in the footer and passes them from the launcher search", () => {
+    const context = contextFromSearch({ from: "https://a.example/x", err: "TypeError: x is null" });
+    expect(context.errors).toEqual(["TypeError: x is null"]);
+    expect(appendContext("body", context)).toContain(
+      "- Console errors:\n  - `TypeError: x is null`",
+    );
   });
 });

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2, Link2, Share2 } from "lucide-react";
+import { Camera, CheckCircle2, Link2, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
@@ -15,7 +15,8 @@ import {
   SegmentedToggle,
 } from "@/components";
 import { AgentDraftHelp } from "@/components/agent-draft-help";
-import { useClientValue } from "@/hooks";
+import { useClientValue, useFileUpload } from "@/hooks";
+import { appendScreenshot, canCaptureScreen, captureScreenshot } from "@/lib/capture-screenshot";
 import { FEEDBACK_TEXT_MAX, feedbackTextLength, hasUnuploadedImage } from "@/lib/feedback-body";
 import {
   appendContext,
@@ -62,9 +63,26 @@ export function FeedbackComposer({ round, accountId, context }: FeedbackComposer
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
   const [pendingUploads, setPendingUploads] = useState(0);
   const [attach, setAttach] = useState(true);
+  const [attachErrors, setAttachErrors] = useState(true);
   const [posted, setPosted] = useState(false);
   const [draftSaveFailed, setDraftSaveFailed] = useState(false);
   const canShare = useClientValue(() => typeof navigator.share === "function", false);
+  const canScreenshot = useClientValue(canCaptureScreen, false);
+  const { uploadSingle } = useFileUpload();
+  const [capturing, setCapturing] = useState(false);
+
+  const takeScreenshot = async () => {
+    setCapturing(true);
+    try {
+      const file = await captureScreenshot();
+      if (!file) return;
+      const uploaded = await uploadSingle(file);
+      if (uploaded)
+        setDraft((prev) => ({ ...prev, body: appendScreenshot(prev.body, uploaded.url) }));
+    } finally {
+      setCapturing(false);
+    }
+  };
   const draftKey = `feedback-draft:${accountId}:${round.id}`;
 
   useEffect(() => {
@@ -103,7 +121,12 @@ export function FeedbackComposer({ round, accountId, context }: FeedbackComposer
         format,
         body:
           format === "written"
-            ? appendContext(draft.body.trim(), attach && context ? withBrowser(context) : undefined)
+            ? appendContext(
+                draft.body.trim(),
+                attach && context
+                  ? { ...withBrowser(context), errors: attachErrors ? context.errors : undefined }
+                  : undefined,
+              )
             : undefined,
         url: format === "recorded" ? draft.url.trim() : undefined,
       }),
@@ -235,6 +258,24 @@ export function FeedbackComposer({ round, accountId, context }: FeedbackComposer
               ))}
             </ul>
           )}
+          {canScreenshot && (
+            <div className="space-y-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={capturing || postMutation.isPending}
+                onClick={() => void takeScreenshot()}
+              >
+                <Camera className="h-3.5 w-3.5" />
+                {capturing ? "capturing..." : "add a screenshot"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Your browser asks which tab or window to capture. It shows up in the feedback above
+                and is only sent when you post. Delete it like any image.
+              </p>
+            </div>
+          )}
           {hasContext(context) && (
             <label
               className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground"
@@ -253,6 +294,30 @@ export function FeedbackComposer({ round, accountId, context }: FeedbackComposer
               </span>
             </label>
           )}
+          {attach && context?.errors?.length ? (
+            <label
+              className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground"
+              htmlFor="feedback-attach-errors"
+            >
+              <Checkbox
+                id="feedback-attach-errors"
+                checked={attachErrors}
+                disabled={postMutation.isPending}
+                onCheckedChange={(checked) => setAttachErrors(checked === true)}
+              />
+              <span>
+                Include the last {context.errors.length} console error
+                {context.errors.length === 1 ? "" : "s"} from the page:
+                <span className="mt-1 block space-y-0.5 font-mono break-words">
+                  {context.errors.map((error) => (
+                    <span key={error} className="block">
+                      {error}
+                    </span>
+                  ))}
+                </span>
+              </span>
+            </label>
+          ) : null}
           <AgentDraftHelp round={round} />
         </Field>
       ) : (

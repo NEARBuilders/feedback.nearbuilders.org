@@ -6,6 +6,9 @@
  * Options (all optional):
  *   data-label     Button text. Default "Give feedback".
  *   data-position  "right" (default) or "left".
+ *   data-capture-errors  "true" to remember the page's last few console errors and offer them
+ *                  to the tester. Off by default. The tester sees the errors and can leave
+ *                  them out; web addresses in them are cut at the query string.
  *
  * It adds a button to the page. Clicking it opens this service's send-feedback page for the
  * project's latest open round in a popup, passing the page address (no query or hash) and the
@@ -26,6 +29,32 @@
     origin = new URL(script.src).origin;
   } catch (error) {
     return;
+  }
+
+  var captured = [];
+  var remember;
+  var original;
+  if (script.getAttribute("data-capture-errors") === "true") {
+    remember = (text) => {
+      captured.push(String(text).slice(0, 300));
+      if (captured.length > 3) captured.shift();
+    };
+    window.addEventListener("error", (event) => {
+      remember(event.message || "Script error");
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      var reason = event.reason;
+      remember("Unhandled rejection: " + (reason && reason.message ? reason.message : reason));
+    });
+    original = console.error;
+    console.error = function () {
+      try {
+        remember(Array.prototype.slice.call(arguments).join(" "));
+      } catch (error) {
+        /* never break the host's logging */
+      }
+      return original.apply(console, arguments);
+    };
   }
 
   var id = "feedback-launcher-" + project;
@@ -62,6 +91,9 @@
       window.innerWidth +
       "x" +
       window.innerHeight;
+    if (captured.length) {
+      url += "&err=" + encodeURIComponent(captured.join("\n").slice(0, 700));
+    }
     var popup = window.open(url, "feedback-" + project, "popup=yes,width=480,height=760");
     if (!popup) {
       popup = window.open(url, "_blank");

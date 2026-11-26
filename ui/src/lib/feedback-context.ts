@@ -2,18 +2,23 @@
  * Page details a tester can attach to written feedback (#299): where they were, which
  * browser and how big the window was. Everything is sanitized on the way in, the
  * address never carries a query string or hash (those can hold tokens), and the tester
- * can switch it off before sending.
+ * can switch it off before sending. The launcher can also pass the page's last few console
+ * errors, only when the host app turns that on; the tester sees them and can leave them out.
  */
 export interface FeedbackContext {
   pageUrl?: string;
   browser?: string;
   viewport?: string;
+  errors?: string[];
 }
 
 const MAX_URL_LENGTH = 300;
 const MAX_BROWSER_LENGTH = 200;
 // Printable ASCII only, and no backtick: the browser string is wrapped in an inline code span.
 const NOT_PRINTABLE_OR_BACKTICK = /[^\x20-\x5f\x61-\x7e]/g;
+const MAX_ERRORS = 3;
+const MAX_ERROR_LENGTH = 200;
+const URL_WITH_QUERY = /(https?:\/\/[^\s?#]+)[?#]\S*/g;
 const VIEWPORT = /^(\d{2,5})x(\d{2,5})$/;
 
 export function sanitizePageUrl(raw: unknown): string | undefined {
@@ -41,8 +46,32 @@ export function sanitizeViewport(raw: unknown): string | undefined {
   return match ? `${match[1]} × ${match[2]}` : undefined;
 }
 
+/**
+ * Console errors from the host page, one per line. Query strings and hashes are cut from any
+ * address in a message (they can hold tokens), text is limited to printable characters, and
+ * only the last few are kept.
+ */
+export function sanitizeErrors(raw: unknown): string[] | undefined {
+  if (typeof raw !== "string") return undefined;
+  const errors = raw
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(URL_WITH_QUERY, "$1")
+        .replace(NOT_PRINTABLE_OR_BACKTICK, "")
+        .trim()
+        .slice(0, MAX_ERROR_LENGTH),
+    )
+    .filter(Boolean)
+    .slice(-MAX_ERRORS);
+  return errors.length ? errors : undefined;
+}
+
 export function hasContext(context: FeedbackContext | undefined): context is FeedbackContext {
-  return !!context && !!(context.pageUrl || context.browser || context.viewport);
+  return (
+    !!context &&
+    !!(context.pageUrl || context.browser || context.viewport || context.errors?.length)
+  );
 }
 
 export function formatContextFooter(context: FeedbackContext): string {
@@ -50,6 +79,10 @@ export function formatContextFooter(context: FeedbackContext): string {
   if (context.pageUrl) lines.push(`- Page: <${context.pageUrl}>`);
   if (context.browser) lines.push(`- Browser: \`${context.browser}\``);
   if (context.viewport) lines.push(`- Viewport: ${context.viewport}`);
+  if (context.errors?.length) {
+    lines.push("- Console errors:");
+    for (const error of context.errors) lines.push(`  - \`${error}\``);
+  }
   return lines.length ? `\n\n---\n\n**Page details**\n\n${lines.join("\n")}` : "";
 }
 
@@ -69,8 +102,16 @@ export function readLiveContext(): FeedbackContext {
 }
 
 /** Details passed in the address by the embed launcher: the host page and its window size. */
-export function contextFromSearch(search: { from?: string; vp?: string }): FeedbackContext {
-  return { pageUrl: sanitizePageUrl(search.from), viewport: sanitizeViewport(search.vp) };
+export function contextFromSearch(search: {
+  from?: string;
+  vp?: string;
+  err?: string;
+}): FeedbackContext {
+  return {
+    pageUrl: sanitizePageUrl(search.from),
+    viewport: sanitizeViewport(search.vp),
+    errors: sanitizeErrors(search.err),
+  };
 }
 
 /** Adds this browser's user agent, which the launcher can't know for the tester. */
