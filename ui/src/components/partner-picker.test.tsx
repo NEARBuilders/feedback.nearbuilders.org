@@ -12,28 +12,26 @@ afterEach(cleanup);
 
 describe("PartnerPicker", () => {
   it("renders nothing when there are no suggestions", () => {
-    render(<PartnerPicker suggestions={[]} uncheckedSlugs={new Set()} onToggle={vi.fn()} />);
+    render(<PartnerPicker suggestions={[]} checkedSlugs={new Set()} onToggle={vi.fn()} />);
 
     expect(screen.queryByTestId("partner-picker")).toBeNull();
   });
 
-  it("starts every active suggestion checked, inactive ones disabled", () => {
-    render(
-      <PartnerPicker suggestions={suggestions} uncheckedSlugs={new Set()} onToggle={vi.fn()} />,
-    );
+  it("starts every suggestion unchecked, inactive ones disabled", () => {
+    render(<PartnerPicker suggestions={suggestions} checkedSlugs={new Set()} onToggle={vi.fn()} />);
 
     const nearlegion = screen.getByTestId("partner-picker-checkbox-nearlegion");
-    expect((nearlegion as HTMLInputElement).checked).toBe(true);
+    expect((nearlegion as HTMLInputElement).checked).toBe(false);
     const pending = screen.getByTestId("partner-picker-checkbox-pending-org");
     expect((pending as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByText("NearLegion")).toBeTruthy();
     expect(screen.getByText("(not approved yet)")).toBeTruthy();
   });
 
-  it("toggles a suggestion off and back on", () => {
+  it("toggles a suggestion on and reflects the checked state", () => {
     const onToggle = vi.fn();
     const { unmount } = render(
-      <PartnerPicker suggestions={suggestions} uncheckedSlugs={new Set()} onToggle={onToggle} />,
+      <PartnerPicker suggestions={suggestions} checkedSlugs={new Set()} onToggle={onToggle} />,
     );
 
     fireEvent.click(screen.getByTestId("partner-picker-checkbox-nearlegion"));
@@ -43,12 +41,18 @@ describe("PartnerPicker", () => {
     render(
       <PartnerPicker
         suggestions={suggestions}
-        uncheckedSlugs={new Set(["nearlegion"])}
+        checkedSlugs={new Set(["nearlegion"])}
         onToggle={onToggle}
       />,
     );
     expect(
       (screen.getByTestId("partner-picker-checkbox-nearlegion") as HTMLInputElement).checked,
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("warns that partner org members can't join as testers", () => {
+    render(<PartnerPicker suggestions={suggestions} checkedSlugs={new Set()} onToggle={vi.fn()} />);
+
+    expect(screen.getByText(/can't join this round as testers/)).toBeTruthy();
   });
 });

@@ -6,12 +6,12 @@ export interface PartnerSuggestion {
 
 interface PartnerPickerProps {
   suggestions: PartnerSuggestion[];
-  /** Slugs the creator unchecked; everything suggested starts checked. */
-  uncheckedSlugs: ReadonlySet<string>;
+  /** Slugs the creator opted in to; suggestions start unchecked. */
+  checkedSlugs: ReadonlySet<string>;
   onToggle: (slug: string) => void;
 }
 
-export function PartnerPicker({ suggestions, uncheckedSlugs, onToggle }: PartnerPickerProps) {
+export function PartnerPicker({ suggestions, checkedSlugs, onToggle }: PartnerPickerProps) {
   if (suggestions.length === 0) return null;
 
   return (
@@ -21,9 +21,13 @@ export function PartnerPicker({ suggestions, uncheckedSlugs, onToggle }: Partner
         Partner organizations co-manage this round with your organization, private feedback
         included. You can add or remove them later.
       </p>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Members of a partner organization can't join this round as testers, so only add partners
+        that run the round with you.
+      </p>
       <ul className="space-y-1">
         {suggestions.map((suggestion) => {
-          const checked = !uncheckedSlugs.has(suggestion.slug);
+          const checked = checkedSlugs.has(suggestion.slug);
           return (
             <li key={suggestion.slug}>
               <label

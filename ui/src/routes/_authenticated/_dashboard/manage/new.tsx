@@ -126,10 +126,9 @@ function NewRoundPage() {
   const [fields, setFields] = useState(() => nextRoundFields(previous));
   const partnersQuery = useQuery(partnerSuggestionsQueryOptions(apiClient));
   const partnerSuggestions = partnersQuery.data?.partners ?? [];
-  // Suggestions start checked ("preferred"); unchecking is the explicit act.
-  const [uncheckedPartners, setUncheckedPartners] = useState<Set<string>>(new Set());
+  const [checkedPartners, setCheckedPartners] = useState<Set<string>>(new Set());
   const togglePartner = (slug: string) => {
-    setUncheckedPartners((current) => {
+    setCheckedPartners((current) => {
       const next = new Set(current);
       if (next.has(slug)) next.delete(slug);
       else next.add(slug);
@@ -137,7 +136,7 @@ function NewRoundPage() {
     });
   };
   const selectedPartnerSlugs = partnerSuggestions
-    .filter((suggestion) => suggestion.active && !uncheckedPartners.has(suggestion.slug))
+    .filter((suggestion) => suggestion.active && checkedPartners.has(suggestion.slug))
     .map((suggestion) => suggestion.slug);
 
   const createMutation = useMutation({
@@ -245,7 +244,7 @@ function NewRoundPage() {
             )}
             <PartnerPicker
               suggestions={partnerSuggestions}
-              uncheckedSlugs={uncheckedPartners}
+              checkedSlugs={checkedPartners}
               onToggle={togglePartner}
             />
             <RoundFieldsEditor
