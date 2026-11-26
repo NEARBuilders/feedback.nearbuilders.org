@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useApiClient } from "@/app";
 import { Badge, Card, SectionHeader } from "@/components";
+import { QueryError } from "@/components/query-error";
 import { myProjectsQueryOptions } from "@/lib/queries/projects";
 import { roundParams } from "@/lib/round-links";
 import { formatRoundListTitle } from "@/lib/round-title";
@@ -16,6 +17,18 @@ export function MyProjects() {
   const apiClient = useApiClient();
   const projectsQuery = useQuery(myProjectsQueryOptions(apiClient));
   const projects = projectsQuery.data ?? [];
+  if (projectsQuery.isError) {
+    return (
+      <div className="space-y-3">
+        <SectionHeader title="Your projects" />
+        <QueryError
+          message="Couldn't load your projects."
+          onRetry={() => void projectsQuery.refetch()}
+          isRetrying={projectsQuery.isFetching}
+        />
+      </div>
+    );
+  }
   if (projects.length === 0) return null;
 
   return (
